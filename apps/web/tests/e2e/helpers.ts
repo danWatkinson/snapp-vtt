@@ -113,14 +113,20 @@ export async function ensureCampaignExists(
   campaignName: string,
   summary: string
 ) {
-  // Check if campaign tab already exists
+  // Check if campaign is already selected (campaign views visible means campaign is selected)
+  const campaignViewsVisible = await page
+    .getByRole("tablist", { name: "Campaign views" })
+    .isVisible()
+    .catch(() => false);
+
+  // Check if campaign tab exists (only visible when no campaign is selected)
   const hasCampaignTab = await page
     .getByRole("tab", { name: campaignName })
     .first()
     .isVisible()
     .catch(() => false);
 
-  if (!hasCampaignTab) {
+  if (!hasCampaignTab && !campaignViewsVisible) {
     await page.getByRole("button", { name: "Create campaign" }).click();
     const createCampaignDialog = page.getByRole("dialog", { name: /create campaign/i });
     await expect(createCampaignDialog).toBeVisible({ timeout: 5000 });
@@ -129,26 +135,53 @@ export async function ensureCampaignExists(
     await page.getByLabel("Summary").fill(summary);
     await page.getByRole("button", { name: "Save campaign" }).click();
 
-    // Wait for either the modal to close or an error message
-    const modalClosed = await Promise.race([
-      createCampaignDialog.waitFor({ state: "hidden", timeout: 5000 }).then(() => true).catch(() => false),
-      page.waitForTimeout(5000).then(() => false)
+    // Wait for either the modal to close, an error message, or the campaign tab to appear
+    await Promise.race([
+      createCampaignDialog.waitFor({ state: "hidden", timeout: 5000 }).catch(() => null),
+      page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null),
+      page.getByRole("tab", { name: campaignName }).waitFor({ timeout: 5000 }).catch(() => null)
     ]);
 
-    // If modal is still open, check for error and close it manually
-    if (!modalClosed) {
-      const errorMessage = await page.getByTestId("error-message").isVisible().catch(() => false);
-      if (errorMessage) {
-        // Campaign might already exist, close the modal manually
-        await page.getByRole("button", { name: "Cancel" }).click();
+    // Check for errors first
+    const errorMessage = await page.getByTestId("error-message").isVisible().catch(() => false);
+    if (errorMessage) {
+      // Campaign might already exist, close the modal manually
+      const cancelButton = createCampaignDialog.getByRole("button", { name: "Cancel" });
+      if (await cancelButton.isVisible().catch(() => false)) {
+        await cancelButton.click();
       }
-      // Wait for modal to close
-      await expect(createCampaignDialog).toBeHidden({ timeout: 5000 });
+    } else {
+      // No error - modal should be closed, but if it's still open, wait a bit more
+      const stillOpen = await createCampaignDialog.isVisible().catch(() => false);
+      if (stillOpen) {
+        // Give it a moment, then check if campaign tab appeared (success)
+        await page.waitForTimeout(1000);
+        const campaignTabVisible = await page.getByRole("tab", { name: campaignName }).isVisible().catch(() => false);
+        if (campaignTabVisible) {
+          // Success - close modal manually if still open
+          const cancelButton = createCampaignDialog.getByRole("button", { name: "Cancel" });
+          if (await cancelButton.isVisible().catch(() => false)) {
+            await cancelButton.click();
+          }
+        }
+      }
     }
 
-    // Check if campaign tab now exists (might have been created or already existed)
+    // After creation, campaign tab should be visible (campaign not yet selected)
+    // Click it to select the campaign
+    const campaignTab = page.getByRole("tab", { name: campaignName }).first();
+    await expect(campaignTab).toBeVisible({ timeout: 5000 });
+    await campaignTab.click();
+    // Wait for campaign views to appear (indicating campaign is selected)
     await expect(
-      page.getByRole("tab", { name: campaignName }).first()
+      page.getByRole("tablist", { name: "Campaign views" })
+    ).toBeVisible({ timeout: 5000 });
+  } else if (hasCampaignTab && !campaignViewsVisible) {
+    // Campaign exists but not selected - select it
+    await page.getByRole("tab", { name: campaignName }).first().click();
+    await expect(
+      page.getByRole("tablist", { name: "Campaign views" })
     ).toBeVisible({ timeout: 5000 });
   }
+  // If campaignViewsVisible is true, campaign is already selected, nothing to do
 }

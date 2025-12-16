@@ -14,8 +14,7 @@ test("Game master can create a Session within a Campaign", async ({ page }) => {
     "A long-running campaign about ancient draconic power returning."
   );
 
-  // Select campaign and open sessions view via nested campaign view tabs
-  await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
+  // ensureCampaignExists already selects the campaign, so just navigate to sessions view
   await page
     .getByRole("tablist", { name: "Campaign views" })
     .getByRole("tab", { name: "Sessions" })

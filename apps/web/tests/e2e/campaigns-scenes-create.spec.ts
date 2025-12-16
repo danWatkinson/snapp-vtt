@@ -14,8 +14,7 @@ test("Game master can create a Scene within a Session", async ({ page }) => {
     "A long-running campaign about ancient draconic power returning."
   );
 
-  // Select campaign and open sessions view via nested campaign view tabs
-  await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
+  // ensureCampaignExists already selects the campaign, so just navigate to sessions view
   await page
     .getByRole("tablist", { name: "Campaign views" })
     .getByRole("tab", { name: "Sessions" })
@@ -43,8 +42,7 @@ test("Game master can create a Scene within a Session", async ({ page }) => {
   }
 
   // We rely on seeded world \"Eldoria\" (or an existing world) for the scene's world reference.
-  // Reopen campaign's sessions view via nested campaign view tabs
-  await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
+  // Navigate back to sessions view (campaign is already selected)
   await page
     .getByRole("tablist", { name: "Campaign views" })
     .getByRole("tab", { name: "Sessions" })

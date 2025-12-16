@@ -63,13 +63,7 @@ test("Authenticated user with gm role can create a world", async ({ page }) => {
         timeout: 8000
       });
       
-      // Check for success status message if visible
-      const statusVisible = await page.getByTestId("status-message").isVisible().catch(() => false);
-      if (statusVisible) {
-        await expect(page.getByTestId("status-message")).toContainText(/created/i, {
-          timeout: 2000
-        });
-      }
+      // Success is verified by modal closing and world appearing in list
     }
     // The real verification is that the world appears in the list below
   }

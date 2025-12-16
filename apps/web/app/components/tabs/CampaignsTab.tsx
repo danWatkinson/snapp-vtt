@@ -124,198 +124,203 @@ export default function CampaignsTab() {
 
   return (
     <section data-component="CampaignsTab" className="space-y-4">
-      <p className="text-sm snapp-muted">
-        Campaigns domain – plan story arcs and quests.
-      </p>
+      {/* Only show campaign selection UI if no campaign is selected yet */}
+      {!selectedCampaignId && (
+        <>
+          <SectionHeader
+            action={{
+              label: "Create campaign",
+              onClick: () => setCampaignModalOpen(true)
+            }}
+          >
+            Campaigns
+          </SectionHeader>
 
-      <SectionHeader
-        action={{
-          label: "Create campaign",
-          onClick: () => setCampaignModalOpen(true)
-        }}
-      >
-        Campaigns
-      </SectionHeader>
+          {campaigns.length > 0 && (
+            <TabList aria-label="Campaigns" variant="planning">
+              {campaigns.map((camp) => {
+                const isActive = selectedCampaignId === camp.id;
+                return (
+                  <TabButton
+                    key={camp.id}
+                    isActive={isActive}
+                    onClick={() => {
+                      setSelectedCampaignId(camp.id);
+                      setCampaignView("sessions");
+                      setSessionsLoadedFor(null);
+                      setPlayersLoadedFor(null);
+                      setStoryArcsLoadedFor(null);
+                    }}
+                    style={!isActive ? { color: "#fefce8" } : undefined}
+                  >
+                    {camp.name}
+                  </TabButton>
+                );
+              })}
+            </TabList>
+          )}
 
-      {campaigns.length > 0 && (
-        <TabList aria-label="Campaigns">
-          {campaigns.map((camp) => {
-            const isActive = selectedCampaignId === camp.id;
-            return (
-              <TabButton
-                key={camp.id}
-                isActive={isActive}
-                onClick={() => {
-                  setSelectedCampaignId(camp.id);
-                  setCampaignView("sessions");
-                  setSessionsLoadedFor(null);
-                  setPlayersLoadedFor(null);
-                  setStoryArcsLoadedFor(null);
-                }}
-              >
-                {camp.name}
-              </TabButton>
-            );
-          })}
-        </TabList>
+          {campaigns.length === 0 && (
+            <EmptyState message="No campaigns have been created yet." />
+          )}
+        </>
       )}
 
-      {campaigns.length === 0 && (
-        <EmptyState message="No campaigns have been created yet." />
-      )}
-
-      {/* Nested view tabs for selected campaign */}
       {selectedCampaignId && (
-        <TabList aria-label="Campaign views">
-          {[
-            { key: "sessions", label: "Sessions" },
-            { key: "players", label: "Players" },
-            { key: "story-arcs", label: "Story arcs" },
-            { key: "timeline", label: "Timeline" }
-          ].map((view) => {
-            const isActive = campaignView === view.key;
-            return (
-              <TabButton
-                key={view.key}
-                isActive={isActive}
-                onClick={() => {
-                  setCampaignView(view.key as "sessions" | "players" | "story-arcs" | "timeline" | null);
-                  setSelectedSessionId(null);
-                  setSessionsLoadedFor(null);
-                  setPlayersLoadedFor(null);
-                  setStoryArcsLoadedFor(null);
-                }}
-              >
-                {view.label}
-              </TabButton>
-            );
-          })}
-        </TabList>
-      )}
-
-      {/* Sessions view */}
-      {selectedCampaignId && campaignView === "sessions" && (
         <Section>
+          <TabList aria-label="Campaign views" variant="filter">
+            {[
+              { key: "sessions", label: "Sessions" },
+              { key: "players", label: "Players" },
+              { key: "story-arcs", label: "Story arcs" },
+              { key: "timeline", label: "Timeline" }
+            ].map((view) => {
+              const isActive = campaignView === view.key;
+              return (
+                <TabButton
+                  key={view.key}
+                  isActive={isActive}
+                  onClick={() => {
+                    setCampaignView(view.key as "sessions" | "players" | "story-arcs" | "timeline" | null);
+                    setSelectedSessionId(null);
+                    setSessionsLoadedFor(null);
+                    setPlayersLoadedFor(null);
+                    setStoryArcsLoadedFor(null);
+                  }}
+                >
+                  {view.label}
+                </TabButton>
+              );
+            })}
+          </TabList>
+
           <div className="flex items-center justify-between">
-            <Heading level={3}>
-            Sessions for {getNameById(campaigns, selectedCampaignId, "selected campaign")}
-            </Heading>
-            <Button size="xs" onClick={() => setSessionModalOpen(true)}>
-              Add session
-            </Button>
+            <h3
+              className="text-md font-semibold snapp-heading"
+              style={{ fontFamily: "'Cinzel', serif" }}
+            >
+              {getNameById(campaigns, selectedCampaignId, "selected campaign")}
+            </h3>
           </div>
 
-          <ListContainer
-            items={sessions}
-            emptyMessage="No sessions have been added to this campaign yet."
-          >
-            {sessions.map((session) => (
-              <ListItem key={session.id}>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="font-semibold">{session.name}</div>
-                  <Button
-                    size="xs"
-                    onClick={() => {
-                      setSelectedSessionId(session.id);
-                      setScenesLoadedFor(null);
-                    }}
-                  >
-                    View scenes
-                  </Button>
-                </div>
-              </ListItem>
-            ))}
-          </ListContainer>
-        </Section>
-      )}
+          {/* Sessions view */}
+          {campaignView === "sessions" && (
+            <>
+              <SectionHeader
+                level={4}
+                className="text-sm font-medium"
+                action={{
+                  label: "Add session",
+                  onClick: () => setSessionModalOpen(true),
+                  size: "xs"
+                }}
+              >
+                Sessions
+              </SectionHeader>
 
-      {/* Players view */}
-      {selectedCampaignId && campaignView === "players" && (
-        <Section variant="styled">
-          <SectionHeader
-            level={3}
-            headingStyle={{ color: '#3d2817' }}
-            action={{
-              label: "Add player",
-              onClick: () => setPlayerModalOpen(true),
-              size: "xs",
-              "data-testid": "add-player-button"
-            }}
-          >
-            Players for{" "}
-            {
-              campaigns.find((c) => c.id === selectedCampaignId)?.name ??
-              "selected campaign"
-            }
-          </SectionHeader>
+              <ListContainer
+                items={sessions}
+                emptyMessage="No sessions have been added to this campaign yet."
+              >
+                {sessions.map((session) => (
+                  <ListItem key={session.id}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="font-semibold">{session.name}</div>
+                      <Button
+                        size="xs"
+                        onClick={() => {
+                          setSelectedSessionId(session.id);
+                          setScenesLoadedFor(null);
+                        }}
+                      >
+                        View scenes
+                      </Button>
+                    </div>
+                  </ListItem>
+                ))}
+              </ListContainer>
+            </>
+          )}
 
-          <ListContainer
-            items={players}
-            emptyMessage="No players have been added to this campaign yet."
-            emptyVariant="muted"
-          >
-            {players.map((playerId) => (
-              <ListItem key={playerId} variant="styled">
-                <div className="font-semibold">{playerId}</div>
-              </ListItem>
-            ))}
-          </ListContainer>
-        </Section>
-      )}
+          {/* Players view */}
+          {campaignView === "players" && (
+            <>
+              <SectionHeader
+                level={4}
+                className="text-sm font-medium"
+                action={{
+                  label: "Add player",
+                  onClick: () => setPlayerModalOpen(true),
+                  size: "xs",
+                  "data-testid": "add-player-button"
+                }}
+              >
+                Players
+              </SectionHeader>
 
-      {/* Story arcs view */}
-      {selectedCampaignId && campaignView === "story-arcs" && (
-        <Section variant="styled">
-          <SectionHeader
-            level={3}
-            headingStyle={{ color: '#3d2817' }}
-            action={{
-              label: "Add story arc",
-              onClick: () => setStoryArcModalOpen(true),
-              size: "xs"
-            }}
-          >
-            Story Arcs for {getNameById(campaigns, selectedCampaignId, "selected campaign")}
-          </SectionHeader>
+              <ListContainer
+                items={players}
+                emptyMessage="No players have been added to this campaign yet."
+              >
+                {players.map((playerId) => (
+                  <ListItem key={playerId}>
+                    <div className="font-semibold">{playerId}</div>
+                  </ListItem>
+                ))}
+              </ListContainer>
+            </>
+          )}
 
-          <ListContainer
-            items={storyArcs}
-            emptyMessage="No story arcs have been added to this campaign yet."
-            emptyVariant="muted"
-          >
-            {storyArcs.map((arc) => (
-              <ListItem key={arc.id} variant="styled">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="font-semibold">{arc.name}</div>
-                    {arc.summary && (
-                      <p className="text-xs" style={{ color: '#5a4232' }}>{arc.summary}</p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="rounded px-3 py-1 text-xs font-semibold hover:opacity-90"
-                    style={{ backgroundColor: '#6b5438', color: '#f4e8d0', fontFamily: "'Cinzel', serif" }}
-                    onClick={() => {
-                      setSelectedStoryArcId(arc.id);
-                      setStoryArcEventsLoadedFor(null);
-                    }}
-                  >
-                    View events
-                  </button>
-                </div>
-              </ListItem>
-            ))}
-          </ListContainer>
-        </Section>
-      )}
+          {/* Story arcs view */}
+          {campaignView === "story-arcs" && (
+            <>
+              <SectionHeader
+                level={4}
+                className="text-sm font-medium"
+                action={{
+                  label: "Add story arc",
+                  onClick: () => setStoryArcModalOpen(true),
+                  size: "xs"
+                }}
+              >
+                Story Arcs
+              </SectionHeader>
 
-      {/* Timeline view - this is very large, so I'll include the key parts */}
-      {selectedCampaignId && campaignView === "timeline" && timeline && (
-        <Section variant="styled">
-          <Heading level={3}>
-            Timeline for {getNameById(campaigns, selectedCampaignId, "selected campaign")}
-          </Heading>
+              <ListContainer
+                items={storyArcs}
+                emptyMessage="No story arcs have been added to this campaign yet."
+              >
+                {storyArcs.map((arc) => (
+                  <ListItem key={arc.id}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="font-semibold">{arc.name}</div>
+                        {arc.summary && (
+                          <p className="text-xs" style={{ color: '#5a4232' }}>{arc.summary}</p>
+                        )}
+                      </div>
+                      <Button
+                        size="xs"
+                        onClick={() => {
+                          setSelectedStoryArcId(arc.id);
+                          setStoryArcEventsLoadedFor(null);
+                        }}
+                      >
+                        View events
+                      </Button>
+                    </div>
+                  </ListItem>
+                ))}
+              </ListContainer>
+            </>
+          )}
+
+          {/* Timeline view */}
+          {campaignView === "timeline" && timeline && (
+            <>
+              <SectionHeader level={4} className="text-sm font-medium">
+                Timeline
+              </SectionHeader>
 
           <div className="space-y-4">
             <div className="rounded border p-3"
@@ -486,80 +491,80 @@ export default function CampaignsTab() {
                 </div>
               </div>
             )}
-          </div>
-        </Section>
-      )}
+              </div>
+            </>
+          )}
 
-      {/* Story arc events view */}
-      {selectedStoryArcId && (
-        <Section variant="styled">
-          <SectionHeader
-            level={3}
-            headingStyle={{ color: '#3d2817' }}
-            action={{
-              label: "Add event",
-              onClick: () => setStoryArcEventModalOpen(true),
-              size: "xs"
-            }}
-          >
-            Events for{" "}
-            {
-              storyArcs.find((arc) => arc.id === selectedStoryArcId)?.name ??
-              "selected story arc"
-            }
-          </SectionHeader>
+          {/* Story arc events view */}
+          {selectedStoryArcId && (
+            <>
+              <SectionHeader
+                level={4}
+                className="text-sm font-medium"
+                action={{
+                  label: "Add event",
+                  onClick: () => setStoryArcEventModalOpen(true),
+                  size: "xs"
+                }}
+              >
+                Events for{" "}
+                {
+                  storyArcs.find((arc) => arc.id === selectedStoryArcId)?.name ??
+                  "selected story arc"
+                }
+              </SectionHeader>
 
-          <ListContainer
-            items={storyArcEvents}
-            emptyMessage="No events have been added to this story arc yet."
-            emptyVariant="muted"
-          >
-            {storyArcEvents.map((eventId) => {
-              const event = allEvents.find((e) => e.id === eventId);
-              return (
-                <ListItem key={eventId} variant="styled">
-                  <div className="font-semibold">
-                    {event?.name ?? eventId}
-                  </div>
-                  {event?.summary && (
-                    <p className="text-xs" style={{ color: '#5a4232' }}>{event.summary}</p>
-                  )}
-                </ListItem>
-              );
-            })}
-          </ListContainer>
-        </Section>
-      )}
+              <ListContainer
+                items={storyArcEvents}
+                emptyMessage="No events have been added to this story arc yet."
+              >
+                {storyArcEvents.map((eventId) => {
+                  const event = allEvents.find((e) => e.id === eventId);
+                  return (
+                    <ListItem key={eventId}>
+                      <div className="font-semibold">
+                        {event?.name ?? eventId}
+                      </div>
+                      {event?.summary && (
+                        <p className="text-xs" style={{ color: '#5a4232' }}>{event.summary}</p>
+                      )}
+                    </ListItem>
+                  );
+                })}
+              </ListContainer>
+            </>
+          )}
 
-      {/* Scenes view */}
-      {selectedSessionId && (
-        <Section variant="styled">
-          <SectionHeader
-            level={3}
-            headingStyle={{ color: '#3d2817' }}
-            action={{
-              label: "Add scene",
-              onClick: () => setSceneModalOpen(true),
-              size: "xs"
-            }}
-          >
-            Scenes for {getNameById(sessions, selectedSessionId, "selected session")}
-          </SectionHeader>
+          {/* Scenes view */}
+          {selectedSessionId && (
+            <>
+              <SectionHeader
+                level={4}
+                className="text-sm font-medium"
+                action={{
+                  label: "Add scene",
+                  onClick: () => setSceneModalOpen(true),
+                  size: "xs"
+                }}
+              >
+                Scenes for {getNameById(sessions, selectedSessionId, "selected session")}
+              </SectionHeader>
 
-          <ListContainer
-            items={visibleScenes}
-            emptyMessage="No scenes have been added to this session yet."
-            emptyVariant="muted"
-          >
-            {visibleScenes.map((scene) => (
-              <ListItem key={scene.id} variant="styled">
-                <div className="font-semibold">{scene.name}</div>
-                {scene.summary && (
-                  <p className="text-xs" style={{ color: '#5a4232' }}>{scene.summary}</p>
-                )}
-              </ListItem>
-            ))}
-          </ListContainer>
+              <ListContainer
+                items={visibleScenes}
+                emptyMessage="No scenes have been added to this session yet."
+              >
+                {visibleScenes.map((scene) => (
+                  <ListItem key={scene.id}>
+                    <div className="font-semibold">{scene.name}</div>
+                    {scene.summary && (
+                      <p className="text-xs" style={{ color: '#5a4232' }}>{scene.summary}</p>
+                    )}
+                  </ListItem>
+                ))}
+              </ListContainer>
+            </>
+          )}
         </Section>
       )}
 

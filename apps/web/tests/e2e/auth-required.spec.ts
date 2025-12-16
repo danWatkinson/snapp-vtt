@@ -17,14 +17,7 @@ test("unauthenticated users cannot see any application content", async ({ page }
 test("authenticated users can see application content", async ({ page }) => {
   await loginAsAdmin(page);
 
-  // Wait for login to complete - check for status message or user info
-  await expect(
-    page.getByTestId("status-message").getByText(/Logged in as admin/i)
-  ).toBeVisible({
-    timeout: 5000
-  });
-
-  // Now should see the authenticated shell (world context panel)
+  // Wait for login to complete - verify authenticated UI appears
   await expect(
     page.getByRole("heading", { name: "World context and mode" })
   ).toBeVisible({ timeout: 5000 });

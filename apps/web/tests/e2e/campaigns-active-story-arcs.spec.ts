@@ -16,12 +16,11 @@ test("Game master can see active Story Arcs in Campaign Timeline", async ({
     "A long-running campaign about ancient draconic power returning."
   );
 
-  // Select campaign and open timeline view via nested tabs
-  await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
+  // ensureCampaignExists already selects the campaign, so just navigate to timeline view
   await page.getByRole("tab", { name: "Timeline" }).click();
 
   // Wait for timeline section to load
-  await expect(page.getByText(/timeline for/i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: /timeline/i })).toBeVisible();
 
   // Verify "Active Story Arcs" section exists
   await expect(

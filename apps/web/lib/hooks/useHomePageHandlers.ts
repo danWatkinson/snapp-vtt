@@ -42,7 +42,6 @@ interface UseHomePageHandlersProps {
   
   // State setters
   setIsLoading: (loading: boolean) => void;
-  setStatus: (status: string | null) => void;
   setError: (error: string | null) => void;
   setAuthServiceUnavailable: (unavailable: boolean) => void;
   setCurrentUser: (user: LoginResponse | null) => void;
@@ -101,7 +100,6 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     storyArcForm,
     sceneForm,
     setIsLoading,
-    setStatus,
     setError,
     setAuthServiceUnavailable,
     setCurrentUser,
@@ -141,9 +139,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => login(loginForm.form.name, loginForm.form.password),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: "Logging in…",
           onSuccess: (result) => {
             setCurrentUser(result);
             loginForm.setField("password", "");
@@ -169,8 +165,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
             } else {
               setAuthServiceUnavailable(false);
             }
-          },
-          successMessage: (result) => `Logged in as ${result.user.username}`
+          }
         }
       );
     } catch (err) {
@@ -189,13 +184,10 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => assignRoles(currentUser.token, userManagementForm.form.username, [userManagementForm.form.role]),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: "Assigning role…",
           onSuccess: () => {
             setUsersLoaded(false);
-          },
-          successMessage: (updated) => `User ${updated.user.username} now has roles: ${updated.user.roles.join(", ")}`
+          }
         }
       );
     } catch (err) {
@@ -210,13 +202,10 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => revokeRole(currentUser.token, username, role),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: `Revoking ${role} from ${username}…`,
           onSuccess: () => {
             setUsersLoaded(false);
-          },
-          successMessage: () => `Role '${role}' revoked from ${username}`
+          }
         }
       );
     } catch (err) {
@@ -234,13 +223,10 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => deleteUser(currentUser.token, username),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: `Deleting user ${username}…`,
           onSuccess: () => {
             setUsersLoaded(false);
-          },
-          successMessage: () => `User '${username}' deleted`
+          }
         }
       );
     } catch (err) {
@@ -256,15 +242,12 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => createUser(currentUser.token, createUserForm.form.username, createUserForm.form.password, createUserForm.form.roles),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: "Creating user…",
           onSuccess: () => {
             createUserForm.resetForm();
             closeModal("createUser");
             setUsersLoaded(false);
-          },
-          successMessage: () => `User '${createUserForm.form.username}' created`
+          }
         }
       );
     } catch (err) {
@@ -279,9 +262,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => createWorld(worldForm.form.name, worldForm.form.description, currentUser?.token),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: "Creating world…",
           onSuccess: (world) => {
             setWorlds((prev) => [...prev, world]);
             worldForm.resetForm();
@@ -296,8 +277,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
                 // Ignore reload errors
               }
             }
-          },
-          successMessage: (world) => `World '${world.name}' created`
+          }
         }
       );
     } catch (err) {
@@ -329,16 +309,13 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         ),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: `Creating ${selectedEntityType}…`,
           onSuccess: (entity) => {
             setEntities((prev) => [...prev, entity]);
             entityForm.resetForm();
             closeModal("entity");
             setEntitiesLoadedFor(null);
-          },
-          successMessage: (entity) => `${selectedEntityType.charAt(0).toUpperCase() + selectedEntityType.slice(1)} '${entity.name}' created`
+          }
         }
       );
     } catch (err) {
@@ -353,15 +330,12 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => createCampaign(campaignForm.form.name, campaignForm.form.summary, currentUser?.token),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: "Creating campaign…",
           onSuccess: (camp) => {
             setCampaigns((prev) => [...prev, camp]);
             campaignForm.resetForm();
             closeModal("campaign");
-          },
-          successMessage: (camp) => `Campaign '${camp.name}' created`
+          }
         }
       );
     } catch (err) {
@@ -377,16 +351,13 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => createSession(selectedIds.campaignId!, sessionForm.form.name, currentUser?.token),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: "Creating session…",
           onSuccess: (session) => {
             setSessions((prev) => [...prev, session]);
             sessionForm.resetForm();
             closeModal("session");
             setSessionsLoadedFor(null);
-          },
-          successMessage: (session) => `Session '${session.name}' created`
+          }
         }
       );
     } catch (err) {
@@ -402,17 +373,14 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => addPlayerToCampaign(selectedIds.campaignId!, playerForm.form.username, currentUser?.token),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: "Adding player…",
           onSuccess: () => {
             setPlayers((prev) => [...prev, playerForm.form.username]);
             playerForm.resetForm();
             closeModal("player");
             setPlayersLoadedFor(null);
             setStoryArcsLoadedFor(null);
-          },
-          successMessage: () => `Player '${playerForm.form.username}' added`
+          }
         }
       );
     } catch (err) {
@@ -428,16 +396,13 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => createStoryArc(selectedIds.campaignId!, storyArcForm.form.name, storyArcForm.form.summary, currentUser?.token),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: "Creating story arc…",
           onSuccess: (storyArc) => {
             setStoryArcs((prev) => [...prev, storyArc]);
             storyArcForm.resetForm();
             closeModal("storyArc");
             setStoryArcsLoadedFor(null);
-          },
-          successMessage: (storyArc) => `Story arc '${storyArc.name}' created`
+          }
         }
       );
     } catch (err) {
@@ -453,16 +418,13 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => addEventToStoryArc(selectedIds.storyArcId!, selectedIds.eventId, currentUser?.token),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: "Adding event to story arc…",
           onSuccess: () => {
             setStoryArcEvents((prev) => [...prev, selectedIds.eventId]);
             setSelectionField("eventId", "");
             closeModal("storyArcEvent");
             setStoryArcEventsLoadedFor(null);
-          },
-          successMessage: () => "Event added to story arc"
+          }
         }
       );
     } catch (err) {
@@ -480,13 +442,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => advanceTimeline(selectedIds.campaignId!, amount, unit, currentUser?.token),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: `Advancing timeline by ${amount} ${unit}…`,
           onSuccess: (updated) => {
             setTimeline(updated);
-            setStatus(`Timeline advanced by ${amount} ${unit}`);
-            setTimeout(() => setStatus(null), 2000);
           }
         }
       );
@@ -506,16 +464,13 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         () => createScene(selectedIds.sessionId!, sceneForm.form.name, sceneForm.form.summary, sceneForm.form.worldId, [], currentUser?.token),
         {
           setIsLoading,
-          setStatus,
           setError,
-          loadingMessage: "Creating scene…",
           onSuccess: (scene) => {
             setScenes((prev) => [...prev, scene]);
             sceneForm.resetForm();
             closeModal("scene");
             setScenesLoadedFor(null);
-          },
-          successMessage: (scene) => `Scene '${scene.name}' created`
+          }
         }
       );
     } catch (err) {
@@ -531,7 +486,6 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     setPlanningSubTab("World Entities");
     resetSelection();
     setSelectedEntityType("all");
-    setStatus(null);
     setError(null);
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(AUTH_USERNAME_KEY);

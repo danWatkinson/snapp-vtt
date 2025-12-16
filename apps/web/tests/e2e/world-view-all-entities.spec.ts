@@ -23,7 +23,7 @@ test("World builder can view all entities associated with a World", async ({
     await page.getByRole("button", { name: "Save world" }).click();
 
     await Promise.race([
-      page.getByTestId("status-message").waitFor({ timeout: 5000 }).catch(() => null),
+      page.getByRole("dialog", { name: /create world/i }).waitFor({ state: "hidden", timeout: 5000 }).catch(() => null),
       page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null)
     ]);
 

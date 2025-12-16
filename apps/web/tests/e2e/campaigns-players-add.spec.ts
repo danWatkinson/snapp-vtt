@@ -14,8 +14,7 @@ test("Game master can add Players to a Campaign", async ({ page }) => {
     "A long-running campaign about ancient draconic power returning."
   );
 
-  // Select campaign and open players view via nested tabs
-  await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
+  // ensureCampaignExists already selects the campaign, so just navigate to players view
   await page.getByRole("tab", { name: "Players" }).click();
 
   // Wait for the players section to load

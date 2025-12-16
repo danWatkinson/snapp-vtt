@@ -35,9 +35,9 @@ test("World builder can create a world via popup in the World tab", async ({ pag
   // Submit and see world appear in list
   await page.getByRole("button", { name: "Save world" }).click();
 
-  // Wait for either success status or error message
+  // Wait for modal to close (success) or error message
   await Promise.race([
-    page.getByTestId("status-message").waitFor({ timeout: 5000 }).catch(() => null),
+    page.getByRole("dialog", { name: "Create world" }).waitFor({ state: "hidden", timeout: 5000 }).catch(() => null),
     page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null)
   ]);
 

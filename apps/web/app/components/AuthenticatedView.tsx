@@ -6,7 +6,6 @@ import SessionsTab from "./tabs/SessionsTab";
 import UsersTab from "./tabs/UsersTab";
 import ModeSelector from "./navigation/ModeSelector";
 import PlanningTabs from "./navigation/PlanningTabs";
-import ToastNotifications from "./ui/ToastNotifications";
 import { useHomePage } from "../../lib/contexts/HomePageContext";
 
 export default function AuthenticatedView() {
@@ -36,13 +35,6 @@ export default function AuthenticatedView() {
       {activeTab === "Sessions" && <SessionsTab />}
 
       {activeTab === "Users" && currentUser && <UsersTab />}
-
-      <ToastNotifications
-        status={status}
-        error={error}
-        isLoading={isLoading}
-        onDismissError={() => setError(null)}
-      />
     </section>
   );
 }

@@ -34,7 +34,6 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
     storyArcForm: state.storyArcForm,
     sceneForm: state.sceneForm,
     setIsLoading: state.setIsLoading,
-    setStatus: state.setStatus,
     setError: state.setError,
     setAuthServiceUnavailable: state.setAuthServiceUnavailable,
     setCurrentUser: state.setCurrentUser,

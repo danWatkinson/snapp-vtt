@@ -16,8 +16,7 @@ test("Game master automatically gets a Story Arc for each Player added to a Camp
     "A long-running campaign about ancient draconic power returning."
   );
 
-  // Select campaign and open players view via nested tabs
-  await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
+  // ensureCampaignExists already selects the campaign, so just navigate to players view
   await page
     .getByRole("tablist", { name: "Campaign views" })
     .getByRole("tab", { name: "Players" })

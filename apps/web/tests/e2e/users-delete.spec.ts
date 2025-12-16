@@ -35,9 +35,9 @@ test("Admin can delete a user", async ({ page }) => {
   const createButton = createUserDialog.getByRole("button", { name: "Create user" });
   await createButton.click();
 
-  // Wait for either success status or error message (following pattern from other tests)
+  // Wait for modal to close (success) or error message
   await Promise.race([
-    page.getByTestId("status-message").waitFor({ timeout: 5000 }).catch(() => null),
+    page.getByRole("dialog", { name: /create user/i }).waitFor({ state: "hidden", timeout: 5000 }).catch(() => null),
     page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null)
   ]);
 
@@ -52,14 +52,6 @@ test("Admin can delete a user", async ({ page }) => {
     }
     throw new Error(`User creation failed with error: ${errorText}`);
   }
-
-  // Wait for the final success message (not the "Creating user…" message)
-  await expect(page.getByTestId("status-message")).toBeVisible({
-    timeout: 5000
-  });
-  await expect(page.getByTestId("status-message")).toContainText(/User.*created/i, {
-    timeout: 5000
-  });
 
   // Modal should be closed on success, but if it's still open, close it manually
   const modalStillOpen = await page.getByRole("dialog", { name: /create user/i }).isVisible().catch(() => false);
@@ -83,15 +75,7 @@ test("Admin can delete a user", async ({ page }) => {
   
   await page.getByTestId(`delete-${testUsername}`).click();
 
-  // Wait for deletion to complete - check for status message
-  await expect(page.getByTestId("status-message")).toBeVisible({
-    timeout: 5000
-  });
-  await expect(page.getByTestId("status-message")).toContainText(/deleted/i, {
-    timeout: 5000
-  });
-
-  // Wait for UI to update
+  // Wait for deletion to complete - verify user is removed from list
   await page.waitForTimeout(1000);
 
   // Verify user is removed from list

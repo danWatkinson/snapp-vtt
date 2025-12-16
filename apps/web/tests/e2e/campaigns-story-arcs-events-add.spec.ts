@@ -14,8 +14,7 @@ test("Game master can add Events to a Story Arc", async ({ page }) => {
     "A long-running campaign about ancient draconic power returning."
   );
 
-  // Select campaign and open story arcs view via nested campaign view tabs
-  await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
+  // ensureCampaignExists already selects the campaign, so just navigate to story arcs view
   await page
     .getByRole("tablist", { name: "Campaign views" })
     .getByRole("tab", { name: "Story arcs" })
@@ -46,9 +45,9 @@ test("Game master can add Events to a Story Arc", async ({ page }) => {
       .fill("An ancient prophecy foretells the return of the dragon king.");
     await page.getByRole("button", { name: "Save story arc" }).click();
     
-    // Wait for either success status or error message
+    // Wait for modal to close (success) or error message
     await Promise.race([
-      page.getByTestId("status-message").waitFor({ timeout: 5000 }).catch(() => null),
+      page.getByRole("dialog", { name: /add event to story arc/i }).waitFor({ state: "hidden", timeout: 5000 }).catch(() => null),
       page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null)
     ]);
     
@@ -107,7 +106,7 @@ test("Game master can add Events to a Story Arc", async ({ page }) => {
     .getByRole("tablist", { name: "World planning views" })
     .getByRole("tab", { name: "Story Arcs" })
     .click();
-  await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
+  // Campaign is already selected, just navigate to story arcs view
   await page
     .getByRole("tablist", { name: "Campaign views" })
     .getByRole("tab", { name: "Story arcs" })

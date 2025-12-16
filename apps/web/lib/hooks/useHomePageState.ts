@@ -42,7 +42,6 @@ export function useHomePageState() {
 
   // Auth and UI state
   const [currentUser, setCurrentUser] = useState<CurrentUser>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [authServiceUnavailable, setAuthServiceUnavailable] = useState(false);
@@ -112,8 +111,6 @@ export function useHomePageState() {
     // Auth and UI
     currentUser,
     setCurrentUser,
-    status,
-    setStatus,
     error,
     setError,
     isLoading,
