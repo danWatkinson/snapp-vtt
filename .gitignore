@@ -7,5 +7,5 @@ coverage/
 .vscode/
 .idea/
 .last-run.json
-coverage/
+.next/
 
