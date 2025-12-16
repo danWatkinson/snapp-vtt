@@ -1,33 +1,20 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode, ensureCampaignExists } from "./helpers";
 
 test("Game master can see active Story Arcs in Campaign Timeline", async ({
   page
 }) => {
   await loginAsAdmin(page);
 
-  // Go to Campaigns tab
-  await page.getByRole("tab", { name: "Campaigns" }).click();
+  // Select a world and enter planning mode, then navigate to Campaigns sub-tab
+  await selectWorldAndEnterPlanningMode(page, "Campaigns");
 
   // Ensure "Rise of the Dragon King" campaign exists
-  const hasCampaignTab = await page
-    .getByRole("tab", { name: "Rise of the Dragon King" })
-    .first()
-    .isVisible()
-    .catch(() => false);
-
-  if (!hasCampaignTab) {
-    await page.getByRole("button", { name: "Create campaign" }).click();
-    await page.getByLabel("Campaign name").fill("Rise of the Dragon King");
-    await page
-      .getByLabel("Summary")
-      .fill("A long-running campaign about ancient draconic power returning.");
-    await page.getByRole("button", { name: "Save campaign" }).click();
-
-    await expect(
-      page.getByRole("tab", { name: "Rise of the Dragon King" }).first()
-    ).toBeVisible();
-  }
+  await ensureCampaignExists(
+    page,
+    "Rise of the Dragon King",
+    "A long-running campaign about ancient draconic power returning."
+  );
 
   // Select campaign and open timeline view via nested tabs
   await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();

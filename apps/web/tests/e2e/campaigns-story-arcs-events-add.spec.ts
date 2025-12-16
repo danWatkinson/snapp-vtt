@@ -1,35 +1,25 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode, ensureCampaignExists } from "./helpers";
 
 test("Game master can add Events to a Story Arc", async ({ page }) => {
   await loginAsAdmin(page);
 
-  // Go to Campaigns tab
-  await page.getByRole("tab", { name: "Campaigns" }).click();
+  // Select a world and enter planning mode, then navigate to Story Arcs sub-tab
+  await selectWorldAndEnterPlanningMode(page, "Story Arcs");
 
   // Ensure "Rise of the Dragon King" campaign exists
-  const hasCampaignTab = await page
-    .getByRole("tab", { name: "Rise of the Dragon King" })
-    .first()
-    .isVisible()
-    .catch(() => false);
+  await ensureCampaignExists(
+    page,
+    "Rise of the Dragon King",
+    "A long-running campaign about ancient draconic power returning."
+  );
 
-  if (!hasCampaignTab) {
-    await page.getByRole("button", { name: "Create campaign" }).click();
-    await page.getByLabel("Campaign name").fill("Rise of the Dragon King");
-    await page
-      .getByLabel("Summary")
-      .fill("A long-running campaign about ancient draconic power returning.");
-    await page.getByRole("button", { name: "Save campaign" }).click();
-    
-    await expect(
-      page.getByRole("tab", { name: "Rise of the Dragon King" }).first()
-    ).toBeVisible();
-  }
-
-  // Select campaign and open story arcs view via nested tabs
+  // Select campaign and open story arcs view via nested campaign view tabs
   await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
-  await page.getByRole("tab", { name: "Story arcs" }).click();
+  await page
+    .getByRole("tablist", { name: "Campaign views" })
+    .getByRole("tab", { name: "Story arcs" })
+    .click();
 
   // Wait for the story arcs section to load
   await expect(
@@ -83,82 +73,45 @@ test("Game master can add Events to a Story Arc", async ({ page }) => {
     page.getByRole("button", { name: "Add event" })
   ).toBeVisible();
 
-  // Ensure we have a world with an event
-  await page.getByRole("tab", { name: "World" }).click();
-  
-  // Wait for worlds section to load
-  await Promise.race([
-    page.getByRole("button", { name: "Create world" }).waitFor().catch(() => null),
-    page.getByText("No worlds have been created yet.").waitFor().catch(() => null),
-    page.getByRole("tab").first().waitFor().catch(() => null)
-  ]);
-  
-  const hasEldoriaTab = await page
-    .getByRole("tab", { name: "Eldoria" })
-    .isVisible()
-    .catch(() => false);
+  // Ensure we have a world event that can be attached to the story arc
+  // Switch to planning view for world entities and create \"The Prophecy Revealed\" if needed
+  await selectWorldAndEnterPlanningMode(page, "World Entities");
+  await page
+    .getByRole("tablist", { name: "Entity types" })
+    .getByRole("tab", { name: "Events" })
+    .click();
 
-  if (!hasEldoriaTab) {
-    await page.getByRole("button", { name: "Create world" }).click();
-    await page.getByLabel("World name").fill("Eldoria");
-    await page.getByLabel("Description").fill("A high-fantasy realm.");
-    await page.getByRole("button", { name: "Save world" }).click();
-    
-    // Wait for world to appear
-    await Promise.race([
-      page.getByTestId("status-message").waitFor({ timeout: 5000 }).catch(() => null),
-      page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null)
-    ]);
-    
-    const errorMessage = await page.getByTestId("error-message").isVisible().catch(() => false);
-    if (errorMessage) {
-      const errorText = await page.getByTestId("error-message").textContent() ?? "";
-      if (!errorText.includes("already exists")) {
-        throw new Error(`World creation failed: ${errorText}`);
-      }
-      // Wait a bit for the worlds tab row to update after the error
-      await page.waitForTimeout(500);
-      await expect(
-        page.getByRole("tab", { name: "Eldoria" })
-      ).toBeVisible({ timeout: 10000 });
-    } else {
-      await expect(
-        page.getByRole("tab", { name: "Eldoria" })
-      ).toBeVisible({ timeout: 10000 });
-    }
-  }
-
-  // Select Eldoria's entities and add an event if needed
-  await page.getByRole("tab", { name: "Eldoria" }).click();
-
-  // Switch to Events tab
-  await page.getByRole("tab", { name: "Events" }).click();
-
-  // Check if "The Prophecy Revealed" event exists
-  const hasEvent = await page
+  const hasWorldEvent = await page
     .getByRole("listitem")
     .filter({ hasText: "The Prophecy Revealed" })
     .first()
     .isVisible()
     .catch(() => false);
 
-  if (!hasEvent) {
+  if (!hasWorldEvent) {
     await page.getByRole("button", { name: "Add event" }).click();
     await expect(
       page.getByRole("dialog", { name: "Add event" })
     ).toBeVisible();
 
-    await page.getByLabel("Event name").fill("The Prophecy Revealed");
-    await page
+    const worldEventDialog = page.getByRole("dialog", { name: "Add event" });
+    await worldEventDialog.getByLabel("Event name").fill("The Prophecy Revealed");
+    await worldEventDialog
       .getByLabel("Summary")
       .fill("The ancient prophecy is discovered in a hidden temple.");
-    await page.getByRole("button", { name: "Save event" }).click();
+    await worldEventDialog.getByRole("button", { name: "Save event" }).click();
   }
 
-  // Go back to Campaigns tab and story arcs view via nested tabs
-  await page.getByRole("tab", { name: "Campaigns" }).click();
+  // Return to Story Arcs planning view for this world and campaign
+  await page
+    .getByRole("tablist", { name: "World planning views" })
+    .getByRole("tab", { name: "Story Arcs" })
+    .click();
   await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
-  await page.getByRole("tab", { name: "Story arcs" }).click();
+  await page
+    .getByRole("tablist", { name: "Campaign views" })
+    .getByRole("tab", { name: "Story arcs" })
+    .click();
   
   // Click on the story arc to view its events
   await page
@@ -194,4 +147,3 @@ test("Game master can add Events to a Story Arc", async ({ page }) => {
     page.getByRole("listitem").filter({ hasText: "The Prophecy Revealed" }).first()
   ).toBeVisible({ timeout: 10000 });
 });
-

@@ -1,31 +1,18 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode, ensureCampaignExists } from "./helpers";
 
 test("Game master can create a Scene within a Session", async ({ page }) => {
   await loginAsAdmin(page);
 
-  // Go to Campaigns tab
-  await page.getByRole("tab", { name: "Campaigns" }).click();
+  // Select a world and enter planning mode, then navigate to Campaigns sub-tab
+  await selectWorldAndEnterPlanningMode(page, "Campaigns");
 
   // Ensure "Rise of the Dragon King" campaign exists
-  const hasCampaignTab = await page
-    .getByRole("tab", { name: "Rise of the Dragon King" })
-    .first()
-    .isVisible()
-    .catch(() => false);
-
-  if (!hasCampaignTab) {
-    await page.getByRole("button", { name: "Create campaign" }).click();
-    await page.getByLabel("Campaign name").fill("Rise of the Dragon King");
-    await page
-      .getByLabel("Summary")
-      .fill("A long-running campaign about ancient draconic power returning.");
-    await page.getByRole("button", { name: "Save campaign" }).click();
-    
-    await expect(
-      page.getByRole("tab", { name: "Rise of the Dragon King" }).first()
-    ).toBeVisible();
-  }
+  await ensureCampaignExists(
+    page,
+    "Rise of the Dragon King",
+    "A long-running campaign about ancient draconic power returning."
+  );
 
   // Select campaign and open sessions view via nested campaign view tabs
   await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
@@ -55,57 +42,7 @@ test("Game master can create a Scene within a Session", async ({ page }) => {
     ).toBeVisible();
   }
 
-  // Ensure Eldoria world exists (for scene to reference)
-  await page.getByRole("tab", { name: "World" }).click();
-  
-  // Wait for worlds section to load (either list or empty state)
-  await Promise.race([
-    page.getByRole("button", { name: "Create world" }).waitFor().catch(() => null),
-    page.getByText("No worlds have been created yet.").waitFor().catch(() => null),
-    page.getByRole("tab").first().waitFor().catch(() => null)
-  ]);
-  
-  const hasEldoriaTab = await page
-    .getByRole("tab", { name: "Eldoria" })
-    .isVisible()
-    .catch(() => false);
-
-  if (!hasEldoriaTab) {
-    await page.getByRole("button", { name: "Create world" }).click();
-    await page.getByLabel("World name").fill("Eldoria");
-    await page.getByLabel("Description").fill("A high-fantasy realm.");
-    await page.getByRole("button", { name: "Save world" }).click();
-    
-    // Wait for either success status or error message
-    await Promise.race([
-      page.getByTestId("status-message").waitFor({ timeout: 5000 }).catch(() => null),
-      page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null)
-    ]);
-
-    // Check for errors - if it's "already exists", that's fine, just verify it's in the list
-    const errorMessage = await page.getByTestId("error-message").isVisible().catch(() => false);
-    if (errorMessage) {
-      const errorText = await page.getByTestId("error-message").textContent() ?? "";
-      // If world already exists, reload and verify its tab appears
-      if (errorText.includes("already exists")) {
-        await page.waitForTimeout(500);
-        await expect(
-          page.getByRole("tab", { name: "Eldoria" })
-        ).toBeVisible({ timeout: 10000 });
-      } else {
-        throw new Error(`World creation failed: ${errorText}`);
-      }
-    } else {
-      // No error, wait for world tab to appear
-      await expect(
-        page.getByRole("tab", { name: "Eldoria" })
-      ).toBeVisible({ timeout: 10000 });
-    }
-  }
-
-  // Go back to Campaigns tab
-  await page.getByRole("tab", { name: "Campaigns" }).click();
-
+  // We rely on seeded world \"Eldoria\" (or an existing world) for the scene's world reference.
   // Reopen campaign's sessions view via nested campaign view tabs
   await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
   await page

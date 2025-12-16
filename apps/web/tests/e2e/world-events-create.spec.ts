@@ -1,24 +1,25 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode } from "./helpers";
 
 test("World builder can add an Event to a World via popup", async ({ page }) => {
   await loginAsAdmin(page);
 
-  // Switch to World tab
-  await page.getByRole("tab", { name: "World" }).click();
+  // Ensure World planning UI is active (ModeSelector + WorldTab mounted)
+  await selectWorldAndEnterPlanningMode(page, "World Entities");
 
-  // Ensure Eldoria exists (create if needed)
-  const hasEldoriaTab = await page
+  // Ensure Eldoria exists (create if needed) - check via world context selector
+  const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+  const hasEldoriaContextTab = await worldContextTablist
     .getByRole("tab", { name: "Eldoria" })
     .isVisible()
     .catch(() => false);
 
-  if (!hasEldoriaTab) {
+  if (!hasEldoriaContextTab) {
     await page.getByRole("button", { name: "Create world" }).click();
     await page.getByLabel("World name").fill("Eldoria");
     await page.getByLabel("Description").fill("A high-fantasy realm.");
     await page.getByRole("button", { name: "Save world" }).click();
-
+    
     // Wait for either success status or error message
     await Promise.race([
       page.getByTestId("status-message").waitFor({ timeout: 5000 }).catch(() => null),
@@ -29,24 +30,24 @@ test("World builder can add an Event to a World via popup", async ({ page }) => 
     const errorMessage = await page.getByTestId("error-message").isVisible().catch(() => false);
     if (errorMessage) {
       const errorText = await page.getByTestId("error-message").textContent() ?? "";
-      // If world already exists, just verify it's in the list
+      // If world already exists, just verify it's in the world context selector
       if (errorText.includes("already exists")) {
         await expect(
-          page.getByRole("tab", { name: "Eldoria" })
+          worldContextTablist.getByRole("tab", { name: "Eldoria" })
         ).toBeVisible({ timeout: 5000 });
       } else {
         throw new Error(`World creation failed: ${errorText}`);
       }
     } else {
-      // No error, wait for world tab to appear
+      // No error, wait for world context tab to appear
       await expect(
-        page.getByRole("tab", { name: "Eldoria" })
+        worldContextTablist.getByRole("tab", { name: "Eldoria" })
       ).toBeVisible({ timeout: 10000 });
     }
   }
 
-  // Select Eldoria to open its entity view
-  await page.getByRole("tab", { name: "Eldoria" }).click();
+  // Select Eldoria in the world context selector to drive planning mode
+  await worldContextTablist.getByRole("tab", { name: "Eldoria" }).click();
 
   // Switch to Events tab
   await page.getByRole("tab", { name: "Events" }).click();

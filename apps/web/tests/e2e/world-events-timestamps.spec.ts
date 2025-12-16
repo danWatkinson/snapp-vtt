@@ -1,27 +1,28 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode } from "./helpers";
 
 test("World builder can add beginning and ending timestamps to Events", async ({
   page
 }) => {
   await loginAsAdmin(page);
 
-  // Go to World tab
-  await page.getByRole("tab", { name: "World" }).click();
+  // Ensure World planning UI is active (ModeSelector + WorldTab mounted)
+  await selectWorldAndEnterPlanningMode(page, "World Entities");
 
-  // Ensure Eldoria world exists
-  const hasEldoriaTab = await page
+  // Ensure Eldoria world exists - check via world context selector
+  const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+  const hasEldoriaContextTab = await worldContextTablist
     .getByRole("tab", { name: "Eldoria" })
     .isVisible()
     .catch(() => false);
 
-  if (!hasEldoriaTab) {
+  if (!hasEldoriaContextTab) {
     await page.getByRole("button", { name: "Create world" }).click();
     await page.getByLabel("World name").fill("Eldoria");
     await page.getByLabel("Description").fill("A high-fantasy realm.");
     await page.getByRole("button", { name: "Save world" }).click();
 
-    // Wait for world to appear
+    // Wait for world to appear (either success or already exists)
     await Promise.race([
       page.getByTestId("status-message").waitFor({ timeout: 5000 }).catch(() => null),
       page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null)
@@ -35,17 +36,17 @@ test("World builder can add beginning and ending timestamps to Events", async ({
       }
       await page.waitForTimeout(500);
       await expect(
-        page.getByRole("tab", { name: "Eldoria" })
+        worldContextTablist.getByRole("tab", { name: "Eldoria" })
       ).toBeVisible({ timeout: 10000 });
     } else {
       await expect(
-        page.getByRole("tab", { name: "Eldoria" })
+        worldContextTablist.getByRole("tab", { name: "Eldoria" })
       ).toBeVisible({ timeout: 10000 });
     }
   }
 
-  // Select Eldoria to open its entities
-  await page.getByRole("tab", { name: "Eldoria" }).click();
+  // Select Eldoria in the world context selector to drive planning mode
+  await worldContextTablist.getByRole("tab", { name: "Eldoria" }).click();
 
   // Switch to Events tab
   await page.getByRole("tab", { name: "Events" }).click();

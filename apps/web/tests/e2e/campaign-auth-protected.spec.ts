@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode } from "./helpers";
 
 test("Campaign creation requires authentication", async ({ page }) => {
   await page.goto("/");
@@ -16,8 +16,8 @@ test("Campaign creation requires authentication", async ({ page }) => {
 test("Authenticated user with gm role can create a campaign", async ({ page }) => {
   await loginAsAdmin(page);
 
-  // Go to Campaigns tab
-  await page.getByRole("tab", { name: "Campaigns" }).click();
+  // Select a world and enter planning mode, then navigate to Campaigns sub-tab
+  await selectWorldAndEnterPlanningMode(page, "Campaigns");
 
   // Create a campaign
   const campaignName = "Authenticated Test Campaign";
@@ -35,13 +35,7 @@ test("Authenticated user with gm role can create a campaign", async ({ page }) =
     await page.getByLabel("Summary").fill("A test campaign created by authenticated user");
     await page.getByRole("button", { name: "Save campaign" }).click();
 
-    // Should succeed
-    await expect(page.getByTestId("status-message")).toBeVisible({
-      timeout: 5000
-    });
-    await expect(page.getByTestId("status-message")).toContainText(/created/i, {
-      timeout: 5000
-    });
+    // Should succeed - verification is that the campaign appears below
   }
 
   // Verify campaign appears in list

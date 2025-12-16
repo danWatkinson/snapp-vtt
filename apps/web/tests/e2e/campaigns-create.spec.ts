@@ -1,13 +1,13 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode } from "./helpers";
 
 test("Game master can create a campaign via popup in the Campaigns tab", async ({
   page
 }) => {
   await loginAsAdmin(page);
 
-  // Go to Campaigns tab
-  await page.getByRole("tab", { name: "Campaigns" }).click();
+  // Select a world and enter planning mode, then navigate to Campaigns sub-tab
+  await selectWorldAndEnterPlanningMode(page, "Campaigns");
 
   // Check if campaign already exists (from previous test run)
   const hasCampaign = await page

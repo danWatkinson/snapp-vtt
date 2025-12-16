@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode } from "./helpers";
 
 test("World creation requires authentication", async ({ page }) => {
   await page.goto("/");
@@ -15,10 +15,10 @@ test("World creation requires authentication", async ({ page }) => {
 test("Authenticated user with gm role can create a world", async ({ page }) => {
   await loginAsAdmin(page);
 
-  // Go to World tab
-  await page.getByRole("tab", { name: "World" }).click();
+  // Enter World planning context (ensures ModeSelector + WorldTab are active)
+  await selectWorldAndEnterPlanningMode(page, "World Entities");
 
-  // Create a world
+  // Create a world via the ModeSelector / World create dialog
   const worldName = "Authenticated Test World";
   const hasWorld = await page
     .getByText(worldName)
@@ -27,6 +27,8 @@ test("Authenticated user with gm role can create a world", async ({ page }) => {
     .catch(() => false);
 
   if (!hasWorld) {
+    // Open Create world via the Snapp menu in the banner
+    await page.getByRole("button", { name: /Snapp/i }).click();
     await page.getByRole("button", { name: "Create world" }).click();
     await expect(page.getByRole("dialog", { name: /create world/i })).toBeVisible();
     
@@ -43,7 +45,9 @@ test("Authenticated user with gm role can create a world", async ({ page }) => {
       const errorText = await page.getByTestId("error-message").textContent();
       if (errorText && errorText.includes("already exists")) {
         // "already exists" is acceptable - close the modal and continue
-        const cancelButton = page.getByRole("dialog", { name: /create world/i }).getByRole("button", { name: /cancel/i });
+        const cancelButton = page
+          .getByRole("dialog", { name: /create world/i })
+          .getByRole("button", { name: /cancel/i });
         if (await cancelButton.isVisible().catch(() => false)) {
           await cancelButton.click();
         } else {
@@ -75,4 +79,3 @@ test("Authenticated user with gm role can create a world", async ({ page }) => {
     page.getByText(worldName).first()
   ).toBeVisible({ timeout: 5000 });
 });
-

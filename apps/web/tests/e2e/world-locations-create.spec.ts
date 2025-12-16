@@ -1,19 +1,20 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode } from "./helpers";
 
 test("World builder can add a Location to a World via popup", async ({ page }) => {
   await loginAsAdmin(page);
 
-  // Go to World tab
-  await page.getByRole("tab", { name: "World" }).click();
+  // Ensure World planning UI is active (ModeSelector + WorldTab mounted)
+  await selectWorldAndEnterPlanningMode(page, "World Entities");
 
-  // Ensure we have a world called Eldoria – create it if needed.
-  const hasEldoriaTab = await page
+  // Ensure we have a world called Eldoria – create it if needed via world context selector
+  const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+  const hasEldoriaContextTab = await worldContextTablist
     .getByRole("tab", { name: "Eldoria" })
     .isVisible()
     .catch(() => false);
 
-  if (!hasEldoriaTab) {
+  if (!hasEldoriaContextTab) {
     await page.getByRole("button", { name: "Create world" }).click();
     await expect(
       page.getByRole("dialog", { name: "Create world" })
@@ -26,14 +27,14 @@ test("World builder can add a Location to a World via popup", async ({ page }) =
 
     await page.getByRole("button", { name: "Save world" }).click();
     
-    // Wait for world tab to appear before proceeding
+    // Wait for world context tab to appear before proceeding
     await expect(
-      page.getByRole("tab", { name: "Eldoria" })
+      worldContextTablist.getByRole("tab", { name: "Eldoria" })
     ).toBeVisible({ timeout: 10000 });
   }
 
-  // Select Eldoria to open its details / entities view
-  await page.getByRole("tab", { name: "Eldoria" }).click();
+  // Select Eldoria in the world context selector to drive planning mode
+  await worldContextTablist.getByRole("tab", { name: "Eldoria" }).click();
 
   // Switch to Locations tab (default is "All" which doesn't show Add button)
   await page.getByRole("tab", { name: "Locations" }).click();

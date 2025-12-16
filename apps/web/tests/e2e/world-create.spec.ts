@@ -1,20 +1,24 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode } from "./helpers";
 
 test("World builder can create a world via popup in the World tab", async ({ page }) => {
   await loginAsAdmin(page);
 
-  // Switch to World tab
-  await page.getByRole("tab", { name: "World" }).click();
+  // Ensure World planning UI is active (ModeSelector + WorldTab mounted)
+  await selectWorldAndEnterPlanningMode(page, "World Entities");
 
   // If Eldoria already exists (from a prior test run), don't recreate it.
-  const hasEldoriaTab = await page
+  // Check in the world context selector (planning mode entry)
+  const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+  const hasEldoriaContextTab = await worldContextTablist
     .getByRole("tab", { name: "Eldoria" })
     .isVisible()
     .catch(() => false);
 
-  if (hasEldoriaTab) {
-    await expect(page.getByRole("tab", { name: "Eldoria" })).toBeVisible();
+  if (hasEldoriaContextTab) {
+    await expect(
+      worldContextTablist.getByRole("tab", { name: "Eldoria" })
+    ).toBeVisible();
     return;
   }
 
@@ -46,16 +50,16 @@ test("World builder can create a world via popup in the World tab", async ({ pag
       // Wait a bit for the worlds tabs to update after the error
       await page.waitForTimeout(500);
       await expect(
-        page.getByRole("tab", { name: "Eldoria" })
+        page.getByRole("tablist", { name: "Worlds" }).getByRole("tab", { name: "Eldoria" })
       ).toBeVisible({ timeout: 10000 });
       return;
     }
     throw new Error(`World creation failed: ${errorText}`);
   }
 
-  // Wait for world to appear as a tab
+  // Wait for world to appear in the world context selector
   await expect(
-    page.getByRole("tab", { name: "Eldoria" })
+    worldContextTablist.getByRole("tab", { name: "Eldoria" })
   ).toBeVisible({ timeout: 10000 });
 });
 

@@ -272,26 +272,26 @@ seedCampaigns()
     // eslint-disable-next-line no-console
     console.error("Error during campaign seeding:", err);
     // Start server anyway - allow server to start even if seeding fails
-    const certDir =
-      process.env.HTTPS_CERT_DIR ??
-      path.join(process.cwd(), "..", "Snapp-other", "certs");
-    const keyPath =
-      process.env.HTTPS_KEY_PATH ?? path.join(certDir, "localhost-key.pem");
-    const certPath =
-      process.env.HTTPS_CERT_PATH ?? path.join(certDir, "localhost-cert.pem");
+const certDir =
+  process.env.HTTPS_CERT_DIR ??
+  path.join(process.cwd(), "..", "Snapp-other", "certs");
+const keyPath =
+  process.env.HTTPS_KEY_PATH ?? path.join(certDir, "localhost-key.pem");
+const certPath =
+  process.env.HTTPS_CERT_PATH ?? path.join(certDir, "localhost-cert.pem");
 
-    const server = https.createServer(
-      {
-        key: fs.readFileSync(keyPath),
-        cert: fs.readFileSync(certPath)
-      },
-      app
-    );
+const server = https.createServer(
+  {
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath)
+  },
+  app
+);
 
-    server.listen(port, () => {
-      // eslint-disable-next-line no-console
-      console.log(`Campaign service listening on https://localhost:${port}`);
+server.listen(port, () => {
+  // eslint-disable-next-line no-console
+  console.log(`Campaign service listening on https://localhost:${port}`);
     });
-  });
+});
 
 

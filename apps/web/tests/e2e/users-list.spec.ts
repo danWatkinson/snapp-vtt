@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode } from "./helpers";
 
 test("Admin can view list of all users", async ({ page }) => {
   await loginAsAdmin(page);
 
-  // Navigate to Users tab (already logged in)
-  await page.getByRole("tab", { name: "Users" }).click();
+  // Navigate into Users planning view (world context + Users tab)
+  await selectWorldAndEnterPlanningMode(page, "Users");
 
   // Wait for users section to appear (admin-only)
   await expect(page.getByRole("heading", { name: /^Users$/i })).toBeVisible({

@@ -1,37 +1,27 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode, ensureCampaignExists } from "./helpers";
 
 test("Game master automatically gets a Story Arc for each Player added to a Campaign", async ({
   page
 }) => {
   await loginAsAdmin(page);
 
-  // Go to Campaigns tab
-  await page.getByRole("tab", { name: "Campaigns" }).click();
+  // Select a world and enter planning mode, then navigate to Campaigns sub-tab
+  await selectWorldAndEnterPlanningMode(page, "Campaigns");
 
   // Ensure "Rise of the Dragon King" campaign exists
-  const hasCampaignTab = await page
-    .getByRole("tab", { name: "Rise of the Dragon King" })
-    .first()
-    .isVisible()
-    .catch(() => false);
-
-  if (!hasCampaignTab) {
-    await page.getByRole("button", { name: "Create campaign" }).click();
-    await page.getByLabel("Campaign name").fill("Rise of the Dragon King");
-    await page
-      .getByLabel("Summary")
-      .fill("A long-running campaign about ancient draconic power returning.");
-    await page.getByRole("button", { name: "Save campaign" }).click();
-
-    await expect(
-      page.getByRole("tab", { name: "Rise of the Dragon King" }).first()
-    ).toBeVisible();
-  }
+  await ensureCampaignExists(
+    page,
+    "Rise of the Dragon King",
+    "A long-running campaign about ancient draconic power returning."
+  );
 
   // Select campaign and open players view via nested tabs
   await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
-  await page.getByRole("tab", { name: "Players" }).click();
+  await page
+    .getByRole("tablist", { name: "Campaign views" })
+    .getByRole("tab", { name: "Players" })
+    .click();
 
   // Wait for the players section to load
   await expect(page.getByRole("button", { name: "Add player" })).toBeVisible();
@@ -58,8 +48,11 @@ test("Game master automatically gets a Story Arc for each Player added to a Camp
     ).toBeVisible({ timeout: 10000 });
   }
 
-  // Switch to story arcs view via nested tab
-  await page.getByRole("tab", { name: "Story arcs" }).click();
+  // Switch to story arcs view via nested campaign view tabs
+  await page
+    .getByRole("tablist", { name: "Campaign views" })
+    .getByRole("tab", { name: "Story arcs" })
+    .click();
 
   // Wait for story arcs section to load
   await expect(
@@ -75,4 +68,3 @@ test("Game master automatically gets a Story Arc for each Player added to a Camp
     page.getByRole("listitem").filter({ hasText: "bob's Arc" }).first()
   ).toBeVisible({ timeout: 10000 });
 });
-

@@ -10,10 +10,10 @@ export async function login(username: string, password: string): Promise<LoginRe
   let res: Response;
   try {
     res = await fetch(`${AUTH_SERVICE_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
-    });
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password })
+  });
   } catch (err) {
     // Network error - fetch failed completely (CORS, certificate, network unreachable)
     const error = err as Error;

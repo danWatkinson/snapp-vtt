@@ -7,8 +7,8 @@ test("login requires password", async ({ page }) => {
   // HTML5 validation should prevent form submission
   await page.getByRole("button", { name: "Login" }).click();
   await page.getByTestId("login-username").fill("admin");
-  // Don't fill password (it's required)
-  await page.getByRole("button", { name: "Sign in" }).click({ force: true });
+  // Don't fill password (it's required); submit via Enter on password field
+  await page.getByTestId("login-password").press("Enter");
 
   // The form should not submit due to HTML5 validation
   // Check that we're still on the login form (no success message)
@@ -30,9 +30,9 @@ test("login fails with incorrect password", async ({ page }) => {
   await expect(page.getByRole("dialog", { name: "Login" })).toBeVisible({
     timeout: 5000
   });
-  await expect(page.getByRole("tab", { name: "Users" })).not.toBeVisible({
-    timeout: 5000
-  });
+  await expect(
+    page.getByRole("heading", { name: "World context and mode" })
+  ).not.toBeVisible({ timeout: 5000 });
 });
 
 test("login succeeds with correct password", async ({ page }) => {
@@ -48,8 +48,8 @@ test("login succeeds with correct password", async ({ page }) => {
   await expect(page.getByRole("dialog", { name: "Login" })).toBeHidden({
     timeout: 10000
   });
-  await expect(page.getByRole("tab", { name: "Users" })).toBeVisible({
-    timeout: 5000
-  });
+  await expect(
+    page.getByRole("heading", { name: "World context and mode" })
+  ).toBeVisible({ timeout: 5000 });
 });
 

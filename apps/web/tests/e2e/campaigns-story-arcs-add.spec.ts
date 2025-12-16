@@ -1,35 +1,25 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode, ensureCampaignExists } from "./helpers";
 
 test("Game master can add Story Arcs to a Campaign", async ({ page }) => {
   await loginAsAdmin(page);
 
-  // Go to Campaigns tab
-  await page.getByRole("tab", { name: "Campaigns" }).click();
+  // Select a world and enter planning mode, then navigate to Story Arcs sub-tab
+  await selectWorldAndEnterPlanningMode(page, "Story Arcs");
 
   // Ensure "Rise of the Dragon King" campaign exists
-  const hasCampaignTab = await page
-    .getByRole("tab", { name: "Rise of the Dragon King" })
-    .first()
-    .isVisible()
-    .catch(() => false);
+  await ensureCampaignExists(
+    page,
+    "Rise of the Dragon King",
+    "A long-running campaign about ancient draconic power returning."
+  );
 
-  if (!hasCampaignTab) {
-    await page.getByRole("button", { name: "Create campaign" }).click();
-    await page.getByLabel("Campaign name").fill("Rise of the Dragon King");
-    await page
-      .getByLabel("Summary")
-      .fill("A long-running campaign about ancient draconic power returning.");
-    await page.getByRole("button", { name: "Save campaign" }).click();
-    
-    await expect(
-      page.getByRole("tab", { name: "Rise of the Dragon King" }).first()
-    ).toBeVisible();
-  }
-
-  // Select campaign and open story arcs view via nested tabs
+  // Select campaign and open story arcs view via nested campaign view tabs
   await page.getByRole("tab", { name: "Rise of the Dragon King" }).first().click();
-  await page.getByRole("tab", { name: "Story arcs" }).click();
+  await page
+    .getByRole("tablist", { name: "Campaign views" })
+    .getByRole("tab", { name: "Story arcs" })
+    .click();
 
   // Wait for the story arcs section to load
   await expect(
@@ -76,4 +66,3 @@ test("Game master can add Story Arcs to a Campaign", async ({ page }) => {
     page.getByRole("listitem").filter({ hasText: "The Ancient Prophecy" }).first()
   ).toBeVisible({ timeout: 10000 });
 });
-

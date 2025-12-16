@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin, loginAs } from "./helpers";
+import { loginAsAdmin, loginAs, selectWorldAndEnterPlanningMode } from "./helpers";
 
 // This E2E test drives the real Next.js UI and the running auth service.
 // It assumes `npm run dev` has started both:
@@ -8,6 +8,9 @@ import { loginAsAdmin, loginAs } from "./helpers";
 
 test("Admin can assign GM role to a user via the UI", async ({ page }) => {
   await loginAsAdmin(page);
+
+  // Navigate into Users planning view (world context + Users tab)
+  await selectWorldAndEnterPlanningMode(page, "Users");
 
   // Admin assigns gm role to alice
   await page.getByTestId("assign-target-username").fill("alice");
@@ -30,9 +33,10 @@ test("Admin can assign GM role to a user via the UI", async ({ page }) => {
     page.getByTestId("status-message")
   ).toContainText("Logged in as alice");
 
-  // Navigate to Users tab to see the roles display
-  await page.getByRole("tab", { name: "Users" }).click();
-  
+  // Open User Management via the Snapp menu in the banner
+  await page.getByRole("button", { name: /Snapp/i }).click();
+  await page.getByRole("button", { name: /User Management/i }).click();
+
   // Wait for the Users tab content to load
   const userManagementHeading = page.getByRole("heading", { name: /User Management/i });
   await expect(userManagementHeading).toBeVisible({

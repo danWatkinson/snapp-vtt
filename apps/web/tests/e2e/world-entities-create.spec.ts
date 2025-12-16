@@ -1,34 +1,35 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode } from "./helpers";
 
 test("World builder can add Creatures and Factions to a World via popup", async ({
   page
 }) => {
   await loginAsAdmin(page);
 
-  // Switch to World tab
-  await page.getByRole("tab", { name: "World" }).click();
+  // Ensure World planning UI is active (ModeSelector + WorldTab mounted)
+  await selectWorldAndEnterPlanningMode(page, "World Entities");
 
-  // Ensure Eldoria exists (create if needed)
-  const hasEldoriaTab = await page
+  // Ensure Eldoria exists (create if needed) - check via world context selector
+  const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+  const hasEldoriaContextTab = await worldContextTablist
     .getByRole("tab", { name: "Eldoria" })
     .isVisible()
     .catch(() => false);
 
-  if (!hasEldoriaTab) {
+  if (!hasEldoriaContextTab) {
     await page.getByRole("button", { name: "Create world" }).click();
     await page.getByLabel("World name").fill("Eldoria");
     await page.getByLabel("Description").fill("A high-fantasy realm.");
     await page.getByRole("button", { name: "Save world" }).click();
-
-    // Wait for world tab to appear before proceeding
+    
+    // Wait for world to appear in world context selector before proceeding
     await expect(
-      page.getByRole("tab", { name: "Eldoria" })
+      worldContextTablist.getByRole("tab", { name: "Eldoria" })
     ).toBeVisible();
   }
 
-  // Select Eldoria to open its entity view
-  await page.getByRole("tab", { name: "Eldoria" }).click();
+  // Select Eldoria in the world context selector to drive planning mode
+  await worldContextTablist.getByRole("tab", { name: "Eldoria" }).click();
 
   // Switch to Creatures tab
   await page.getByRole("tab", { name: "Creatures" }).click();

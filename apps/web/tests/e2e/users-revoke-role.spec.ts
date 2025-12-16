@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, selectWorldAndEnterPlanningMode } from "./helpers";
 
 test("Admin can revoke a role from a user", async ({ page }) => {
   await loginAsAdmin(page);
 
-  // Navigate to Users tab (already logged in)
-  await page.getByRole("tab", { name: "Users" }).click();
+  // Navigate into Users planning view (world context + Users tab)
+  await selectWorldAndEnterPlanningMode(page, "Users");
 
   // First, ensure alice has the gm role
   await page.getByTestId("assign-target-username").fill("alice");
