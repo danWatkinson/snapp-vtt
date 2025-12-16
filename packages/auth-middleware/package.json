@@ -1,0 +1,14 @@
+{
+  "name": "@snapp/auth-middleware",
+  "version": "0.1.0",
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "jsonwebtoken": "^9.0.0",
+    "@types/express": "^4.17.21"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}
+

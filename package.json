@@ -1,0 +1,48 @@
+{
+  "name": "snapp-vtt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Virtual Table Top (VTT) system with explicit ADRs, TypeScript, Next.js UI, and RESTful services.",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:auth\" \"npm run dev:world\" \"npm run dev:campaign\" \"npm run dev:web\"",
+    "dev:web": "ts-node --compiler-options '{\"module\":\"commonjs\"}' dev/next-https-dev.ts",
+    "dev:auth": "ts-node --compiler-options '{\"module\":\"commonjs\"}' services/auth/server.ts",
+    "dev:world": "ts-node --compiler-options '{\"module\":\"commonjs\"}' services/world/server.ts",
+    "dev:campaign": "ts-node --compiler-options '{\"module\":\"commonjs\"}' services/campaign/server.ts",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:e2e": "playwright test",
+    "test:unit": "vitest run --config vitest.config.mts",
+    "build": "next build apps/web",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/http-proxy": "^1.17.14",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "concurrently": "^9.0.0",
+    "dotenv": "^17.2.3",
+    "eslint": "^9.0.0",
+    "playwright-bdd": "^7.0.0",
+    "supertest": "^7.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "http-proxy": "^1.18.1",
+    "jsonwebtoken": "^9.0.0",
+    "next": "^15.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  }
+}
