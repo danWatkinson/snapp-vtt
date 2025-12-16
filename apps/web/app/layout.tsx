@@ -6,8 +6,8 @@ import Banner from "./components/banner/Banner";
 import GuestView from "./components/auth/GuestView";
 import { AuthProvider } from "../lib/contexts/AuthContext";
 import { HomePageProvider, useHomePage } from "../lib/contexts/HomePageContext";
-import { useCustomEvent } from "../lib/useCustomEvent";
-import { OPEN_LOGIN_EVENT } from "../lib/authEvents";
+import { useCustomEvent } from "../lib/hooks/useCustomEvent";
+import { OPEN_LOGIN_EVENT } from "../lib/auth/authEvents";
 
 function AppContent({ children }: { children: ReactNode }) {
   const { currentUser, openModal } = useHomePage();

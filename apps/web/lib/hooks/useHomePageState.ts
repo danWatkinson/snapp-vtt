@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useModals } from "../useModals";
-import { useFormState } from "../useFormState";
-import { useSelection } from "../useSelection";
-import type { LoginResponse, User } from "../authClient";
-import type { World, WorldEntity } from "../worldClient";
-import type { Campaign, Session, Scene, StoryArc, Timeline } from "../campaignClient";
+import { useModals } from "./useModals";
+import { useFormState } from "./useFormState";
+import { useSelection } from "./useSelection";
+import type { LoginResponse, User } from "../clients/authClient";
+import type { World, WorldEntity } from "../clients/worldClient";
+import type { Campaign, Session, Scene, StoryArc, Timeline } from "../clients/campaignClient";
 
 type CurrentUser = LoginResponse | null;
 

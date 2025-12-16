@@ -1,9 +1,9 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { AUTH_EVENT } from "../authEvents";
-import { AUTH_USERNAME_KEY } from "../authStorage";
-import type { LoginResponse } from "../authClient";
+import { AUTH_EVENT } from "../auth/authEvents";
+import { AUTH_USERNAME_KEY } from "../auth/authStorage";
+import type { LoginResponse } from "../clients/authClient";
 
 type CurrentUser = LoginResponse | null;
 

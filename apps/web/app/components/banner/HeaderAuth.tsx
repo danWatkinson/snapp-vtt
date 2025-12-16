@@ -1,8 +1,8 @@
 "use client";
 
-import { AUTH_EVENT, OPEN_LOGIN_EVENT } from "../../../lib/authEvents";
-import { AUTH_USERNAME_KEY } from "../../../lib/authStorage";
-import { useAuthUser } from "../../../lib/useAuthUser";
+import { AUTH_EVENT, OPEN_LOGIN_EVENT } from "../../../lib/auth/authEvents";
+import { AUTH_USERNAME_KEY } from "../../../lib/auth/authStorage";
+import { useAuthUser } from "../../../lib/auth/useAuthUser";
 
 export default function HeaderAuth() {
   const username = useAuthUser();

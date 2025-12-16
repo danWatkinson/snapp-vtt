@@ -4,8 +4,8 @@ import {
   createModalHandlers,
   getFormValues
 } from "../helpers/formHelpers";
-import type { useFormState } from "../useFormState";
-import type { useSelection } from "../useSelection";
+import type { useFormState } from "./useFormState";
+import type { useSelection } from "./useSelection";
 
 interface FormConfig<T extends Record<string, any>> {
   form: ReturnType<typeof useFormState<T>>;

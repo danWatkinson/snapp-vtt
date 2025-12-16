@@ -4,11 +4,11 @@ import { createContext, useContext, type ReactNode } from "react";
 import { useHomePageState } from "../hooks/useHomePageState";
 import { useHomePageData } from "../hooks/useHomePageData";
 import { useHomePageHandlers } from "../hooks/useHomePageHandlers";
-import { useCustomEvent } from "../useCustomEvent";
+import { useCustomEvent } from "../hooks/useCustomEvent";
 import {
   OPEN_USER_MANAGEMENT_EVENT,
   OPEN_CREATE_WORLD_EVENT
-} from "../authEvents";
+} from "../auth/authEvents";
 
 type HomePageState = ReturnType<typeof useHomePageState>;
 type HomePageHandlers = ReturnType<typeof useHomePageHandlers>;

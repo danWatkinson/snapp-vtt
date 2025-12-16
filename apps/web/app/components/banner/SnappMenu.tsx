@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   OPEN_USER_MANAGEMENT_EVENT,
   OPEN_CREATE_WORLD_EVENT
-} from "../../../lib/authEvents";
+} from "../../../lib/auth/authEvents";
 
 function dispatchOpenUserManagement() {
   if (typeof window !== "undefined") {

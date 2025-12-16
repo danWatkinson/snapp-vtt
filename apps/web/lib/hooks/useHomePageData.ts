@@ -10,9 +10,9 @@ import {
   useUsers,
   useTimeline,
   useAllWorldEvents
-} from "../useDataFetching";
-import { listUsers } from "../authClient";
-import { fetchWorlds, fetchWorldEntities } from "../worldClient";
+} from "./useDataFetching";
+import { listUsers } from "../clients/authClient";
+import { fetchWorlds, fetchWorldEntities } from "../clients/worldClient";
 import {
   fetchCampaigns,
   fetchCampaignSessions,
@@ -21,8 +21,8 @@ import {
   fetchStoryArcs,
   fetchStoryArcEvents,
   fetchTimeline
-} from "../campaignClient";
-import type { LoginResponse } from "../authClient";
+} from "../clients/campaignClient";
+import type { LoginResponse } from "../clients/authClient";
 
 interface UseHomePageDataProps {
   activeTab: "World" | "Campaigns" | "Sessions" | "Users" | null;

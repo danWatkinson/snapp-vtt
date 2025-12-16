@@ -1,6 +1,6 @@
 import type { FormEvent } from "react";
-import { AUTH_EVENT } from "../authEvents";
-import { AUTH_USERNAME_KEY } from "../authStorage";
+import { AUTH_EVENT } from "../auth/authEvents";
+import { AUTH_USERNAME_KEY } from "../auth/authStorage";
 import {
   assignRoles,
   login,
@@ -8,12 +8,12 @@ import {
   revokeRole,
   deleteUser,
   createUser
-} from "../authClient";
+} from "../clients/authClient";
 import {
   createWorld,
   fetchWorlds,
   createWorldEntity
-} from "../worldClient";
+} from "../clients/worldClient";
 import {
   createCampaign,
   createSession,
@@ -22,10 +22,10 @@ import {
   addEventToStoryArc,
   advanceTimeline,
   createScene
-} from "../campaignClient";
-import { withAsyncAction } from "../useAsyncAction";
-import type { useFormState } from "../useFormState";
-import type { useSelection } from "../useSelection";
+} from "../clients/campaignClient";
+import { withAsyncAction } from "./useAsyncAction";
+import type { useFormState } from "./useFormState";
+import type { useSelection } from "./useSelection";
 
 interface UseHomePageHandlersProps {
   // Form states

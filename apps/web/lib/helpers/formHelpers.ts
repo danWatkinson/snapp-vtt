@@ -1,4 +1,4 @@
-import type { ReturnType } from "../useFormState";
+import type { ReturnType } from "../hooks/useFormState";
 
 /**
  * Creates a setter function for a form field
