@@ -14,6 +14,8 @@ import TabList from "../ui/TabList";
 import Section from "../ui/Section";
 import SectionHeader from "../ui/SectionHeader";
 import ListContainer from "../ui/ListContainer";
+import Form from "../ui/Form";
+import { getNameById, getEntityTypeLabel } from "../../../lib/helpers/entityHelpers";
 
 export default function CampaignsTab() {
   const {
@@ -196,11 +198,7 @@ export default function CampaignsTab() {
         <Section>
           <div className="flex items-center justify-between">
             <Heading level={3}>
-              Sessions for{" "}
-              {
-                campaigns.find((c) => c.id === selectedCampaignId)?.name ??
-                "selected campaign"
-              }
+            Sessions for {getNameById(campaigns, selectedCampaignId, "selected campaign")}
             </Heading>
             <Button size="xs" onClick={() => setSessionModalOpen(true)}>
               Add session
@@ -277,11 +275,7 @@ export default function CampaignsTab() {
               size: "xs"
             }}
           >
-            Story Arcs for{" "}
-            {
-              campaigns.find((c) => c.id === selectedCampaignId)?.name ??
-              "selected campaign"
-            }
+            Story Arcs for {getNameById(campaigns, selectedCampaignId, "selected campaign")}
           </SectionHeader>
 
           <ListContainer
@@ -320,11 +314,7 @@ export default function CampaignsTab() {
       {selectedCampaignId && campaignView === "timeline" && timeline && (
         <Section variant="styled">
           <Heading level={3}>
-            Timeline for{" "}
-            {
-              campaigns.find((c) => c.id === selectedCampaignId)?.name ??
-              "selected campaign"
-            }
+            Timeline for {getNameById(campaigns, selectedCampaignId, "selected campaign")}
           </Heading>
 
           <div className="space-y-4">
@@ -403,11 +393,7 @@ export default function CampaignsTab() {
                   ) : (
                     <ul className="space-y-2">
                       {activeStoryArcs.map((arc) => (
-                        <li
-                          key={arc.id}
-                          className="rounded border p-2 text-sm"
-                          style={{ borderColor: '#6b5438', backgroundColor: 'rgba(107, 84, 56, 0.2)' }}
-                        >
+                        <ListItem key={arc.id} variant="timeline">
                           <div className="font-semibold text-emerald-200">
                             {arc.name}
                           </div>
@@ -416,7 +402,7 @@ export default function CampaignsTab() {
                               {arc.summary}
                             </p>
                           )}
-                        </li>
+                        </ListItem>
                       ))}
                     </ul>
                   )}
@@ -557,11 +543,7 @@ export default function CampaignsTab() {
               size: "xs"
             }}
           >
-            Scenes for{" "}
-            {
-              sessions.find((s) => s.id === selectedSessionId)?.name ??
-              "selected session"
-            }
+            Scenes for {getNameById(sessions, selectedSessionId, "selected session")}
           </SectionHeader>
 
           <ListContainer
@@ -588,7 +570,7 @@ export default function CampaignsTab() {
         title="Create campaign"
         variant="styled"
       >
-        <form onSubmit={handlers.handleCreateCampaign} className="space-y-3">
+        <Form onSubmit={handlers.handleCreateCampaign}>
           <FormField
             label="Campaign name"
             value={campaignName}
@@ -608,7 +590,7 @@ export default function CampaignsTab() {
             submitLabel="Save campaign"
             variant="styled"
           />
-        </form>
+        </Form>
       </Modal>
 
       {sessionModalOpen && selectedCampaignId && (
@@ -618,7 +600,7 @@ export default function CampaignsTab() {
           title="Add session"
           variant="styled"
         >
-          <form onSubmit={handlers.handleCreateSession} className="space-y-3">
+          <Form onSubmit={handlers.handleCreateSession}>
             <FormField
               label="Session name"
               value={sessionName}
@@ -630,7 +612,7 @@ export default function CampaignsTab() {
               submitLabel="Save session"
               variant="styled"
             />
-          </form>
+          </Form>
         </Modal>
       )}
 
@@ -641,7 +623,7 @@ export default function CampaignsTab() {
           title="Add scene"
           variant="styled"
         >
-          <form onSubmit={handlers.handleCreateScene} className="space-y-3">
+          <Form onSubmit={handlers.handleCreateScene}>
               <FormField
                 label="Scene name"
                 value={sceneName}
@@ -670,7 +652,7 @@ export default function CampaignsTab() {
               submitLabel="Save scene"
               variant="styled"
             />
-          </form>
+          </Form>
         </Modal>
       )}
 
@@ -681,7 +663,7 @@ export default function CampaignsTab() {
           title="Add player"
           variant="styled"
         >
-          <form onSubmit={handlers.handleAddPlayer} className="space-y-3">
+          <Form onSubmit={handlers.handleAddPlayer}>
             <FormField
               label="Player username"
               value={playerUsername}
@@ -693,7 +675,7 @@ export default function CampaignsTab() {
               submitLabel="Save player"
               variant="styled"
             />
-          </form>
+          </Form>
         </Modal>
       )}
 
@@ -704,7 +686,7 @@ export default function CampaignsTab() {
           title="Add story arc"
           variant="styled"
         >
-          <form onSubmit={handlers.handleCreateStoryArc} className="space-y-3">
+          <Form onSubmit={handlers.handleCreateStoryArc}>
             <FormField
               label="Story arc name"
               value={storyArcName}
@@ -724,7 +706,7 @@ export default function CampaignsTab() {
               submitLabel="Save story arc"
               variant="styled"
             />
-          </form>
+          </Form>
         </Modal>
       )}
 
@@ -735,7 +717,7 @@ export default function CampaignsTab() {
           title="Add event to story arc"
           variant="styled"
         >
-          <form onSubmit={handlers.handleAddEventToStoryArc} className="space-y-3">
+          <Form onSubmit={handlers.handleAddEventToStoryArc}>
               <FormField
                 label="Event"
                 type="select"
@@ -750,7 +732,7 @@ export default function CampaignsTab() {
               submitLabel="Save"
               variant="styled"
             />
-          </form>
+          </Form>
         </Modal>
       )}
     </section>

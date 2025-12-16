@@ -7,6 +7,7 @@ import Button from "../ui/Button";
 import EmptyState from "../ui/EmptyState";
 import TabList from "../ui/TabList";
 import Section from "../ui/Section";
+import { getNameById } from "../../../lib/helpers/entityHelpers";
 
 export default function ModeSelector() {
   const {
@@ -77,8 +78,7 @@ export default function ModeSelector() {
             <p className="text-sm snapp-muted">
               Working in{" "}
               <span className="font-semibold">
-                {worlds.find((w) => w.id === selectedWorldId)?.name ??
-                  "selected world"}
+                {getNameById(worlds, selectedWorldId, "selected world")}
               </span>
               {activeMode === "plan" && " (planning mode)."}
             </p>

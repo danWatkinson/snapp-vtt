@@ -14,6 +14,8 @@ import TabList from "../ui/TabList";
 import Section from "../ui/Section";
 import SectionHeader from "../ui/SectionHeader";
 import ListContainer from "../ui/ListContainer";
+import Form from "../ui/Form";
+import { getNameById, getEntityTypeLabel } from "../../../lib/helpers/entityHelpers";
 
 export default function WorldTab() {
   const {
@@ -138,9 +140,7 @@ export default function WorldTab() {
               className="text-md font-semibold snapp-heading"
               style={{ fontFamily: "'Cinzel', serif" }}
             >
-              Entities for{" "}
-              {worlds.find((w) => w.id === selectedWorldId)?.name ??
-                "selected world"}
+              Entities for {getNameById(worlds, selectedWorldId, "selected world")}
             </h3>
           </div>
 
@@ -157,15 +157,7 @@ export default function WorldTab() {
                 : undefined
             }
           >
-            {selectedEntityType === "all"
-              ? "All Entities"
-              : selectedEntityType === "location"
-              ? "Locations"
-              : selectedEntityType === "creature"
-              ? "Creatures"
-              : selectedEntityType === "faction"
-              ? "Factions"
-              : "Events"}
+            {selectedEntityType === "all" ? "All Entities" : getEntityTypeLabel(selectedEntityType)}
           </SectionHeader>
 
           <ListContainer
@@ -204,7 +196,7 @@ export default function WorldTab() {
         onClose={() => setWorldModalOpen(false)}
         title="Create world"
       >
-        <form onSubmit={handlers.handleCreateWorld} className="space-y-3">
+        <Form onSubmit={handlers.handleCreateWorld}>
           <FormField
             label="World name"
             value={worldName}
@@ -221,7 +213,7 @@ export default function WorldTab() {
             onCancel={() => setWorldModalOpen(false)}
             submitLabel="Save world"
           />
-        </form>
+        </Form>
       </Modal>
 
       {entityModalOpen && selectedWorldId && selectedEntityType !== "all" && (
@@ -232,7 +224,7 @@ export default function WorldTab() {
           variant="styled"
           aria-label={`Add ${selectedEntityType}`}
         >
-          <form onSubmit={handlers.handleCreateEntity} className="space-y-3">
+          <Form onSubmit={handlers.handleCreateEntity}>
               <FormField
                 label={`${selectedEntityType} name`}
                 value={entityName}
@@ -298,7 +290,7 @@ export default function WorldTab() {
               submitLabel={`Save ${selectedEntityType}`}
               variant="styled"
             />
-          </form>
+          </Form>
         </Modal>
       )}
     </section>

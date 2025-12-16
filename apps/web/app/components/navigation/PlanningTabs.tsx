@@ -3,6 +3,7 @@
 import { useHomePage } from "../../../lib/contexts/HomePageContext";
 import TabButton from "../ui/TabButton";
 import TabList from "../ui/TabList";
+import { getNameById } from "../../../lib/helpers/entityHelpers";
 
 export default function PlanningTabs() {
   const {
@@ -14,7 +15,7 @@ export default function PlanningTabs() {
   } = useHomePage();
 
   const selectedWorldId = selectedIds.worldId;
-  const selectedWorldName = worlds.find((w) => w.id === selectedWorldId)?.name ?? null;
+  const selectedWorldName = getNameById(worlds, selectedWorldId, "") || null;
 
   if (!selectedWorldId) return null;
 

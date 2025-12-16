@@ -11,6 +11,7 @@ import EmptyState from "../ui/EmptyState";
 import Section from "../ui/Section";
 import SectionHeader from "../ui/SectionHeader";
 import ListContainer from "../ui/ListContainer";
+import Form from "../ui/Form";
 
 export default function UsersTab() {
   const {
@@ -168,7 +169,7 @@ export default function UsersTab() {
           title="Create user"
           closeOnBackdropClick
         >
-          <form onSubmit={handlers.handleCreateUser} className="space-y-3">
+          <Form onSubmit={handlers.handleCreateUser}>
             <FormField
               label="Username"
               value={newUsername}
@@ -193,7 +194,7 @@ export default function UsersTab() {
               submitLabel="Create user"
               isLoading={isLoading}
             />
-          </form>
+          </Form>
         </Modal>
       )}
     </div>
