@@ -5,7 +5,7 @@ import {
   InMemoryWorldEntityStore,
   type WorldEntityType
 } from "./worldEntitiesStore";
-import { authenticate } from "../../packages/auth-middleware";
+import { authenticate } from "../../../packages/auth-middleware";
 
 export interface WorldAppDependencies {
   store?: InMemoryWorldStore;

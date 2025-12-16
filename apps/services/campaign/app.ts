@@ -7,7 +7,7 @@ import {
   type Scene,
   type StoryArc
 } from "./campaignStore";
-import { authenticate } from "../../packages/auth-middleware";
+import { authenticate } from "../../../packages/auth-middleware";
 
 export interface CampaignAppDependencies {
   store?: InMemoryCampaignStore;

@@ -14,11 +14,11 @@
     "baseUrl": ".",
     "paths": {
       "@apps/*": ["apps/*"],
-      "@services/*": ["services/*"],
+      "@services/*": ["apps/services/*"],
       "@packages/*": ["packages/*"]
     }
   },
-  "include": ["apps", "services", "packages", "playwright.config.ts"]
+  "include": ["apps", "packages", "playwright.config.ts"]
 }
 
 

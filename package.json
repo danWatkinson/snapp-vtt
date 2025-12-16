@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:auth\" \"npm run dev:world\" \"npm run dev:campaign\" \"npm run dev:web\"",
     "dev:web": "ts-node --compiler-options '{\"module\":\"commonjs\"}' dev/next-https-dev.ts",
-    "dev:auth": "ts-node --compiler-options '{\"module\":\"commonjs\"}' services/auth/server.ts",
-    "dev:world": "ts-node --compiler-options '{\"module\":\"commonjs\"}' services/world/server.ts",
-    "dev:campaign": "ts-node --compiler-options '{\"module\":\"commonjs\"}' services/campaign/server.ts",
+    "dev:auth": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/auth/server.ts",
+    "dev:world": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/world/server.ts",
+    "dev:campaign": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/campaign/server.ts",
     "test": "npm run test:unit && npm run test:e2e",
     "test:e2e": "playwright test",
     "test:unit": "vitest run --config vitest.config.mts",

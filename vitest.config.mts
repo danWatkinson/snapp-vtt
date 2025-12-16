@@ -10,7 +10,7 @@ export default defineConfig({
       branches: 100,
       statements: 100
     },
-    include: ["services/**/*.test.ts"]
+    include: ["apps/services/**/*.test.ts"]
   }
 });
 
