@@ -26,6 +26,13 @@ describe("InMemoryCampaignStore", () => {
     );
   });
 
+  it("prevents creating duplicate campaigns by name", () => {
+    const store = new InMemoryCampaignStore();
+    store.createCampaign("Camp", "Summary");
+    expect(() => store.createCampaign("Camp", "Another"))
+      .toThrow("Campaign 'Camp' already exists");
+  });
+
   it("creates sessions and scenes", () => {
     const store = new InMemoryCampaignStore();
     const campaign: Campaign = store.createCampaign("Camp", "Summary");
@@ -45,6 +52,34 @@ describe("InMemoryCampaignStore", () => {
     const scenes = store.listScenes(session.id);
     expect(scenes).toHaveLength(1);
     expect(scenes[0]).toEqual(scene);
+  });
+
+  it("requires campaignId and name when creating a session", () => {
+    const store = new InMemoryCampaignStore();
+    const campaign: Campaign = store.createCampaign("Camp", "Summary");
+
+    expect(() => store.createSession("", "Session 1")).toThrow(
+      "campaignId is required"
+    );
+    expect(() => store.createSession(campaign.id, "")).toThrow(
+      "Session name is required"
+    );
+  });
+
+  it("requires sessionId, name, and worldId when creating a scene", () => {
+    const store = new InMemoryCampaignStore();
+    const campaign: Campaign = store.createCampaign("Camp", "Summary");
+    const session: Session = store.createSession(campaign.id, "Session 1");
+
+    expect(() =>
+      store.createScene("", "Scene 1", "Intro", "world-1", [])
+    ).toThrow("sessionId is required");
+    expect(() =>
+      store.createScene(session.id, "", "Intro", "world-1", [])
+    ).toThrow("Scene name is required");
+    expect(() =>
+      store.createScene(session.id, "Scene 1", "Intro", "", [])
+    ).toThrow("worldId is required");
   });
 
   it("manages players in campaigns", () => {
@@ -193,6 +228,13 @@ describe("InMemoryCampaignStore", () => {
     );
   });
 
+  it("throws error when adding event to non-existent story arc", () => {
+    const store = new InMemoryCampaignStore();
+    expect(() => store.addEventToStoryArc("non-existent", "event-1")).toThrow(
+      "Story arc non-existent not found"
+    );
+  });
+
   it("manages campaign timeline", () => {
     const store = new InMemoryCampaignStore();
     const campaign = store.createCampaign("Camp", "Summary");
@@ -235,6 +277,11 @@ describe("InMemoryCampaignStore", () => {
       "Campaign non-existent not found"
     );
   });
+
+  it("requires campaignId when advancing timeline", () => {
+    const store = new InMemoryCampaignStore();
+    expect(() => store.advanceTimeline("", 1, "day")).toThrow(
+      "campaignId is required"
+    );
+  });
 });
-
-

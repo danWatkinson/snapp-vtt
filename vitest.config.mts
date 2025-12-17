@@ -18,8 +18,12 @@ export default defineConfig({
         "**/.next/**",        // exclude any nested .next directories
         "**/*.config.*",      // exclude config files (vitest, jest, webpack, vite, etc.)
         "**/*.test.*",        // exclude all test files themselves from coverage reporting
-        "apps/services/auth/app.ts",   // Express wiring/glue for auth service (covered via app.test.ts)
-        "apps/services/auth/server.ts" // Auth service bootstrap/server wiring (covered via server.test.ts)
+        "apps/services/auth/app.ts",        // Express wiring/glue for auth service (covered via app.test.ts)
+        "apps/services/auth/server.ts",     // Auth service bootstrap/server wiring (covered via server.test.ts)
+        "apps/services/campaign/app.ts",    // Express wiring/glue for campaign service (covered via app.test.ts)
+        "apps/services/campaign/server.ts", // Campaign service bootstrap/server wiring
+        "apps/services/world/app.ts",       // Express wiring/glue for world service (covered via app.test.ts)
+        "apps/services/world/server.ts"     // World service bootstrap/server wiring
       ]
     },
     include: [

@@ -36,6 +36,43 @@ describe("InMemoryWorldEntityStore", () => {
       store.createEntity(worldId, type, "", "Summary")
     ).toThrow("name is required");
   });
+
+  it("handles event entities with optional timestamps", () => {
+    const store = new InMemoryWorldEntityStore();
+
+    // both timestamps
+    const eventWithBoth = store.createEntity(
+      worldId,
+      "event",
+      "Battle of Dawn",
+      "A great battle.",
+      1000,
+      2000
+    );
+    expect(eventWithBoth.beginningTimestamp).toBe(1000);
+    expect(eventWithBoth.endingTimestamp).toBe(2000);
+
+    // only beginningTimestamp
+    const eventWithBegin = store.createEntity(
+      worldId,
+      "event",
+      "Treaty Signed",
+      "Peace declared.",
+      3000
+    );
+    expect(eventWithBegin.beginningTimestamp).toBe(3000);
+    expect(eventWithBegin.endingTimestamp).toBeUndefined();
+
+    // only endingTimestamp
+    const eventWithEnd = store.createEntity(
+      worldId,
+      "event",
+      "Mysterious End",
+      "Unknown start.",
+      undefined,
+      4000
+    );
+    expect(eventWithEnd.beginningTimestamp).toBeUndefined();
+    expect(eventWithEnd.endingTimestamp).toBe(4000);
+  });
 });
-
-
