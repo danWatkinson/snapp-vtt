@@ -1,9 +1,15 @@
 import { defineConfig, devices } from "@playwright/test";
+import { defineBddConfig } from "playwright-bdd";
+import "dotenv/config";
+
+const testDir = defineBddConfig({
+  paths: ["apps/web/tests/e2e/**/*.feature"],
+  require: ["apps/web/tests/e2e/steps/**/*.ts"],
+  outputDir: ".features-gen"
+});
 
 export default defineConfig({
-  // For now, point directly at the E2E tests directory.
-  // Gherkin feature files live alongside .spec.ts tests.
-  testDir: "apps/web/tests/e2e",
+  testDir,
   reporter: "list",
   use: {
     baseURL: "https://localhost:3000",

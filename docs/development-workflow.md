@@ -21,9 +21,12 @@ For any new feature or user-visible change:
   - The desired user-visible behaviour.
   - Expected error messages (if applicable).
   - The context and steps that lead to the outcome.
+- Implement step definitions in `apps/web/tests/e2e/steps/` (or reuse existing steps from `common.steps.ts`).
 - Run the test to confirm it fails for the right reason: `npm run test:e2e`.
 
 **Why?** Starting with a failing E2E test enforces a user-centric perspective and encourages meaningful failure messages. It also provides a clear, executable specification of what we're building.
+
+**Note**: The project uses `playwright-bdd` to execute Gherkin feature files. Feature files are automatically discovered from `apps/web/tests/e2e/**/*.feature`, and step definitions from `apps/web/tests/e2e/steps/**/*.ts`. Common step definitions (e.g. admin user setup, admin login) are in `common.steps.ts` and can be imported by other step definition files.
 
 #### 2. Drive Implementation from Outside In
 
