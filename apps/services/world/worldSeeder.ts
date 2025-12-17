@@ -29,13 +29,7 @@ export const seedWorlds = async (
     ? path.isAbsolute(process.env.WORLD_WORLDS_FILE)
       ? process.env.WORLD_WORLDS_FILE
       : path.join(process.cwd(), process.env.WORLD_WORLDS_FILE)
-    : path.join(
-        process.cwd(),
-        "..",
-        "Snapp-other",
-        "bootstrap",
-        "worlds.json"
-      );
+    : "/tmp/worlds.json";
 
   try {
     if (!fs.existsSync(worldsFilePath)) {

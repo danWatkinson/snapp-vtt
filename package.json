@@ -18,7 +18,10 @@
     "lint": "eslint .",
     "cli:auth": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/auth/cli.ts",
     "cli:world": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/world/cli.ts",
-    "cli:campaign": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/campaign/cli.ts"
+    "cli:campaign": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/campaign/cli.ts",
+    "seed": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/tools/seed-cli.ts seed",
+    "seedAll": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/tools/seed-cli.ts seedAll",
+    "start": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/tools/start-with-seed.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

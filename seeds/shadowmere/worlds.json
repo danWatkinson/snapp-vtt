@@ -1,0 +1,54 @@
+[
+  {
+    "name": "Shadowmere",
+    "description": "A dark, gothic city where vampires and werewolves rule the night. The city is built on layers of history, with ancient catacombs beneath modern streets.",
+    "splashImageFileName": "approaching-nuln.jpg",
+    "entities": [
+      {
+        "type": "location",
+        "name": "The Midnight Cathedral",
+        "summary": "An ancient cathedral that serves as the headquarters of the Vampire Council. The building is both a place of worship and a fortress, with hidden passages leading deep underground."
+      },
+      {
+        "type": "location",
+        "name": "The Howling District",
+        "summary": "A rundown neighborhood where werewolf packs gather. The area is known for its wild nightlife and dangerous back alleys where territorial disputes are settled."
+      },
+      {
+        "type": "location",
+        "name": "The Catacombs",
+        "summary": "A vast network of underground tunnels and chambers beneath Shadowmere. Home to ancient vampires, ghouls, and other undead creatures. Few who enter ever return."
+      },
+      {
+        "type": "creature",
+        "name": "Elder Vampires",
+        "summary": "Ancient vampires who have lived for centuries. They possess incredible strength, speed, and mind-control abilities. They are the true rulers of Shadowmere's night."
+      },
+      {
+        "type": "creature",
+        "name": "Werewolf Packs",
+        "summary": "Groups of werewolves who transform during the full moon. They are fiercely territorial and have a complex pack hierarchy. Some packs are more civilized than others."
+      },
+      {
+        "type": "creature",
+        "name": "Ghouls",
+        "summary": "Undead creatures that inhabit the catacombs. They are mindless servants of the elder vampires, created from the remains of those who died in the catacombs."
+      },
+      {
+        "type": "faction",
+        "name": "The Vampire Council",
+        "summary": "The ruling body of Shadowmere's vampire population. They maintain a fragile peace with the werewolf packs and control most of the city's political and economic power."
+      },
+      {
+        "type": "faction",
+        "name": "The Moon Howlers",
+        "summary": "The largest and most organized werewolf pack in Shadowmere. They control the Howling District and have a tense truce with the Vampire Council."
+      },
+      {
+        "type": "faction",
+        "name": "The Night Watch",
+        "summary": "A secret organization of humans and half-breeds who work to protect the innocent from the supernatural threats of Shadowmere. They operate in the shadows, unknown to most."
+      }
+    ]
+  }
+]

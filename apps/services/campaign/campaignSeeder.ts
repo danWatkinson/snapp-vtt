@@ -77,13 +77,7 @@ export const seedCampaigns = async (
     ? path.isAbsolute(process.env.CAMPAIGN_CAMPAIGNS_FILE)
       ? process.env.CAMPAIGN_CAMPAIGNS_FILE
       : path.join(process.cwd(), process.env.CAMPAIGN_CAMPAIGNS_FILE)
-    : path.join(
-        process.cwd(),
-        "..",
-        "Snapp-other",
-        "bootstrap",
-        "campaigns.json"
-      );
+    : "/tmp/campaigns.json";
 
   try {
     if (!fs.existsSync(campaignsFilePath)) {

@@ -1,0 +1,54 @@
+[
+  {
+    "name": "Eldoria",
+    "description": "A high-fantasy realm filled with magic, dragons, and ancient kingdoms. The realm is divided into several regions, each with its own unique culture and dangers.",
+    "splashImageFileName": "approaching-nuln.jpg",
+    "entities": [
+      {
+        "type": "location",
+        "name": "The Whispering Woods",
+        "summary": "An ancient forest where the trees are said to whisper secrets to those who listen. Many adventurers have entered but few have returned with their sanity intact."
+      },
+      {
+        "type": "location",
+        "name": "Dragon's Peak",
+        "summary": "The highest mountain in Eldoria, home to the last known dragon. The peak is shrouded in eternal mist and protected by powerful magic."
+      },
+      {
+        "type": "location",
+        "name": "The Royal Capital of Aetheria",
+        "summary": "The grand capital city of the human kingdom, built around a massive crystal that powers the city's magical defenses. Home to the High Council of Mages."
+      },
+      {
+        "type": "creature",
+        "name": "Ancient Red Dragon",
+        "summary": "The last of the great dragons, an ancient and wise being who has watched over Eldoria for millennia. Possesses immense magical power and knowledge of forgotten lore."
+      },
+      {
+        "type": "creature",
+        "name": "Forest Spirits",
+        "summary": "Mystical beings that inhabit the Whispering Woods. They are guardians of nature and can be either helpful guides or dangerous protectors depending on how they are approached."
+      },
+      {
+        "type": "creature",
+        "name": "Crystal Golems",
+        "summary": "Magical constructs created by the High Council to guard important locations. They are nearly indestructible and powered by the same crystal energy that protects Aetheria."
+      },
+      {
+        "type": "faction",
+        "name": "The High Council of Mages",
+        "summary": "The ruling body of Aetheria, composed of the most powerful wizards in the realm. They maintain the magical defenses and govern the use of magic throughout the kingdom."
+      },
+      {
+        "type": "faction",
+        "name": "The Dragon Guardians",
+        "summary": "A secretive order dedicated to protecting the last dragon and preserving ancient knowledge. They operate from hidden sanctuaries throughout Eldoria."
+      },
+      {
+        "type": "faction",
+        "name": "The Shadow Thieves",
+        "summary": "A criminal organization that operates in the darker corners of Eldoria. They deal in stolen magical artifacts and information, and have connections in every major city."
+      }
+    ]
+  }
+]

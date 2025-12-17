@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Shadows of Shadowmere",
+    "summary": "A dark urban fantasy campaign set in the gothic city of Shadowmere. The party must navigate the dangerous politics between vampire clans and werewolf packs while uncovering a conspiracy that threatens the entire city.",
+    "playerIds": ["alice"],
+    "currentMoment": 1700000000000,
+    "sessions": [
+      {
+        "name": "Session 1: Welcome to Shadowmere",
+        "scenes": [
+          {
+            "name": "Arrival in the City",
+            "summary": "The party arrives in Shadowmere during the annual Festival of Shadows, unaware of the dark secrets that lurk beneath the celebrations.",
+            "worldName": "Shadowmere",
+            "entityIds": []
+          }
+        ]
+      }
+    ],
+    "storyArcs": []
+  }
+]

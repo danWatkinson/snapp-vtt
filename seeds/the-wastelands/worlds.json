@@ -1,0 +1,54 @@
+[
+  {
+    "name": "The Wastelands",
+    "description": "A post-apocalyptic wasteland where survivors struggle to rebuild civilization. Mutants, raiders, and ancient technology pose constant threats.",
+    "splashImageFileName": "approaching-nuln.jpg",
+    "entities": [
+      {
+        "type": "location",
+        "name": "The Scrap City",
+        "summary": "A settlement built from the ruins of the old world, constructed entirely from salvaged materials. It's a chaotic mix of makeshift buildings and ancient technology."
+      },
+      {
+        "type": "location",
+        "name": "The Radiation Zone",
+        "summary": "A highly contaminated area where the old world's nuclear facilities once stood. Mutants and strange creatures are common here, but valuable pre-war technology can be found."
+      },
+      {
+        "type": "location",
+        "name": "The Oasis",
+        "summary": "One of the few places in the Wastelands with clean water and fertile soil. Heavily defended by the largest settlement, it's a beacon of hope in the desolate landscape."
+      },
+      {
+        "type": "creature",
+        "name": "Radiation Mutants",
+        "summary": "Horrifying creatures mutated by exposure to radiation. They come in many forms - some are barely human, others are completely alien. They are aggressive and territorial."
+      },
+      {
+        "type": "creature",
+        "name": "Scavenger Bots",
+        "summary": "Pre-war robots that still patrol the wasteland. Some are helpful, others are hostile. They often guard valuable technology and resources from the old world."
+      },
+      {
+        "type": "creature",
+        "name": "Sand Worms",
+        "summary": "Massive creatures that burrow through the wasteland. They are attracted to vibrations and can swallow entire vehicles. Travelers fear them above all other threats."
+      },
+      {
+        "type": "faction",
+        "name": "The Scavengers",
+        "summary": "A loose coalition of traders and explorers who brave the wasteland to find valuable pre-war technology. They are the primary source of advanced equipment in the Wastelands."
+      },
+      {
+        "type": "faction",
+        "name": "The Raiders",
+        "summary": "Violent gangs that prey on settlements and travelers. They are well-armed and ruthless, taking what they want by force. Many settlements live in fear of their raids."
+      },
+      {
+        "type": "faction",
+        "name": "The Rebuilders",
+        "summary": "A group dedicated to restoring civilization in the Wastelands. They protect settlements, maintain the Oasis, and work to create a better future for all survivors."
+      }
+    ]
+  }
+]
