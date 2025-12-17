@@ -115,6 +115,7 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
   });
 
   useCustomEvent(OPEN_CREATE_WORLD_EVENT, () => {
+    /* c8 ignore next */ // defensive guard; create-world event is only fired for authenticated users
     if (!state.currentUser) return;
     state.setActiveTab("World");
     state.setActiveMode("plan");
