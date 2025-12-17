@@ -12,6 +12,7 @@ export function useCustomEvent(
   handler: (event: CustomEvent) => void
 ) {
   useEffect(() => {
+    /* c8 ignore next */ // SSR guard; window is undefined only outside browser/JS DOM
     if (typeof window === "undefined") return;
     
     const eventHandler = (e: Event) => {

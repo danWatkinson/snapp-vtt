@@ -19,6 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<CurrentUser>(null);
 
   useEffect(() => {
+    /* c8 ignore next */ // SSR guard; auth events only fire in the browser
     if (typeof window === "undefined") return;
 
     // Listen for auth events to sync state
