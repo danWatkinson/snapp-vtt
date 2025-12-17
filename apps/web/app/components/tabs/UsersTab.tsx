@@ -12,8 +12,7 @@ import Section from "../ui/Section";
 import SectionHeader from "../ui/SectionHeader";
 import ListContainer from "../ui/ListContainer";
 import Form from "../ui/Form";
-import WorldHeader from "../navigation/WorldHeader";
-import PlanningTabs from "../navigation/PlanningTabs";
+import WorldPlanningHeader from "../navigation/WorldPlanningHeader";
 
 export default function UsersTab() {
   const {
@@ -60,16 +59,103 @@ export default function UsersTab() {
     selectedIds,
     modalsState: modals
   });
+  // Extract user management content to avoid duplication
+  const renderUserManagementContent = () => (
+    <>
+      <SectionHeader
+        action={{
+          label: "Create user",
+          onClick: () => setCreateUserModalOpen(true)
+        }}
+      >
+        Users
+      </SectionHeader>
+
+      <Section data-testid="users-list">
+        <ListContainer
+          items={users}
+          emptyMessage="No users found."
+          data-testid="users-list-items"
+        >
+          {users.map((user) => (
+            <li
+              key={user.id}
+              className="rounded border p-3 text-sm snapp-panel"
+              data-testid={`user-${user.username}`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-semibold snapp-heading" data-testid={`username-${user.username}`}>
+                    {user.username}
+                  </div>
+                  <div className="mt-1 flex gap-2">
+                    {user.roles.length === 0 ? (
+                      <span className="text-xs snapp-muted">No roles</span>
+                    ) : (
+                      user.roles.map((role) => (
+                        <span
+                          key={role}
+                          className="rounded px-2 py-0.5 text-xs snapp-pill"
+                        >
+                          {role}
+                          <button
+                            type="button"
+                            onClick={() => handlers.handleRevokeRole(user.username, role)}
+                            className="ml-1 hover:opacity-70"
+                            aria-label={`Revoke ${role} role`}
+                            data-testid={`revoke-${role}-${user.username}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handlers.handleDeleteUser(user.username)}
+                  className="rounded px-2 py-1 text-xs hover:opacity-70 snapp-danger-btn"
+                  data-testid={`delete-${user.username}`}
+                >
+                  Delete
+                </button>
+              </div>
+            </li>
+          ))}
+        </ListContainer>
+      </Section>
+
+      <div className="mt-4 rounded border p-4 snapp-panel">
+        <Heading>Assign role (admin only)</Heading>
+        <form onSubmit={handlers.handleAssignRole}>
+          <FormField
+            label="Target username"
+            value={targetUsername}
+            onChange={setTargetUsername}
+            data-testid="assign-target-username"
+          />
+          <FormField
+            label="Role"
+            value={targetRole}
+            onChange={setTargetRole}
+            data-testid="assign-role"
+          />
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="mt-2 rounded px-3 py-1 text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed snapp-primary-btn"
+          >
+            {isLoading ? "Assigning…" : "Assign role"}
+          </button>
+        </form>
+      </div>
+    </>
+  );
+
   return (
     <div data-component="UsersTab" className="space-y-6">
-      {selectedIds.worldId && (
-        <>
-          <WorldHeader />
-          <Section>
-            <PlanningTabs />
-          </Section>
-        </>
-      )}
+      <WorldPlanningHeader />
 
       <div className="flex items-center justify-between mb-4">
         <Heading>User Management</Heading>
@@ -78,197 +164,12 @@ export default function UsersTab() {
         </p>
       </div>
 
-      {currentUser && currentUser.user.roles.includes("admin") && (
-        <>
-          {selectedIds.worldId ? (
-            <Section>
-
-            {currentUser && currentUser.user.roles.includes("admin") && (
-              <>
-                <SectionHeader
-                  action={{
-                    label: "Create user",
-                    onClick: () => setCreateUserModalOpen(true)
-                  }}
-                >
-                  Users
-                </SectionHeader>
-
-                <div data-testid="users-list">
-            <ListContainer
-              items={users}
-              emptyMessage="No users found."
-              data-testid="users-list-items"
-            >
-              {users.map((user) => (
-                <li
-                  key={user.id}
-                  className="rounded border p-3 text-sm snapp-panel"
-                  data-testid={`user-${user.username}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold snapp-heading" data-testid={`username-${user.username}`}>
-                        {user.username}
-                      </div>
-                      <div className="mt-1 flex gap-2">
-                        {user.roles.length === 0 ? (
-                          <span className="text-xs snapp-muted">No roles</span>
-                        ) : (
-                          user.roles.map((role) => (
-                            <span
-                              key={role}
-                              className="rounded px-2 py-0.5 text-xs snapp-pill"
-                            >
-                              {role}
-                              <button
-                                type="button"
-                                onClick={() => handlers.handleRevokeRole(user.username, role)}
-                                className="ml-1 hover:opacity-70"
-                                aria-label={`Revoke ${role} role`}
-                                data-testid={`revoke-${role}-${user.username}`}
-                              >
-                                ×
-                              </button>
-                            </span>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handlers.handleDeleteUser(user.username)}
-                      className="rounded px-2 py-1 text-xs hover:opacity-70 snapp-danger-btn"
-                      data-testid={`delete-${user.username}`}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-                </ListContainer>
-                </div>
-
-                <div className="mt-4 rounded border p-4 snapp-panel">
-                  <Heading>Assign role (admin only)</Heading>
-                  <form onSubmit={handlers.handleAssignRole}>
-            <FormField
-              label="Target username"
-              value={targetUsername}
-              onChange={setTargetUsername}
-              data-testid="assign-target-username"
-            />
-            <FormField
-              label="Role"
-              value={targetRole}
-              onChange={setTargetRole}
-              data-testid="assign-role"
-            />
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="mt-2 rounded px-3 py-1 text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed snapp-primary-btn"
-                    >
-                      {isLoading ? "Assigning…" : "Assign role"}
-                    </button>
-                  </form>
-                </div>
-              </>
-            )}
-            </Section>
-          ) : (
-            <>
-              <SectionHeader
-                action={{
-                  label: "Create user",
-                  onClick: () => setCreateUserModalOpen(true)
-                }}
-              >
-                Users
-              </SectionHeader>
-
-              <Section data-testid="users-list">
-                <ListContainer
-                  items={users}
-                  emptyMessage="No users found."
-                  data-testid="users-list-items"
-                >
-                  {users.map((user) => (
-                    <li
-                      key={user.id}
-                      className="rounded border p-3 text-sm snapp-panel"
-                      data-testid={`user-${user.username}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-semibold snapp-heading" data-testid={`username-${user.username}`}>
-                            {user.username}
-                          </div>
-                          <div className="mt-1 flex gap-2">
-                            {user.roles.length === 0 ? (
-                              <span className="text-xs snapp-muted">No roles</span>
-                            ) : (
-                              user.roles.map((role) => (
-                                <span
-                                  key={role}
-                                  className="rounded px-2 py-0.5 text-xs snapp-pill"
-                                >
-                                  {role}
-                                  <button
-                                    type="button"
-                                    onClick={() => handlers.handleRevokeRole(user.username, role)}
-                                    className="ml-1 hover:opacity-70"
-                                    aria-label={`Revoke ${role} role`}
-                                    data-testid={`revoke-${role}-${user.username}`}
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handlers.handleDeleteUser(user.username)}
-                          className="rounded px-2 py-1 text-xs hover:opacity-70 snapp-danger-btn"
-                          data-testid={`delete-${user.username}`}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ListContainer>
-              </Section>
-
-              <div className="mt-4 rounded border p-4 snapp-panel">
-                <Heading>Assign role (admin only)</Heading>
-                <form onSubmit={handlers.handleAssignRole}>
-                  <FormField
-                    label="Target username"
-                    value={targetUsername}
-                    onChange={setTargetUsername}
-                    data-testid="assign-target-username"
-                  />
-                  <FormField
-                    label="Role"
-                    value={targetRole}
-                    onChange={setTargetRole}
-                    data-testid="assign-role"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="mt-2 rounded px-3 py-1 text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed snapp-primary-btn"
-                  >
-                    {isLoading ? "Assigning…" : "Assign role"}
-                  </button>
-                </form>
-              </div>
-            </>
-          )}
-        </>
+      {currentUser?.user.roles.includes("admin") && (
+        selectedIds.worldId ? (
+          <Section>{renderUserManagementContent()}</Section>
+        ) : (
+          renderUserManagementContent()
+        )
       )}
 
       {createUserModalOpen && currentUser && (

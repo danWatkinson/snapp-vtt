@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode } from "../helpers";
+import { selectWorldAndEnterPlanningMode, ensureModeSelectorVisible } from "../helpers";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
 
 const { When, Then } = createBdd();
@@ -12,21 +12,7 @@ When('the admin navigates to the "World Entities" planning screen', async ({ pag
 When(
   'the admin creates a world named {string} with description {string}',
   async ({ page }, worldName: string, description: string) => {
-    // Check if ModeSelector is visible (if not, we need to leave current world first)
-    const modeSelectorVisible = await page
-      .getByRole("tablist", { name: "World context" })
-      .isVisible()
-      .catch(() => false);
-
-    if (!modeSelectorVisible) {
-      // A world is currently selected, so we need to leave it first
-      await page.getByRole("button", { name: /^Snapp/i }).click();
-      await page.getByRole("button", { name: "Leave World" }).click();
-      // Wait for ModeSelector to appear
-      await expect(
-        page.getByRole("tablist", { name: "World context" })
-      ).toBeVisible({ timeout: 5000 });
-    }
+    await ensureModeSelectorVisible(page);
 
     // Check if world already exists
     const worldContextTablist = page.getByRole("tablist", { name: "World context" });

@@ -1,25 +1,12 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { ensureModeSelectorVisible } from "../helpers";
 
 const { When, Then } = createBdd();
 // Note: "the admin navigates to the World Entities planning screen" is defined in world-create.steps.ts
 
 When("world {string} exists", async ({ page }, worldName: string) => {
-  // Check if ModeSelector is visible (if not, we need to leave current world first)
-  const modeSelectorVisible = await page
-    .getByRole("tablist", { name: "World context" })
-    .isVisible()
-    .catch(() => false);
-
-  if (!modeSelectorVisible) {
-    // A world is currently selected, so we need to leave it first
-    await page.getByRole("button", { name: /^Snapp/i }).click();
-    await page.getByRole("button", { name: "Leave World" }).click();
-    // Wait for ModeSelector to appear
-    await expect(
-      page.getByRole("tablist", { name: "World context" })
-    ).toBeVisible({ timeout: 5000 });
-  }
+  await ensureModeSelectorVisible(page);
 
   const worldContextTablist = page.getByRole("tablist", { name: "World context" });
   const hasWorldTab = await worldContextTablist
@@ -50,21 +37,7 @@ When("world {string} exists", async ({ page }, worldName: string) => {
 });
 
 When("the admin selects world {string}", async ({ page }, worldName: string) => {
-  // Check if ModeSelector is visible (if not, we need to leave current world first)
-  const modeSelectorVisible = await page
-    .getByRole("tablist", { name: "World context" })
-    .isVisible()
-    .catch(() => false);
-
-  if (!modeSelectorVisible) {
-    // A world is currently selected, so we need to leave it first
-    await page.getByRole("button", { name: /^Snapp/i }).click();
-    await page.getByRole("button", { name: "Leave World" }).click();
-    // Wait for ModeSelector to appear
-    await expect(
-      page.getByRole("tablist", { name: "World context" })
-    ).toBeVisible({ timeout: 5000 });
-  }
+  await ensureModeSelectorVisible(page);
 
   const worldContextTablist = page.getByRole("tablist", { name: "World context" });
   await worldContextTablist.getByRole("tab", { name: worldName }).click();

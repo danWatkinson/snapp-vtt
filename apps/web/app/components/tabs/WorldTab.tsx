@@ -15,8 +15,7 @@ import Section from "../ui/Section";
 import SectionHeader from "../ui/SectionHeader";
 import ListContainer from "../ui/ListContainer";
 import Form from "../ui/Form";
-import PlanningTabs from "../navigation/PlanningTabs";
-import WorldHeader from "../navigation/WorldHeader";
+import WorldPlanningHeader from "../navigation/WorldPlanningHeader";
 import { getNameById, getEntityTypeLabel } from "../../../lib/helpers/entityHelpers";
 import { useMemo } from "react";
 
@@ -116,10 +115,8 @@ export default function WorldTab() {
 
       {selectedWorldId && selectedWorld && (
         <>
-          <WorldHeader />
+          <WorldPlanningHeader />
           <Section>
-            <PlanningTabs />
-
             <TabList aria-label="Entity types" variant="filter">
               {(["all", "location", "creature", "faction", "event"] as const).map(
                 (type) => {

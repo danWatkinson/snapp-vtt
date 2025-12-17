@@ -61,11 +61,11 @@ export async function loginAsAdmin(page: Page) {
  * Ensures a world exists (creates "Eldoria" if needed), selects it,
  * and optionally navigates to a specific planning sub-tab.
  */
-export async function selectWorldAndEnterPlanningMode(
-  page: Page,
-  subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users" = "World Entities"
-) {
-  // Check if ModeSelector is visible (if not, we need to leave current world first)
+/**
+ * Ensures the ModeSelector (world context tablist) is visible.
+ * If a world is currently selected, leaves it first.
+ */
+export async function ensureModeSelectorVisible(page: Page) {
   const modeSelectorVisible = await page
     .getByRole("tablist", { name: "World context" })
     .isVisible()
@@ -83,6 +83,13 @@ export async function selectWorldAndEnterPlanningMode(
       page.getByRole("tablist", { name: "World context" })
     ).toBeVisible({ timeout: 5000 });
   }
+}
+
+export async function selectWorldAndEnterPlanningMode(
+  page: Page,
+  subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users" = "World Entities"
+) {
+  await ensureModeSelectorVisible(page);
 
   // Check if any world exists in the World context selector
   const worldContextTablist = page.getByRole("tablist", { name: "World context" });

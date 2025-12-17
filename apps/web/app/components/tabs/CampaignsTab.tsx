@@ -17,8 +17,7 @@ import SectionHeader from "../ui/SectionHeader";
 import ListContainer from "../ui/ListContainer";
 import Form from "../ui/Form";
 import { getNameById, getEntityTypeLabel } from "../../../lib/helpers/entityHelpers";
-import WorldHeader from "../navigation/WorldHeader";
-import PlanningTabs from "../navigation/PlanningTabs";
+import WorldPlanningHeader from "../navigation/WorldPlanningHeader";
 
 export default function CampaignsTab() {
   const {
@@ -185,11 +184,10 @@ export default function CampaignsTab() {
 
   return (
     <section data-component="CampaignsTab" className="space-y-4">
+      <WorldPlanningHeader />
+      
       {selectedIds.worldId && (
-        <>
-          <WorldHeader />
-          <Section>
-            <PlanningTabs />
+        <Section>
 
             {/* Only show campaign selection UI if no campaign is selected yet */}
             {!selectedCampaignId && (
@@ -276,13 +274,13 @@ export default function CampaignsTab() {
                 {campaignView === "sessions" && (
                   <>
                     <SectionHeader
-                level={4}
-                className="text-sm font-medium"
-                action={{
-                  label: "Add session",
-                  onClick: () => setSessionModalOpen(true),
-                  size: "xs"
-                }}
+                      level={4}
+                      className="text-sm font-medium"
+                      action={{
+                        label: "Add session",
+                        onClick: () => setSessionModalOpen(true),
+                        size: "xs"
+                      }}
                     >
                       Sessions
                     </SectionHeader>
@@ -315,17 +313,17 @@ export default function CampaignsTab() {
                 {campaignView === "players" && (
                   <>
                     <SectionHeader
-                level={4}
-                className="text-sm font-medium"
-                action={{
-                  label: "Add player",
-                  onClick: () => setPlayerModalOpen(true),
-                  size: "xs",
-                  "data-testid": "add-player-button"
-                }}
-              >
-                Players
-              </SectionHeader>
+                      level={4}
+                      className="text-sm font-medium"
+                      action={{
+                        label: "Add player",
+                        onClick: () => setPlayerModalOpen(true),
+                        size: "xs",
+                        "data-testid": "add-player-button"
+                      }}
+                    >
+                      Players
+                    </SectionHeader>
 
               <ListContainer
                 items={players}
@@ -340,17 +338,17 @@ export default function CampaignsTab() {
             </>
           )}
 
-          {/* Story arcs view */}
-          {campaignView === "story-arcs" && (
-            <>
-              <SectionHeader
-                level={4}
-                className="text-sm font-medium"
-                action={{
-                  label: "Add story arc",
-                  onClick: () => setStoryArcModalOpen(true),
-                  size: "xs"
-                }}
+                {/* Story arcs view */}
+                {campaignView === "story-arcs" && (
+                  <>
+                    <SectionHeader
+                      level={4}
+                      className="text-sm font-medium"
+                      action={{
+                        label: "Add story arc",
+                        onClick: () => setStoryArcModalOpen(true),
+                        size: "xs"
+                      }}
                     >
                       Story Arcs
                     </SectionHeader>
@@ -568,13 +566,13 @@ export default function CampaignsTab() {
                 {selectedStoryArcId && (
                   <>
                     <SectionHeader
-                level={4}
-                className="text-sm font-medium"
-                action={{
-                  label: "Add event",
-                  onClick: () => setStoryArcEventModalOpen(true),
-                  size: "xs"
-                }}
+                      level={4}
+                      className="text-sm font-medium"
+                      action={{
+                        label: "Add event",
+                        onClick: () => setStoryArcEventModalOpen(true),
+                        size: "xs"
+                      }}
                     >
                       Events for{" "}
                       {
@@ -608,13 +606,13 @@ export default function CampaignsTab() {
                 {selectedSessionId && (
                   <>
                     <SectionHeader
-                level={4}
-                className="text-sm font-medium"
-                action={{
-                  label: "Add scene",
-                  onClick: () => setSceneModalOpen(true),
-                  size: "xs"
-                }}
+                      level={4}
+                      className="text-sm font-medium"
+                      action={{
+                        label: "Add scene",
+                        onClick: () => setSceneModalOpen(true),
+                        size: "xs"
+                      }}
                     >
                       Scenes for {getNameById(sessions, selectedSessionId, "selected session")}
                     </SectionHeader>
@@ -637,7 +635,6 @@ export default function CampaignsTab() {
               </>
             )}
           </Section>
-        </>
       )}
 
       {/* Modals */}
