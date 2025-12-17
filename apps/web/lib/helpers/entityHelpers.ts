@@ -50,7 +50,9 @@ export function getEntityTypeLabel(
       return "Factions";
     case "event":
       return "Events";
+    /* c8 ignore start */ // default is unreachable in TS but exists in compiled JS
     default:
       return "All";
+    /* c8 ignore stop */
   }
 }
