@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useHomePage } from "../../../lib/contexts/HomePageContext";
 import {
   OPEN_USER_MANAGEMENT_EVENT,
   OPEN_CREATE_WORLD_EVENT,
@@ -27,6 +28,15 @@ function dispatchOpenManageAssets() {
 
 export default function SnappMenu() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { selectedIds, setSelectionField, setActiveMode, setActiveTab, setPlanningSubTab } = useHomePage();
+
+  const handleLeaveWorld = () => {
+    setSelectionField("worldId", null);
+    setActiveMode(null);
+    setActiveTab(null);
+    setPlanningSubTab("World Entities");
+    setMenuOpen(false);
+  };
 
   return (
     <div className="relative">
@@ -88,6 +98,19 @@ export default function SnappMenu() {
             >
               Create world
             </button>
+            {selectedIds.worldId && (
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors border-t"
+                style={{ 
+                  color: "#3d2817",
+                  borderColor: "#6b5438"
+                }}
+                onClick={handleLeaveWorld}
+              >
+                Leave World
+              </button>
+            )}
           </nav>
         </>
       )}

@@ -12,7 +12,8 @@ import {
 import {
   createWorld,
   fetchWorlds,
-  createWorldEntity
+  createWorldEntity,
+  updateWorldSplashImage
 } from "../clients/worldClient";
 import {
   createCampaign,
@@ -300,6 +301,30 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     }
   }
 
+  async function handleSetWorldSplash(
+    worldId: string,
+    splashImageAssetId: string | null
+  ) {
+    if (!currentUser) return;
+    try {
+      await withAsyncAction(
+        () => updateWorldSplashImage(worldId, splashImageAssetId, currentUser.token),
+        {
+          setIsLoading,
+          setError,
+          onSuccess: (updatedWorld) => {
+            setWorlds((prev) =>
+              prev.map((w) => (w.id === updatedWorld.id ? updatedWorld : w))
+            );
+          }
+        }
+      );
+    } catch (err) {
+      /* c8 ignore next */ // Error already handled by withAsyncAction; catch is defensive
+      // Error already handled by withAsyncAction
+    }
+  }
+
   async function handleCreateEntity(e: FormEvent) {
     e.preventDefault();
     if (!selectedIds.worldId || selectedEntityType === "all") return;
@@ -533,6 +558,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     handleDeleteUser,
     handleCreateUser,
     handleCreateWorld,
+    handleSetWorldSplash,
     handleCreateEntity,
     handleCreateCampaign,
     handleCreateSession,

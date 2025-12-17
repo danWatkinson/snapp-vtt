@@ -3,10 +3,14 @@ import https from "https";
 import fs from "fs";
 import path from "path";
 import { createAssetApp, InMemoryAssetStore } from "./app";
+import { seedAssets } from "./assetSeeder";
 
 const port = Number(process.env.ASSET_PORT ?? process.env.PORT ?? 4700);
 
 const store = new InMemoryAssetStore();
+
+// Seed assets before creating the app
+seedAssets(store);
 
 const app = createAssetApp({ store });
 

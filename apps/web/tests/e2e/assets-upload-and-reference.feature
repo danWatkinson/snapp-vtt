@@ -10,16 +10,16 @@ Feature: World builder uploads and references digital assets
   Scenario: World builder uploads an image asset for use in a world
     When the admin signs in to the system as "admin"
     And the admin navigates to the "Assets" library screen
-    And the admin uploads an image asset "forest-background.png"
-    Then the image asset "forest-background.png" appears in the assets list
-    And the image asset "forest-background.png" displays a thumbnail in the assets list
+    And the admin uploads an image asset "approaching-nuln.jpg"
+    Then the image asset "approaching-nuln.jpg" appears in the assets list
+    And the image asset "approaching-nuln.jpg" displays a thumbnail in the assets list
 
   Scenario: World builder views an image asset in a modal
     When the admin signs in to the system as "admin"
     And the admin navigates to the "Assets" library screen
-    And the admin uploads an image asset "forest-background.png"
-    And the admin clicks the thumbnail for image asset "forest-background.png"
-    Then a modal opens displaying the full image for "forest-background.png"
+    And the admin uploads an image asset "approaching-nuln.jpg"
+    And the admin clicks the thumbnail for image asset "approaching-nuln.jpg"
+    Then a modal opens displaying the full image for "approaching-nuln.jpg"
     When the admin closes the image modal
     Then the modal is no longer visible
 
@@ -36,8 +36,8 @@ Feature: World builder uploads and references digital assets
     And the admin selects world "Eldoria"
     And the admin navigates to the locations tab
     And the admin ensures location "Whispering Woods" exists
-    And the admin sets the image asset for location "Whispering Woods" to "forest-background.png"
-    Then the location "Whispering Woods" shows image asset "forest-background.png" in the UI
+    And the admin sets the image asset for location "Whispering Woods" to "approaching-nuln.jpg"
+    Then the location "Whispering Woods" shows image asset "approaching-nuln.jpg" in the UI
 
   Scenario: World builder references an uploaded audio asset in a scene
     When the admin signs in to the system as "admin"

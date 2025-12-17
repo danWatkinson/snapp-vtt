@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import { useHomePage } from "../../../lib/contexts/HomePageContext";
 import Heading from "../ui/Heading";
 import TabButton from "../ui/TabButton";
@@ -12,8 +13,8 @@ import { getNameById } from "../../../lib/helpers/entityHelpers";
 export default function ModeSelector() {
   const {
     worlds,
+    assets,
     selectedIds,
-    activeMode,
     setSelectionField,
     setSelectedEntityType,
     setEntitiesLoadedFor,
@@ -23,20 +24,21 @@ export default function ModeSelector() {
   } = useHomePage();
 
   const selectedWorldId = selectedIds.worldId;
+  const [isPending, startTransition] = useTransition();
 
   const onSelectWorld = (worldId: string) => {
-    setSelectionField("worldId", worldId);
-    setSelectedEntityType("all");
-    setEntitiesLoadedFor(null);
-    setActiveMode("plan");
-    setActiveTab("World");
-    setPlanningSubTab("World Entities");
+    // Use startTransition to batch all state updates and mark them as non-urgent
+    // This prevents the updates from triggering unnecessary recompiles
+    startTransition(() => {
+      setSelectionField("worldId", worldId);
+      setSelectedEntityType("all");
+      setEntitiesLoadedFor(null);
+      setActiveMode("plan");
+      setActiveTab("World");
+      setPlanningSubTab("World Entities");
+    });
   };
 
-  const onSwitchToLivePlay = () => {
-    setActiveMode("play");
-    setActiveTab("Campaigns");
-  };
   return (
     <Section
       data-component="ModeSelector"
@@ -58,44 +60,41 @@ export default function ModeSelector() {
           <TabList aria-label="World context" flexWrap>
             {worlds.map((world) => {
               const isActive = selectedWorldId === world.id;
+              const splashAsset = assets.find(
+                (asset) =>
+                  asset.mediaType === "image" &&
+                  asset.id === world.splashImageAssetId
+              );
               return (
                 <TabButton
                   key={world.id}
                   isActive={isActive}
                   onClick={() => onSelectWorld(world.id)}
                 >
-                  {world.name}
+                  <span className="flex items-center gap-2">
+                    {splashAsset ? (
+                      <img
+                        src={splashAsset.storageUrl}
+                        alt={splashAsset.name || splashAsset.originalFileName}
+                        className="h-6 w-6 rounded border snapp-border object-cover"
+                        onError={(e) => {
+                          // Hide broken images gracefully
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <span className="flex h-6 w-6 items-center justify-center rounded border border-dashed snapp-border text-[10px] leading-none text-slate-500 bg-slate-50/60">
+                        —
+                      </span>
+                    )}
+                    <span>{world.name}</span>
+                  </span>
                 </TabButton>
               );
             })}
           </TabList>
         </>
-      )}
-
-      {selectedWorldId && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm snapp-muted">
-              Working in{" "}
-              <span className="font-semibold">
-                {getNameById(worlds, selectedWorldId, "selected world")}
-              </span>
-              {activeMode === "plan" && " (planning mode)."}
-            </p>
-            <div className="flex items-center gap-2">
-              {activeMode === "plan" && (
-                <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs snapp-muted">
-                  Planning mode
-                </span>
-              )}
-              <Button onClick={onSwitchToLivePlay}>
-                {activeMode === "plan"
-                  ? "Switch to live play"
-                  : "Live play mode"}
-              </Button>
-            </div>
-          </div>
-        </div>
       )}
     </Section>
   );

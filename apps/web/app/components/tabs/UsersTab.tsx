@@ -12,6 +12,8 @@ import Section from "../ui/Section";
 import SectionHeader from "../ui/SectionHeader";
 import ListContainer from "../ui/ListContainer";
 import Form from "../ui/Form";
+import WorldHeader from "../navigation/WorldHeader";
+import PlanningTabs from "../navigation/PlanningTabs";
 
 export default function UsersTab() {
   const {
@@ -60,7 +62,16 @@ export default function UsersTab() {
   });
   return (
     <div data-component="UsersTab" className="space-y-6">
-      <div className="flex items-center justify-between">
+      {selectedIds.worldId && (
+        <>
+          <WorldHeader />
+          <Section>
+            <PlanningTabs />
+          </Section>
+        </>
+      )}
+
+      <div className="flex items-center justify-between mb-4">
         <Heading>User Management</Heading>
         <p className="text-sm snapp-muted">
           Logged in as {currentUser.user.username} ({currentUser.user.roles.join(", ") || "no roles"})
@@ -69,16 +80,21 @@ export default function UsersTab() {
 
       {currentUser && currentUser.user.roles.includes("admin") && (
         <>
-          <SectionHeader
-            action={{
-              label: "Create user",
-              onClick: () => setCreateUserModalOpen(true)
-            }}
-          >
-            Users
-          </SectionHeader>
+          {selectedIds.worldId ? (
+            <Section>
 
-          <Section data-testid="users-list">
+            {currentUser && currentUser.user.roles.includes("admin") && (
+              <>
+                <SectionHeader
+                  action={{
+                    label: "Create user",
+                    onClick: () => setCreateUserModalOpen(true)
+                  }}
+                >
+                  Users
+                </SectionHeader>
+
+                <div data-testid="users-list">
             <ListContainer
               items={users}
               emptyMessage="No users found."
@@ -130,11 +146,12 @@ export default function UsersTab() {
                   </div>
                 </li>
               ))}
-            </ListContainer>
-          </Section>
+                </ListContainer>
+                </div>
 
-          <Section variant="secondary" as="form" onSubmit={handlers.handleAssignRole}>
-            <Heading>Assign role (admin only)</Heading>
+                <div className="mt-4 rounded border p-4 snapp-panel">
+                  <Heading>Assign role (admin only)</Heading>
+                  <form onSubmit={handlers.handleAssignRole}>
             <FormField
               label="Target username"
               value={targetUsername}
@@ -147,14 +164,110 @@ export default function UsersTab() {
               onChange={setTargetRole}
               data-testid="assign-role"
             />
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="mt-2 rounded px-3 py-1 text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed snapp-primary-btn"
-            >
-              {isLoading ? "Assigning…" : "Assign role"}
-            </button>
-          </Section>
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="mt-2 rounded px-3 py-1 text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed snapp-primary-btn"
+                    >
+                      {isLoading ? "Assigning…" : "Assign role"}
+                    </button>
+                  </form>
+                </div>
+              </>
+            )}
+            </Section>
+          ) : (
+            <>
+              <SectionHeader
+                action={{
+                  label: "Create user",
+                  onClick: () => setCreateUserModalOpen(true)
+                }}
+              >
+                Users
+              </SectionHeader>
+
+              <Section data-testid="users-list">
+                <ListContainer
+                  items={users}
+                  emptyMessage="No users found."
+                  data-testid="users-list-items"
+                >
+                  {users.map((user) => (
+                    <li
+                      key={user.id}
+                      className="rounded border p-3 text-sm snapp-panel"
+                      data-testid={`user-${user.username}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold snapp-heading" data-testid={`username-${user.username}`}>
+                            {user.username}
+                          </div>
+                          <div className="mt-1 flex gap-2">
+                            {user.roles.length === 0 ? (
+                              <span className="text-xs snapp-muted">No roles</span>
+                            ) : (
+                              user.roles.map((role) => (
+                                <span
+                                  key={role}
+                                  className="rounded px-2 py-0.5 text-xs snapp-pill"
+                                >
+                                  {role}
+                                  <button
+                                    type="button"
+                                    onClick={() => handlers.handleRevokeRole(user.username, role)}
+                                    className="ml-1 hover:opacity-70"
+                                    aria-label={`Revoke ${role} role`}
+                                    data-testid={`revoke-${role}-${user.username}`}
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handlers.handleDeleteUser(user.username)}
+                          className="rounded px-2 py-1 text-xs hover:opacity-70 snapp-danger-btn"
+                          data-testid={`delete-${user.username}`}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ListContainer>
+              </Section>
+
+              <div className="mt-4 rounded border p-4 snapp-panel">
+                <Heading>Assign role (admin only)</Heading>
+                <form onSubmit={handlers.handleAssignRole}>
+                  <FormField
+                    label="Target username"
+                    value={targetUsername}
+                    onChange={setTargetUsername}
+                    data-testid="assign-target-username"
+                  />
+                  <FormField
+                    label="Role"
+                    value={targetRole}
+                    onChange={setTargetRole}
+                    data-testid="assign-role"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="mt-2 rounded px-3 py-1 text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed snapp-primary-btn"
+                  >
+                    {isLoading ? "Assigning…" : "Assign role"}
+                  </button>
+                </form>
+              </div>
+            </>
+          )}
         </>
       )}
 

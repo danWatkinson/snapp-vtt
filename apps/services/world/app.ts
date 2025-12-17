@@ -64,6 +64,25 @@ export function createWorldApp(deps: WorldAppDependencies = {}) {
     res.json({ worlds });
   });
 
+  // Update world metadata (e.g. splash image asset)
+  app.patch("/worlds/:worldId", authenticate("gm"), (req: Request, res: Response) => {
+    const { worldId } = req.params;
+    const {
+      splashImageAssetId
+    } = req.body as {
+      splashImageAssetId?: string | null;
+    };
+
+    try {
+      const world = store.updateWorld(worldId, {
+        splashImageAssetId: splashImageAssetId ?? undefined
+      });
+      res.json({ world });
+    } catch (err) {
+      res.status(404).json({ error: (err as Error).message });
+    }
+  });
+
   app.post("/worlds", authenticate("gm"), (req: Request, res: Response) => {
     const { name, description } = req.body as {
       name?: string;

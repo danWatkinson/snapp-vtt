@@ -2,6 +2,7 @@ import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 import { ensureCampaignExists } from "../helpers";
 import { Buffer } from "buffer";
+import path from "path";
 
 const { When, Then } = createBdd();
 
@@ -29,11 +30,8 @@ When('the admin navigates to the "Assets" library screen', async ({ page }) => {
 
 When("the admin uploads an image asset {string}", async ({ page }, fileName: string) => {
   const fileInput = page.getByLabel("Upload asset");
-  await fileInput.setInputFiles({
-    name: fileName,
-    mimeType: "image/png",
-    buffer: Buffer.from("fake image content")
-  });
+  const filePath = path.join(process.cwd(), "test-assets", "images", fileName);
+  await fileInput.setInputFiles(filePath);
 });
 
 Then("the image asset {string} appears in the assets list", async ({ page }, fileName: string) => {
@@ -71,8 +69,14 @@ Then(
     // Wait for the modal to appear
     const modal = page.getByRole("dialog");
     await expect(modal).toBeVisible();
-    // Check that the modal title contains the asset name
-    await expect(modal.getByText(fileName)).toBeVisible();
+    // Check that the modal title contains the asset name or filename
+    // The modal shows asset.name || asset.originalFileName, so check for either
+    const baseName = fileName.replace(/\.[^.]+$/, ""); // Remove extension
+    const hasFileName = await modal.getByText(fileName).isVisible().catch(() => false);
+    const hasBaseName = await modal.getByText(baseName).isVisible().catch(() => false);
+    if (!hasFileName && !hasBaseName) {
+      throw new Error(`Modal title does not contain "${fileName}" or "${baseName}"`);
+    }
     // Check that there's an image in the modal
     const modalImage = modal.locator("img").first();
     await expect(modalImage).toBeVisible();

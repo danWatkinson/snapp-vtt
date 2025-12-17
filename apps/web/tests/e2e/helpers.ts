@@ -7,11 +7,30 @@ import { Page, expect } from "@playwright/test";
 export async function loginAs(page: Page, username: string, password: string) {
   await page.goto("/");
   
+  // Check if already logged in - if so, log out first
+  const logoutButton = page.getByRole("button", { name: "Log out" });
+  const isLoggedIn = await logoutButton.isVisible().catch(() => false);
+  if (isLoggedIn) {
+    await logoutButton.click();
+    // Wait for logout to complete and page to reload
+    await page.waitForLoadState("networkidle");
+    await page.goto("/");
+  }
+  
+  // Wait for page to be ready
+  await page.waitForLoadState("domcontentloaded");
+  
   // Open login modal via banner Login button
-  await page.getByRole("button", { name: "Login" }).click();
+  const loginButton = page.getByRole("button", { name: "Login" });
+  await expect(loginButton).toBeVisible({ timeout: 5000 });
+  await loginButton.click();
 
+  // Wait for login dialog to appear first
+  const loginDialog = page.getByRole("dialog", { name: "Login" });
+  await expect(loginDialog).toBeVisible({ timeout: 5000 });
+  
   // Wait for login form to be visible in the modal
-  await page.getByTestId("login-username").waitFor({ timeout: 5000 });
+  await expect(page.getByTestId("login-username")).toBeVisible({ timeout: 5000 });
   
   // Fill in credentials
   await page.getByTestId("login-username").fill(username);
@@ -23,8 +42,6 @@ export async function loginAs(page: Page, username: string, password: string) {
   // Success criteria:
   // - Login dialog closes
   // - Authenticated shell (world context panel) becomes visible
-  const loginDialog = page.getByRole("dialog", { name: "Login" });
-
   await expect(loginDialog).toBeHidden({ timeout: 15000 });
   await expect(
     page.getByRole("heading", { name: "World context and mode" })
@@ -48,6 +65,25 @@ export async function selectWorldAndEnterPlanningMode(
   page: Page,
   subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users" = "World Entities"
 ) {
+  // Check if ModeSelector is visible (if not, we need to leave current world first)
+  const modeSelectorVisible = await page
+    .getByRole("tablist", { name: "World context" })
+    .isVisible()
+    .catch(() => false);
+
+  if (!modeSelectorVisible) {
+    // A world is currently selected, so we need to leave it first
+    await page.getByRole("button", { name: /^Snapp/i }).click();
+    // Wait for the menu to open and the "Leave World" button to be visible
+    const leaveWorldButton = page.getByRole("button", { name: "Leave World" });
+    await expect(leaveWorldButton).toBeVisible({ timeout: 5000 });
+    await leaveWorldButton.click();
+    // Wait for ModeSelector to appear
+    await expect(
+      page.getByRole("tablist", { name: "World context" })
+    ).toBeVisible({ timeout: 5000 });
+  }
+
   // Check if any world exists in the World context selector
   const worldContextTablist = page.getByRole("tablist", { name: "World context" });
   const hasWorld = await worldContextTablist
@@ -87,13 +123,39 @@ export async function selectWorldAndEnterPlanningMode(
   }
 
   // Select the first available world (should be Eldoria or another existing world)
+  // The tab is a button with role="tab" that contains nested content (image + text)
   const worldTab = worldContextTablist.getByRole("tab").first();
-  await worldTab.click();
+  
+  // Ensure the tab is visible and clickable
+  await expect(worldTab).toBeVisible({ timeout: 5000 });
+  
+  // Get the world name for debugging
+  const worldName = await worldTab.textContent();
+  
+  // Click the tab - it's a button element, so clicking should work
+  // Try clicking at a specific position (center) to avoid nested elements
+  const box = await worldTab.boundingBox();
+  if (box) {
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  } else {
+    // Fallback to regular click if bounding box isn't available
+    await worldTab.click({ force: true });
+  }
+  
+  // Wait for the world to be selected - the most reliable indicator is planning tabs appearing
+  // The PlanningTabs component renders when both activeMode === "plan" and selectedIds.worldId is set
+  // Wait for any pending network requests to complete
+  try {
+    await page.waitForLoadState("networkidle", { timeout: 2000 });
+  } catch {
+    // If networkidle times out quickly, that's okay - just continue
+  }
   
   // Wait for planning mode to be active and planning sub-tabs to appear
+  // This is the most reliable indicator that a world is selected
   await expect(
     page.getByRole("tablist", { name: "World planning views" })
-  ).toBeVisible({ timeout: 5000 });
+  ).toBeVisible({ timeout: 15000 });
 
   // Navigate to the requested sub-tab if not already on it
   if (subTab !== "World Entities") {

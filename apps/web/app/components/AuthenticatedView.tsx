@@ -6,7 +6,6 @@ import SessionsTab from "./tabs/SessionsTab";
 import UsersTab from "./tabs/UsersTab";
 import AssetsTab from "./tabs/AssetsTab";
 import ModeSelector from "./navigation/ModeSelector";
-import PlanningTabs from "./navigation/PlanningTabs";
 import { useHomePage } from "../../lib/contexts/HomePageContext";
 
 export default function AuthenticatedView() {
@@ -23,11 +22,7 @@ export default function AuthenticatedView() {
 
   return (
     <section className="space-y-6">
-      <ModeSelector />
-
-      {activeMode === "plan" && selectedIds.worldId && (
-        <PlanningTabs />
-      )}
+      {!selectedIds.worldId && <ModeSelector />}
 
       {activeTab === "World" && <WorldTab />}
 

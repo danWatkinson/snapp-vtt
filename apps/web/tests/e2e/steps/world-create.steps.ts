@@ -12,6 +12,22 @@ When('the admin navigates to the "World Entities" planning screen', async ({ pag
 When(
   'the admin creates a world named {string} with description {string}',
   async ({ page }, worldName: string, description: string) => {
+    // Check if ModeSelector is visible (if not, we need to leave current world first)
+    const modeSelectorVisible = await page
+      .getByRole("tablist", { name: "World context" })
+      .isVisible()
+      .catch(() => false);
+
+    if (!modeSelectorVisible) {
+      // A world is currently selected, so we need to leave it first
+      await page.getByRole("button", { name: /^Snapp/i }).click();
+      await page.getByRole("button", { name: "Leave World" }).click();
+      // Wait for ModeSelector to appear
+      await expect(
+        page.getByRole("tablist", { name: "World context" })
+      ).toBeVisible({ timeout: 5000 });
+    }
+
     // Check if world already exists
     const worldContextTablist = page.getByRole("tablist", { name: "World context" });
     const hasWorld = await worldContextTablist
@@ -24,7 +40,8 @@ When(
       return;
     }
 
-    // Open create world popup
+    // Open create world popup via Snapp menu
+    await page.getByRole("button", { name: /^Snapp/i }).click();
     await page.getByRole("button", { name: "Create world" }).click();
     await expect(
       page.getByRole("dialog", { name: "Create world" })
@@ -57,6 +74,22 @@ When(
 Then(
   'the UI shows {string} in the world context selector',
   async ({ page }, worldName: string) => {
+    // Check if ModeSelector is visible (if not, we need to leave current world first)
+    const modeSelectorVisible = await page
+      .getByRole("tablist", { name: "World context" })
+      .isVisible()
+      .catch(() => false);
+
+    if (!modeSelectorVisible) {
+      // A world is currently selected, so we need to leave it first
+      await page.getByRole("button", { name: /^Snapp/i }).click();
+      await page.getByRole("button", { name: "Leave World" }).click();
+      // Wait for ModeSelector to appear
+      await expect(
+        page.getByRole("tablist", { name: "World context" })
+      ).toBeVisible({ timeout: 5000 });
+    }
+
     const worldContextTablist = page.getByRole("tablist", { name: "World context" });
     await expect(
       worldContextTablist.getByRole("tab", { name: worldName })

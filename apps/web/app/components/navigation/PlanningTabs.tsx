@@ -11,7 +11,9 @@ export default function PlanningTabs() {
     selectedIds,
     planningSubTab,
     setPlanningSubTab,
-    setActiveTab
+    setActiveTab,
+    setCampaignView,
+    campaigns
   } = useHomePage();
 
   const selectedWorldId = selectedIds.worldId;
@@ -22,7 +24,16 @@ export default function PlanningTabs() {
   const onSelectTab = (tab: "World Entities" | "Campaigns" | "Story Arcs" | "Users") => {
     setPlanningSubTab(tab);
     if (tab === "World Entities") setActiveTab("World");
-    if (tab === "Campaigns" || tab === "Story Arcs") setActiveTab("Campaigns");
+    if (tab === "Campaigns") {
+      setActiveTab("Campaigns");
+      setCampaignView("sessions");
+    }
+    if (tab === "Story Arcs") {
+      setActiveTab("Campaigns");
+      setCampaignView("story-arcs");
+      // If no campaign is selected but campaigns exist, auto-select first one
+      // This will be handled by the useEffect in CampaignsTab, but we ensure the view is set
+    }
     if (tab === "Users") setActiveTab("Users");
   };
 

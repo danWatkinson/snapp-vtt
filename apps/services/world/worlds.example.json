@@ -1,0 +1,24 @@
+[
+  {
+    "name": "Eldoria",
+    "description": "A high-fantasy realm of magic and adventure",
+    "splashImageFileName": "approaching-nuln.jpg",
+    "entities": [
+      {
+        "type": "location",
+        "name": "Whispering Woods",
+        "summary": "An ancient forest filled with secret paths and spirits."
+      }
+    ]
+  },
+  {
+    "name": "Nuln",
+    "description": "A bustling city of industry and trade",
+    "splashImageFileName": "approaching-nuln.jpg"
+  },
+  {
+    "name": "Mystic Realm",
+    "description": "A world where magic flows through everything",
+    "splashImageFileName": "ChatGPT Image Apr 18, 2025, 09_38_58 AM.png"
+  }
+]

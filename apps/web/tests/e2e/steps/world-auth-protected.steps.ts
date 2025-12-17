@@ -9,6 +9,23 @@ Then("the world tab is not visible", async ({ page }) => {
 
 When('the admin creates a world named "Authenticated Test World"', async ({ page }) => {
   const worldName = "Authenticated Test World";
+  
+  // Check if ModeSelector is visible (if not, we need to leave current world first)
+  const modeSelectorVisible = await page
+    .getByRole("tablist", { name: "World context" })
+    .isVisible()
+    .catch(() => false);
+
+  if (!modeSelectorVisible) {
+    // A world is currently selected, so we need to leave it first
+    await page.getByRole("button", { name: /^Snapp/i }).click();
+    await page.getByRole("button", { name: "Leave World" }).click();
+    // Wait for ModeSelector to appear
+    await expect(
+      page.getByRole("tablist", { name: "World context" })
+    ).toBeVisible({ timeout: 5000 });
+  }
+
   const hasWorld = await page
     .getByText(worldName)
     .first()

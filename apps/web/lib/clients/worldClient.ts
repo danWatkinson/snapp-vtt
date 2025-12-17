@@ -2,6 +2,11 @@ export interface World {
   id: string;
   name: string;
   description: string;
+  /**
+   * Optional reference to a DigitalAsset (image) used as the world's splash image.
+   * This is an ID in the assets service, not a URL.
+   */
+  splashImageAssetId?: string;
 }
 
 export interface WorldEntity {
@@ -48,6 +53,28 @@ export async function createWorld(
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(body.error ?? "Failed to create world");
+  }
+  return body.world as World;
+}
+
+export async function updateWorldSplashImage(
+  worldId: string,
+  splashImageAssetId: string | null,
+  token?: string
+): Promise<World> {
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const res = await fetch(`${WORLD_SERVICE_URL}/worlds/${worldId}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({ splashImageAssetId })
+  });
+
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(body.error ?? "Failed to update world");
   }
   return body.world as World;
 }
