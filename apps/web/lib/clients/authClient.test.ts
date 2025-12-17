@@ -223,6 +223,17 @@ describe("authClient", () => {
 
       await expect(createUser("token", "existing", "password")).rejects.toThrow("Username already exists");
     });
+
+    it("should throw generic error when response has no error message", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({})
+      });
+
+      await expect(createUser("token", "user", "password")).rejects.toThrow(
+        "Failed to create user"
+      );
+    });
   });
 
   describe("deleteUser", () => {
