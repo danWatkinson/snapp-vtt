@@ -20,4 +20,20 @@ At this stage, the focus is on **rules of engagement** rather than concrete feat
 
 Refer to the ADRs for the full rationale and details behind these rules. As features are introduced, new ADRs will be added or existing ones updated.
 
+### Service CLIs
+
+Each backend service exposes a small CLI wrapper (implemented with `yargs`) to make orchestration, demos, and tests easier:
+
+- Auth service:
+  - `npm run cli:auth -- start` – start the auth HTTPS service (with seeding).
+  - `npm run cli:auth -- seed-users` – seed users from the configured JSON file (or `--file path/to/users.json`).
+
+- World service:
+  - `npm run cli:world -- start` – start the world HTTPS service (with seeding).
+  - `npm run cli:world -- seed-worlds` – seed worlds and entities from the configured JSON file (or `--file path/to/worlds.json`).
+
+- Campaign service:
+  - `npm run cli:campaign -- start` – start the campaign HTTPS service (with seeding).
+  - `npm run cli:campaign -- seed-campaigns` – seed campaigns, sessions, scenes, story arcs, and events from the configured JSON file (or `--file path/to/campaigns.json`).
+
 

@@ -26,6 +26,7 @@ The rules of engagement already require TypeScript, Next.js, RESTful services, a
 - **Backend services**
   - Implement backend HTTP services as **RESTful APIs**.
   - Each domain service is responsible for its own persistence and data store.
+  - The external HTTP contracts for each service MUST be documented in OpenAPI (or a compatible) format under `docs/api/` and kept in sync with the implementations.
 
 - **Testing**
   - Use a modern JavaScript/TypeScript test runner (e.g. Vitest or similar) to support:

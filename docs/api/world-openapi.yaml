@@ -1,0 +1,215 @@
+openapi: 3.0.3
+info:
+  title: World Service API
+  version: 0.1.0
+  description: |
+    World and world-entity management for the Snapp VTT system.
+    
+    This specification describes the public HTTP contract of the world service as implemented in `apps/services/world/app.ts`.
+servers:
+  - url: https://localhost:4501
+    description: Local development (WORLD_PORT or PORT)
+
+paths:
+  /worlds:
+    get:
+      summary: List all worlds
+      tags: [worlds]
+      responses:
+        '200':
+          description: List of worlds
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  worlds:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/World'
+    post:
+      summary: Create a new world
+      tags: [worlds]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, description]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: World created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  world:
+                    $ref: '#/components/schemas/World'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (requires gm)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /worlds/{worldId}/entities:
+    get:
+      summary: List entities for a world
+      tags: [entities]
+      parameters:
+        - name: worldId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/WorldEntityType'
+      responses:
+        '200':
+          description: World entities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entities:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorldEntity'
+    post:
+      summary: Create a world entity
+      tags: [entities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: worldId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, name, summary]
+              properties:
+                type:
+                  $ref: '#/components/schemas/WorldEntityType'
+                name:
+                  type: string
+                summary:
+                  type: string
+                beginningTimestamp:
+                  type: integer
+                  format: int64
+                endingTimestamp:
+                  type: integer
+                  format: int64
+      responses:
+        '201':
+          description: Entity created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity:
+                    $ref: '#/components/schemas/WorldEntity'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (requires gm)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    World:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+      required: [id, name, description]
+
+    WorldEntityType:
+      type: string
+      description: Logical type of the world entity
+      enum: [location, character, item, event]
+
+    WorldEntity:
+      type: object
+      properties:
+        id:
+          type: string
+        worldId:
+          type: string
+        type:
+          $ref: '#/components/schemas/WorldEntityType'
+        name:
+          type: string
+        summary:
+          type: string
+        beginningTimestamp:
+          type: integer
+          format: int64
+          nullable: true
+        endingTimestamp:
+          type: integer
+          format: int64
+          nullable: true
+      required: [id, worldId, type, name, summary]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]

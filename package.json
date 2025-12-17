@@ -13,7 +13,10 @@
     "test:e2e": "playwright test",
     "test:unit": "vitest run --config vitest.config.mts",
     "build": "next build apps/web",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "cli:auth": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/auth/cli.ts",
+    "cli:world": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/world/cli.ts",
+    "cli:campaign": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/campaign/cli.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
@@ -27,6 +30,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
+    "@types/yargs": "^17.0.32",
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^2.1.9",
     "autoprefixer": "^10.4.23",
@@ -51,6 +55,7 @@
     "jsonwebtoken": "^9.0.0",
     "next": "^15.0.0",
     "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "react-dom": "^18.3.0",
+    "yargs": "^17.7.2"
   }
 }

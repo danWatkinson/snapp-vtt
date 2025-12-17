@@ -24,6 +24,10 @@ export default defineConfig({
         "apps/services/campaign/server.ts", // Campaign service bootstrap/server wiring
         "apps/services/world/app.ts",       // Express wiring/glue for world service (covered via app.test.ts)
         "apps/services/world/server.ts",    // World service bootstrap/server wiring
+        "apps/services/**/cli.ts",          // CLI wrappers for services (thin yargs shells)
+        "apps/services/auth/userSeeder.ts",       // Auth seeding/bootstrap logic (I/O heavy, exercised via servers/CLIs)
+        "apps/services/world/worldSeeder.ts",     // World seeding/bootstrap logic (I/O heavy, exercised via servers/CLIs)
+        "apps/services/campaign/campaignSeeder.ts", // Campaign seeding/bootstrap logic (I/O heavy, exercised via servers/CLIs)
         "apps/web/lib/hooks/useHomePageHandlers.ts", // High-level orchestration hook; thoroughly tested but excluded from strict coverage to avoid noise from defensive/SSR guards
         "packages/auth-middleware/types.ts" // Types-only module (no runtime code to cover)
       ]
