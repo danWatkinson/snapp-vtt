@@ -112,6 +112,109 @@ async function lookupAssetByFileName(
 }
 
 /**
+ * Seed assets from seeds-assets/images directory
+ */
+async function seedAssets(
+  options: SeedOptions,
+  token: string
+): Promise<void> {
+  const imagesDir = path.join(process.cwd(), "seeds-assets", "images");
+
+  if (!fs.existsSync(imagesDir)) {
+    console.warn(`Assets directory not found at ${imagesDir}, skipping asset seeding`);
+    return;
+  }
+
+  if (!fs.statSync(imagesDir).isDirectory()) {
+    console.warn(`Assets path is not a directory: ${imagesDir}, skipping asset seeding`);
+    return;
+  }
+
+  console.log("Seeding assets...\n");
+
+  const files = fs.readdirSync(imagesDir);
+  const imageFiles = files.filter((file) => {
+    const ext = path.extname(file).toLowerCase();
+    return [".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext);
+  });
+
+  if (imageFiles.length === 0) {
+    console.log("No image files found in seeds-assets/images");
+    return;
+  }
+
+  const mimeTypes: Record<string, string> = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp"
+  };
+
+  // Get existing assets to check for duplicates
+  const existingAssetsResponse = await makeRequest(options.assetUrl, "/assets", "GET", token);
+  const existingAssets = (existingAssetsResponse.body as { assets?: Array<{ id: string; originalFileName: string }> }).assets ?? [];
+  const fileNameToId = new Map<string, string>();
+  for (const asset of existingAssets) {
+    fileNameToId.set(asset.originalFileName, asset.id);
+  }
+
+  let createdCount = 0;
+  let skippedCount = 0;
+
+  for (const fileName of imageFiles) {
+    try {
+      const filePath = path.join(imagesDir, fileName);
+      const stats = fs.statSync(filePath);
+      const ext = path.extname(fileName).toLowerCase();
+      const mimeType = mimeTypes[ext] || "image/jpeg";
+      const baseName = path.basename(fileName, ext);
+
+      // Check if asset already exists
+      if (fileNameToId.has(fileName)) {
+        console.log(`  Asset '${fileName}' already exists, skipping`);
+        skippedCount++;
+        continue;
+      }
+
+      // Create asset via API
+      const createResponse = await makeRequest(
+        options.assetUrl,
+        "/assets",
+        "POST",
+        token,
+        {
+          name: baseName,
+          originalFileName: fileName,
+          mimeType,
+          sizeBytes: stats.size,
+          tags: [],
+          storageUrl: `/mock-assets/${encodeURIComponent(fileName)}`
+        }
+      );
+
+      if (createResponse.status === 201) {
+        const asset = (createResponse.body as { asset?: { id: string; originalFileName: string } }).asset;
+        if (asset) {
+          fileNameToId.set(fileName, asset.id);
+          console.log(`  ✓ Created asset: ${fileName} (${asset.id})`);
+          createdCount++;
+        }
+      } else if (createResponse.status === 400 && (createResponse.body as any).error?.includes("already exists")) {
+        console.log(`  Asset '${fileName}' already exists, skipping`);
+        skippedCount++;
+      } else {
+        console.error(`  ✗ Failed to create asset ${fileName}: ${(createResponse.body as any).error || "Unknown error"}`);
+      }
+    } catch (err) {
+      console.error(`  ✗ Failed to seed asset ${fileName}:`, (err as Error).message);
+    }
+  }
+
+  console.log(`\nAsset seeding complete: ${createdCount} created, ${skippedCount} skipped`);
+}
+
+/**
  * Detect file type by examining JSON structure
  * Handles both arrays and single objects
  */
@@ -713,6 +816,17 @@ async function seedAll(options: SeedAllOptions): Promise<void> {
   }
 
   console.log(`Found ${subdirs.length} subdirectories: ${subdirs.join(", ")}\n`);
+
+  // Seed assets first (before worlds/campaigns that might reference them)
+  await seedAssets({
+    username: options.username,
+    password: options.password,
+    authUrl: options.authUrl,
+    worldUrl: options.worldUrl,
+    campaignUrl: options.campaignUrl,
+    assetUrl: options.assetUrl,
+    file: "" // Not used for asset seeding
+  }, token);
 
   // Process each subdirectory
   for (const subdir of subdirs) {

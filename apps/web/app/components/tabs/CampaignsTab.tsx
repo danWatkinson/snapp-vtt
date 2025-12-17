@@ -128,7 +128,7 @@ export default function CampaignsTab() {
   // Auto-select first campaign if available and none is selected
   // Only auto-select when user navigates to Campaigns/Story Arcs planning tab (not on initial load)
   // Default to story-arcs view if coming from Story Arcs planning tab, otherwise sessions
-  // Use a delay to avoid interfering with user actions (like clicking "Create campaign")
+  // Use a delay to avoid interfering with user actions (like creating a campaign via Snapp menu)
   const [hasNavigatedToCampaigns, setHasNavigatedToCampaigns] = useState(false);
   
   useEffect(() => {
@@ -188,54 +188,44 @@ export default function CampaignsTab() {
       
       {selectedIds.worldId && (
         <Section>
+          <SectionHeader>
+            Campaigns
+          </SectionHeader>
 
-            {/* Only show campaign selection UI if no campaign is selected yet */}
-            {!selectedCampaignId && (
-              <>
-                <SectionHeader
-                  action={{
-                    label: "Create campaign",
-                    onClick: () => setCampaignModalOpen(true)
-                  }}
-                >
-                  Campaigns
-                </SectionHeader>
+          {/* Always show campaign tabs when campaigns exist, so users can switch between them */}
+          {campaigns.length > 0 && (
+            <TabList aria-label="Campaigns" variant="planning">
+              {campaigns.map((camp) => {
+                const isActive = selectedCampaignId === camp.id;
+                return (
+                  <TabButton
+                    key={camp.id}
+                    isActive={isActive}
+                    onClick={() => {
+                      setSelectedCampaignId(camp.id);
+                      // Default to story-arcs if coming from Story Arcs planning tab, otherwise sessions
+                      const defaultView = planningSubTab === "Story Arcs" ? "story-arcs" : "sessions";
+                      setCampaignView(defaultView);
+                      setSessionsLoadedFor(null);
+                      setPlayersLoadedFor(null);
+                      setStoryArcsLoadedFor(null);
+                    }}
+                    style={!isActive ? { color: "#fefce8" } : undefined}
+                  >
+                    {camp.name}
+                  </TabButton>
+                );
+              })}
+            </TabList>
+          )}
 
-                {campaigns.length > 0 && (
-                  <TabList aria-label="Campaigns" variant="planning">
-                    {campaigns.map((camp) => {
-                      const isActive = selectedCampaignId === camp.id;
-                      return (
-                        <TabButton
-                          key={camp.id}
-                          isActive={isActive}
-                          onClick={() => {
-                            setSelectedCampaignId(camp.id);
-                            // Default to story-arcs if coming from Story Arcs planning tab, otherwise sessions
-                            const defaultView = planningSubTab === "Story Arcs" ? "story-arcs" : "sessions";
-                            setCampaignView(defaultView);
-                            setSessionsLoadedFor(null);
-                            setPlayersLoadedFor(null);
-                            setStoryArcsLoadedFor(null);
-                          }}
-                          style={!isActive ? { color: "#fefce8" } : undefined}
-                        >
-                          {camp.name}
-                        </TabButton>
-                      );
-                    })}
-                  </TabList>
-                )}
+          {campaigns.length === 0 && (
+            <EmptyState message="No campaigns have been created yet." />
+          )}
 
-                {campaigns.length === 0 && (
-                  <EmptyState message="No campaigns have been created yet." />
-                )}
-              </>
-            )}
-
-            {selectedCampaignId && (
-              <>
-                <TabList aria-label="Campaign views" variant="filter">
+          {selectedCampaignId && (
+            <>
+              <TabList aria-label="Campaign views" variant="filter">
             {[
               { key: "story-arcs", label: "Story arcs" },
               { key: "sessions", label: "Sessions" },
@@ -261,14 +251,12 @@ export default function CampaignsTab() {
             })}
                 </TabList>
 
-                <div className="flex items-center justify-between">
-                  <h3
-                    className="text-md font-semibold snapp-heading"
-                    style={{ fontFamily: "'Cinzel', serif" }}
-                  >
-                    {getNameById(campaigns, selectedCampaignId, "selected campaign")}
-                  </h3>
-                </div>
+                <h3
+                  className="text-md font-semibold snapp-heading"
+                  style={{ fontFamily: "'Cinzel', serif" }}
+                >
+                  {getNameById(campaigns, selectedCampaignId, "selected campaign")}
+                </h3>
 
                 {/* Sessions view */}
                 {campaignView === "sessions" && (

@@ -5,6 +5,7 @@ import { useHomePage } from "../../../lib/contexts/HomePageContext";
 import {
   OPEN_USER_MANAGEMENT_EVENT,
   OPEN_CREATE_WORLD_EVENT,
+  OPEN_CREATE_CAMPAIGN_EVENT,
   OPEN_MANAGE_ASSETS_EVENT
 } from "../../../lib/auth/authEvents";
 
@@ -17,6 +18,12 @@ function dispatchOpenUserManagement() {
 function dispatchOpenCreateWorld() {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(OPEN_CREATE_WORLD_EVENT));
+  }
+}
+
+function dispatchOpenCreateCampaign() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(OPEN_CREATE_CAMPAIGN_EVENT));
   }
 }
 
@@ -35,6 +42,11 @@ export default function SnappMenu() {
     setActiveMode(null);
     setActiveTab(null);
     setPlanningSubTab("World Entities");
+    setMenuOpen(false);
+  };
+
+  const handleLeaveCampaign = () => {
+    setSelectionField("campaignId", null);
     setMenuOpen(false);
   };
 
@@ -99,17 +111,50 @@ export default function SnappMenu() {
               Create world
             </button>
             {selectedIds.worldId && (
-              <button
-                type="button"
-                className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors border-t"
-                style={{ 
-                  color: "#3d2817",
-                  borderColor: "#6b5438"
-                }}
-                onClick={handleLeaveWorld}
-              >
-                Leave World
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors border-t"
+                  style={{ 
+                    color: "#3d2817",
+                    borderColor: "#6b5438"
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent overlay from closing menu before event fires
+                    dispatchOpenCreateCampaign();
+                    setMenuOpen(false);
+                  }}
+                >
+                  New Campaign
+                </button>
+                {selectedIds.campaignId && (
+                  <button
+                    type="button"
+                    className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors border-t"
+                    style={{ 
+                      color: "#3d2817",
+                      borderColor: "#6b5438"
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent overlay from closing menu before event fires
+                      handleLeaveCampaign();
+                    }}
+                  >
+                    Leave Campaign
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors border-t"
+                  style={{ 
+                    color: "#3d2817",
+                    borderColor: "#6b5438"
+                  }}
+                  onClick={handleLeaveWorld}
+                >
+                  Leave World
+                </button>
+              </>
             )}
           </nav>
         </>

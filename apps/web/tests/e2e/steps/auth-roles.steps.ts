@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { loginAs, selectWorldAndEnterPlanningMode } from "../helpers";
+import { loginAs } from "../helpers";
 import jwt from "jsonwebtoken";
 import type { APIRequestContext } from "@playwright/test";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
@@ -20,6 +20,11 @@ async function apiCall(
   path: string,
   options: { body?: any; token?: string } = {}
 ) {
+  // Check if request context is still valid
+  if (!request || (request as any).__disposed) {
+    throw new Error("Request context was disposed before API call");
+  }
+  
   const headers: Record<string, string> = {
     "Content-Type": "application/json"
   };
@@ -28,12 +33,20 @@ async function apiCall(
   }
 
   const url = `${AUTH_SERVICE_URL}${path}`;
-  const response = await request.fetch(url, {
-    method,
-    headers,
-    data: options.body,
-    ignoreHTTPSErrors: true
-  });
+  let response;
+  try {
+    response = await request.fetch(url, {
+      method,
+      headers,
+      data: options.body,
+      ignoreHTTPSErrors: true
+    });
+  } catch (error: any) {
+    if (error.message?.includes("disposed") || error.message?.includes("Request context")) {
+      throw new Error(`Request context was disposed during API call to ${method} ${url}. This may indicate concurrent test execution issues.`);
+    }
+    throw error;
+  }
 
   if (!response.ok()) {
     const status = response.status();
@@ -45,84 +58,116 @@ async function apiCall(
   return response.json();
 }
 
-// Helper to get admin token for API calls
-// Assumes admin user exists (services are seeded on startup)
-async function getAdminToken(request: APIRequestContext): Promise<string> {
-  const url = `${AUTH_SERVICE_URL}/auth/login`;
+// Helper to bootstrap admin user if it doesn't exist
+async function ensureAdminUserExists(request: APIRequestContext): Promise<void> {
   try {
-    const response = await request.fetch(url, {
+    // Try to login first
+    const loginResponse = await request.fetch(`${AUTH_SERVICE_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       data: { username: "admin", password: "admin123" },
       ignoreHTTPSErrors: true
     });
 
-    if (!response.ok()) {
-      const status = response.status();
-      const errorBody = await response.json().catch(() => ({}));
-      const errorMessage = errorBody.error ?? `HTTP ${status}`;
-      throw new Error(
-        `Login failed: ${errorMessage} (status ${status}). Check that auth service is running at ${AUTH_SERVICE_URL} and admin user exists.`
-      );
+    if (loginResponse.ok()) {
+      // Admin user exists, we're good
+      return;
     }
+  } catch {
+    // Login failed, try to bootstrap
+  }
 
-    const body = await response.json();
-    if (!body.token) {
-      throw new Error("Login response missing token");
+  // Admin doesn't exist or login failed - try to bootstrap
+  try {
+    const bootstrapResponse = await request.fetch(`${AUTH_SERVICE_URL}/bootstrap/admin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      data: { username: "admin", password: "admin123", roles: ["admin"] },
+      ignoreHTTPSErrors: true
+    });
+
+    if (!bootstrapResponse.ok()) {
+      const errorBody = await bootstrapResponse.json().catch(() => ({}));
+      // If bootstrap says users exist, try login again
+      if (errorBody.error?.includes("users exist")) {
+        // Users exist but login failed - this is an error
+        throw new Error("Admin user should exist but login failed");
+      }
+      throw new Error(`Bootstrap failed: ${errorBody.error || "Unknown error"}`);
     }
-    return body.token;
   } catch (err) {
     const error = err as Error;
-    // Check if it's a connection error
-    if (error.message.includes("ECONNREFUSED") || error.message.includes("Failed to fetch") || error.message.includes("network")) {
+    if (error.message.includes("ECONNREFUSED") || error.message.includes("Failed to fetch")) {
       throw new Error(
-        `Cannot connect to auth service at ${AUTH_SERVICE_URL}. Ensure the auth service is running (npm run dev:auth). Original error: ${error.message}`
+        `Cannot connect to auth service at ${AUTH_SERVICE_URL}. Ensure the auth service is running (npm run dev:auth).`
       );
     }
-    throw new Error(
-      `Failed to get admin token: ${error.message}. Ensure services are running at ${AUTH_SERVICE_URL} and admin user is seeded (username: admin, password: admin123).`
-    );
+    throw error;
   }
 }
 
+// Helper to get admin token for API calls
+// Creates admin user if it doesn't exist
+async function getAdminToken(request: APIRequestContext): Promise<string> {
+  // Ensure admin user exists first
+  await ensureAdminUserExists(request);
+
+  const url = `${AUTH_SERVICE_URL}/auth/login`;
+  const response = await request.fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    data: { username: "admin", password: "admin123" },
+    ignoreHTTPSErrors: true
+  });
+
+  if (!response.ok()) {
+    const status = response.status();
+    const errorBody = await response.json().catch(() => ({}));
+    const errorMessage = errorBody.error ?? `HTTP ${status}`;
+    throw new Error(
+      `Login failed: ${errorMessage} (status ${status}). Check that auth service is running at ${AUTH_SERVICE_URL}.`
+    );
+  }
+
+  const body = await response.json();
+  if (!body.token) {
+    throw new Error("Login response missing token");
+  }
+  return body.token;
+}
+
 Given('there is a user "alice" with no roles', async ({ page, request }) => {
-  // Try to ensure alice user exists with no roles via API
-  // If the service isn't available, assume users are already seeded (services seed on startup)
+  // Ensure alice user exists with no roles via API
+  const adminToken = await getAdminToken(request);
+  
   try {
-    const adminToken = await getAdminToken(request);
-    
-    try {
-      // Try to get the user first
-      await apiCall(request, "GET", "/users/alice", { token: adminToken });
-      // User exists - ensure no roles
+    // Try to get the user first
+    const user = await apiCall(request, "GET", "/users/alice", { token: adminToken });
+    // User exists - ensure no roles
+    if (user.user.roles.length > 0) {
       await apiCall(request, "PUT", "/users/alice/roles", {
         token: adminToken,
         body: { roles: [] }
       });
-    } catch (err) {
-      // User doesn't exist - create it
-      await apiCall(request, "POST", "/users", {
-        token: adminToken,
-        body: { username: "alice", password: "alice123", roles: [] }
-      });
     }
   } catch (err) {
-    // If we can't connect to the service, assume users are already seeded
-    // Services seed users on startup, so this should be fine
-    const error = err as Error;
-    if (error.message.includes("Cannot connect") || error.message.includes("ECONNREFUSED")) {
-      // Service not available - assume seeding happened on startup
-      return;
-    }
-    // Re-throw other errors
-    throw err;
+    // User doesn't exist - create it
+    await apiCall(request, "POST", "/users", {
+      token: adminToken,
+      body: { username: "alice", password: "alice123", roles: [] }
+    });
   }
 });
 
 // Common steps (admin user setup, admin login) are imported from common.steps.ts
 
 When('the admin navigates to the "Users" management screen', async ({ page }) => {
-  await selectWorldAndEnterPlanningMode(page, "Users");
+  // Use the Snapp menu's "User Management" entry, which doesn't require a world to be selected
+  await page.getByRole("button", { name: /^Snapp/i }).click();
+  await page.getByRole("button", { name: "User Management" }).click();
+  
+  // Wait for the Users tab to be visible
+  await page.waitForSelector('[data-component="UsersTab"]', { timeout: 5000 });
 });
 
 When(
@@ -193,10 +238,23 @@ When('user "alice" signs in to the system', async ({ page }) => {
 Then(
   'the issued access token for "alice" contains role "gm"',
   async ({ page, request }) => {
+    // Ensure request context is still valid (may be disposed during concurrent execution)
+    if (!request) {
+      throw new Error("Request context was disposed. This may indicate a test isolation issue.");
+    }
+    
     // Get the token by logging in as alice via API (since UI login stores it in React state, not localStorage)
-    const loginResponse = await apiCall(request, "POST", "/auth/login", {
-      body: { username: "alice", password: "alice123" }
-    });
+    let loginResponse;
+    try {
+      loginResponse = await apiCall(request, "POST", "/auth/login", {
+        body: { username: "alice", password: "alice123" }
+      });
+    } catch (error: any) {
+      if (error.message?.includes("disposed") || error.message?.includes("Request context")) {
+        throw new Error(`Request context was disposed during API call. This may indicate concurrent test execution issues. Original error: ${error.message}`);
+      }
+      throw error;
+    }
 
     const token = loginResponse.token;
     if (!token) {

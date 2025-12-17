@@ -8,6 +8,7 @@ import { useCustomEvent } from "../hooks/useCustomEvent";
 import {
   OPEN_USER_MANAGEMENT_EVENT,
   OPEN_CREATE_WORLD_EVENT,
+  OPEN_CREATE_CAMPAIGN_EVENT,
   OPEN_MANAGE_ASSETS_EVENT
 } from "../auth/authEvents";
 
@@ -124,6 +125,15 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
     state.setActiveTab("World");
     state.setActiveMode("plan");
     state.openModal("world");
+  });
+
+  useCustomEvent(OPEN_CREATE_CAMPAIGN_EVENT, () => {
+    /* c8 ignore next */ // defensive guard; create-campaign event is only fired for authenticated users in a world
+    if (!state.currentUser || !state.selectedIds.worldId) return;
+    state.setActiveTab("Campaigns");
+    state.setActiveMode("plan");
+    state.setPlanningSubTab("Campaigns");
+    state.openModal("campaign");
   });
 
   useCustomEvent(OPEN_MANAGE_ASSETS_EVENT, () => {

@@ -1,3 +1,4 @@
+import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 import { loginAsAdmin } from "../helpers";
 import type { APIRequestContext } from "@playwright/test";
@@ -41,58 +42,95 @@ async function apiCall(
   return response.json();
 }
 
-// Helper to get admin token for API calls
-// Assumes admin user exists (services are seeded on startup)
-async function getAdminToken(request: APIRequestContext): Promise<string> {
-  const url = `${AUTH_SERVICE_URL}/auth/login`;
+// Helper to bootstrap admin user if it doesn't exist
+async function ensureAdminUserExists(request: APIRequestContext): Promise<void> {
   try {
-    const response = await request.fetch(url, {
+    // Try to login first
+    const loginResponse = await request.fetch(`${AUTH_SERVICE_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       data: { username: "admin", password: "admin123" },
       ignoreHTTPSErrors: true
     });
 
-    if (!response.ok()) {
-      const status = response.status();
-      const errorBody = await response.json().catch(() => ({}));
-      const errorMessage = errorBody.error ?? `HTTP ${status}`;
-      throw new Error(
-        `Login failed: ${errorMessage} (status ${status}). Check that auth service is running at ${AUTH_SERVICE_URL} and admin user exists.`
-      );
+    if (loginResponse.ok()) {
+      // Admin user exists, we're good
+      return;
     }
+  } catch {
+    // Login failed, try to bootstrap
+  }
 
-    const body = await response.json();
-    if (!body.token) {
-      throw new Error("Login response missing token");
+  // Admin doesn't exist or login failed - try to bootstrap
+  try {
+    const bootstrapResponse = await request.fetch(`${AUTH_SERVICE_URL}/bootstrap/admin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      data: { username: "admin", password: "admin123", roles: ["admin"] },
+      ignoreHTTPSErrors: true
+    });
+
+    if (!bootstrapResponse.ok()) {
+      const errorBody = await bootstrapResponse.json().catch(() => ({}));
+      // If bootstrap says users exist, try login again
+      if (errorBody.error?.includes("users exist")) {
+        // Users exist but login failed - this is an error
+        throw new Error("Admin user should exist but login failed");
+      }
+      throw new Error(`Bootstrap failed: ${errorBody.error || "Unknown error"}`);
     }
-    return body.token;
   } catch (err) {
     const error = err as Error;
-    // Check if it's a connection error
-    if (error.message.includes("ECONNREFUSED") || error.message.includes("Failed to fetch") || error.message.includes("network")) {
+    if (error.message.includes("ECONNREFUSED") || error.message.includes("Failed to fetch")) {
       throw new Error(
-        `Cannot connect to auth service at ${AUTH_SERVICE_URL}. Ensure the auth service is running (npm run dev:auth). Original error: ${error.message}`
+        `Cannot connect to auth service at ${AUTH_SERVICE_URL}. Ensure the auth service is running (npm run dev:auth).`
       );
     }
+    throw error;
+  }
+}
+
+// Helper to get admin token for API calls
+// Creates admin user if it doesn't exist
+async function getAdminToken(request: APIRequestContext): Promise<string> {
+  // Ensure admin user exists first
+  await ensureAdminUserExists(request);
+
+  const url = `${AUTH_SERVICE_URL}/auth/login`;
+  const response = await request.fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    data: { username: "admin", password: "admin123" },
+    ignoreHTTPSErrors: true
+  });
+
+  if (!response.ok()) {
+    const status = response.status();
+    const errorBody = await response.json().catch(() => ({}));
+    const errorMessage = errorBody.error ?? `HTTP ${status}`;
     throw new Error(
-      `Failed to get admin token: ${error.message}. Ensure services are running at ${AUTH_SERVICE_URL} and admin user is seeded (username: admin, password: admin123).`
+      `Login failed: ${errorMessage} (status ${status}). Check that auth service is running at ${AUTH_SERVICE_URL}.`
     );
   }
+
+  const body = await response.json();
+  if (!body.token) {
+    throw new Error("Login response missing token");
+  }
+  return body.token;
 }
 
 Given(
   'there is an admin user "admin" with the "admin" role',
   async ({ page, request }) => {
-    // Try to ensure admin user exists with admin role via API
-    // If the service isn't available, assume users are already seeded (services seed on startup)
+    // Ensure admin user exists with admin role via API
+    // This will bootstrap the admin user if it doesn't exist
     try {
       const adminToken = await getAdminToken(request);
       
+      // Verify admin has admin role, update if needed
       try {
-        // Try to get the user first
         const user = await apiCall(request, "GET", "/users/admin", { token: adminToken });
-        // User exists - ensure admin role
         if (!user.user.roles.includes("admin")) {
           await apiCall(request, "PUT", "/users/admin/roles", {
             token: adminToken,
@@ -100,27 +138,19 @@ Given(
           });
         }
       } catch (err) {
-        // User doesn't exist - create it (this shouldn't happen if services are seeded)
-        // But we'll handle it gracefully
-        try {
-          await apiCall(request, "POST", "/users", {
-            token: adminToken,
-            body: { username: "admin", password: "admin123", roles: ["admin"] }
-          });
-        } catch (createErr) {
-          // User might already exist from seeding, that's okay
-        }
+        // User should exist after getAdminToken, but if not, create via API
+        await apiCall(request, "POST", "/users", {
+          token: adminToken,
+          body: { username: "admin", password: "admin123", roles: ["admin"] }
+        });
       }
     } catch (err) {
-      // If we can't connect to the service, assume users are already seeded
-      // Services seed users on startup, so this should be fine
       const error = err as Error;
       if (error.message.includes("Cannot connect") || error.message.includes("ECONNREFUSED")) {
-        // Service not available - assume seeding happened on startup
-        // This is acceptable since services seed users when they start
-        return;
+        throw new Error(
+          `Cannot connect to auth service at ${AUTH_SERVICE_URL}. Ensure the auth service is running (npm run dev:auth).`
+        );
       }
-      // Re-throw other errors (like authentication failures)
       throw err;
     }
   }
@@ -128,4 +158,43 @@ Given(
 
 When('the admin signs in to the system as "admin"', async ({ page }) => {
   await loginAsAdmin(page);
+});
+
+When("no campaign is selected", async ({ page }) => {
+  // Silently check if a campaign is currently selected
+  // If one is selected, use "Leave Campaign" from Snapp menu to deselect
+  // This step should never throw errors - it's just a helper to ensure clean state
+  
+  try {
+    // Quick check if campaign views are visible (indicates a campaign is selected)
+    const campaignViewsVisible = await page
+      .getByRole("tablist", { name: "Campaign views" })
+      .isVisible({ timeout: 1000 })
+      .catch(() => false);
+    
+    if (!campaignViewsVisible) {
+      // No campaign selected, we're done
+      return;
+    }
+    
+    // Campaign is selected - try to deselect it
+    // Use very short timeouts and catch all errors to avoid causing issues
+    try {
+      const snappButton = page.getByRole("button", { name: /^Snapp/i });
+      await snappButton.click({ timeout: 1000 }).catch(() => {});
+      
+      const leaveCampaignButton = page.getByRole("button", { name: "Leave Campaign" });
+      await leaveCampaignButton.isVisible({ timeout: 1000 }).catch(() => false);
+      await leaveCampaignButton.click({ timeout: 1000 }).catch(() => {});
+      
+      // Brief wait for state update
+      await page.waitForTimeout(100).catch(() => {});
+    } catch {
+      // Any error - silently ignore and continue
+      // The test will handle the state naturally
+    }
+  } catch {
+    // Any outer error - silently ignore
+    // This step is just a helper, not critical
+  }
 });

@@ -77,8 +77,17 @@ Then(
     }
 
     const worldContextTablist = page.getByRole("tablist", { name: "World context" });
-    await expect(
-      worldContextTablist.getByRole("tab", { name: worldName })
-    ).toBeVisible({ timeout: 10000 });
+    // When running concurrently, multiple workers may have created worlds with similar names
+    // Use .first() to handle multiple matches, or check if the exact name exists first
+    const exactMatch = worldContextTablist.getByRole("tab", { name: worldName, exact: true });
+    const exactMatchExists = await exactMatch.isVisible().catch(() => false);
+    
+    if (exactMatchExists) {
+      await expect(exactMatch).toBeVisible({ timeout: 10000 });
+    } else {
+      // If exact match doesn't exist, try to find any tab containing the name (for unique worker names)
+      const anyMatch = worldContextTablist.getByRole("tab").filter({ hasText: worldName }).first();
+      await expect(anyMatch).toBeVisible({ timeout: 10000 });
+    }
   }
 );

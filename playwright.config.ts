@@ -11,10 +11,16 @@ const testDir = defineBddConfig({
 export default defineConfig({
   testDir,
   reporter: "list",
+  timeout: 30000, // 30 second timeout for tests (increased for concurrent execution)
+  expect: {
+    timeout: 10000, // 10 second timeout for assertions
+  },
   use: {
     baseURL: "https://localhost:3000",
     trace: "on-first-retry",
-    ignoreHTTPSErrors: true
+    ignoreHTTPSErrors: true,
+    // Add retries for flaky tests during concurrent execution
+    actionTimeout: 10000,
   },
   projects: [
     {

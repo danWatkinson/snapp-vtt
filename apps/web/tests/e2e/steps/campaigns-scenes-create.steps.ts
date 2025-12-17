@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { getStoredWorldName } from "../helpers";
 // Note: "the admin navigates to the Campaigns planning screen" and "the campaign Rise of the Dragon King exists" 
 // are defined in campaigns-create.steps.ts
 
@@ -65,7 +66,9 @@ When('the admin ensures scene "The Throne Room" exists in the session', async ({
     await addSceneDialog.getByLabel("Scene name").fill("The Throne Room");
     await addSceneDialog.getByLabel("Summary", { exact: true }).fill("A tense negotiation with the king.");
 
-    await addSceneDialog.getByLabel("World").selectOption("Eldoria");
+    // Get the unique world name (stored from earlier steps)
+    const worldName = await getStoredWorldName(page, "Eldoria");
+    await addSceneDialog.getByLabel("World").selectOption(worldName);
 
     await page.getByRole("button", { name: "Save scene" }).click();
   }

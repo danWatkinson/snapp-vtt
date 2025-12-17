@@ -13,7 +13,8 @@ export default function HeaderAuth() {
       window.dispatchEvent(
         new CustomEvent(AUTH_EVENT, { detail: { username: null } })
       );
-      window.location.href = "/";
+      // No page reload needed - the AUTH_EVENT will trigger state updates
+      // and the app will automatically show the guest view
     }
   };
 

@@ -43,6 +43,29 @@ export function createApp(deps: AppDependencies = {}) {
   );
   app.use(express.json());
 
+  // Bootstrap endpoint for tests - allows creating first admin user without auth
+  // Only available when no users exist (for test/bootstrap scenarios)
+  app.post("/bootstrap/admin", async (req: ExpressRequest, res: Response) => {
+    const users = userStore.listUsers();
+    if (users.length > 0) {
+      return res.status(403).json({ error: "Bootstrap only available when no users exist" });
+    }
+
+    const { username = "admin", password = "admin123", roles = ["admin"] } = req.body as {
+      username?: string;
+      password?: string;
+      roles?: Role[];
+    };
+
+    try {
+      const passwordHash = await authService.hashPassword(password);
+      const user = userStore.createUser(username, roles, passwordHash);
+      return res.status(201).json({ user });
+    } catch (err) {
+      return res.status(400).json({ error: (err as Error).message });
+    }
+  });
+
   // Response logging middleware
   app.use((req: ExpressRequest, res: Response, next: NextFunction) => {
     const startTime = process.hrtime.bigint();

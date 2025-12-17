@@ -73,8 +73,22 @@ When("the admin deletes that user from the users list", async ({ page }) => {
     dialog.accept();
   });
 
-  await page.getByTestId(`delete-${testUsername}`).click();
-  await page.waitForTimeout(1000);
+  const deleteButton = page.getByTestId(`delete-${testUsername}`);
+  await expect(deleteButton).toBeVisible({ timeout: 5000 });
+  await deleteButton.click();
+  
+  // Wait for the confirmation dialog to be handled and deletion to process
+  // Use a shorter timeout and check if page is still valid
+  try {
+    await page.waitForTimeout(300);
+  } catch (error) {
+    if (error.message?.includes("closed") || page.isClosed()) {
+      // Page closed - this might be expected if deletion causes navigation
+      // But we should still check if the user was deleted
+      return;
+    }
+    throw error;
+  }
 });
 
 Then("the deleted user no longer appears in the users list", async ({ page }) => {
@@ -82,6 +96,18 @@ Then("the deleted user no longer appears in the users list", async ({ page }) =>
     throw new Error("lastCreatedUsername was not set; ensure user creation step ran first");
   }
 
+  // Check if page is still valid
+  if (page.isClosed()) {
+    throw new Error("Page was closed unexpectedly - cannot verify user deletion");
+  }
+
   const userItem = page.getByTestId(`user-${lastCreatedUsername}`);
-  await expect(userItem).not.toBeVisible({ timeout: 5000 });
+  try {
+    await expect(userItem).not.toBeVisible({ timeout: 5000 });
+  } catch (error) {
+    if (error.message?.includes("closed") || page.isClosed()) {
+      throw new Error("Page was closed while verifying user deletion");
+    }
+    throw error;
+  }
 });
