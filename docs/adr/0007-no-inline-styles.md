@@ -1,8 +1,9 @@
-# ADR 0001: Avoid Inline Styles in Web UI
+# ADR 0007: Avoid Inline Styles in Web UI
 
 ## Status
 
-Accepted
+Accepted  
+_For ADR lifecycle and conventions, see ADR 0001 – Rules of Engagement for the VTT System._
 
 ## Context
 
@@ -79,3 +80,18 @@ we now use a shared class:
     - Truly dynamic values that depend on runtime data (e.g. a gradient based on user input).
     - Temporary experimentation that will be refactored before merging.
 - When reviewing PRs, treat new inline styles in JSX as a smell and prefer a class-based solution where practical.
+
+### Allowed exceptions
+
+While inline styles should generally be avoided for visual tokens (colors, borders, shadows, backgrounds), the following cases are explicitly allowed:
+
+- **Font family hints**  
+  - Applying the Cinzel font via `style={{ fontFamily: "'Cinzel', serif" }}` (as in the examples above) is acceptable when color and other tokens are expressed via classes (e.g. `snapp-heading`).
+
+- **Truly dynamic styles**  
+  - Values that cannot reasonably be expressed as Tailwind or `snapp-*` utilities and depend on runtime data (e.g. a gradient or transform derived from user input).
+
+- **Documented one-off components**  
+  - Highly decorative components (e.g. a splash/hero screen) MAY use inline styles for complex backgrounds or text effects, provided:
+    - The usage is limited and intentional.
+    - It is documented in code review or ADR notes as a conscious exception rather than a pattern to copy.

@@ -1,7 +1,8 @@
 ## 0004 – HTTPS-Only Transport Security
 
 - **Status**: Accepted  
-- **Date**: 2025-12-15
+- **Date**: 2025-12-15  
+  _For ADR lifecycle and conventions, see ADR 0001 – Rules of Engagement for the VTT System._
 
 ### Context
 
@@ -16,10 +17,10 @@ All of these components need to communicate securely, and we want to ensure that
 
 ### Decision
 
-- **All services run HTTPS directly**
-  - The Next.js dev server runs over HTTPS (wrapped in a custom HTTPS server using Node's `https` module).
-  - All API services (auth, world, etc.) run over HTTPS using Express wrapped in Node's `https.createServer()`.
-  - No HTTP servers are exposed externally; all communication is encrypted.
+- **All services run HTTPS directly (development topology)**
+  - In local development, the Next.js dev server runs over HTTPS (wrapped in a custom HTTPS server using Node's `https` module).
+  - In local development, all API services (auth, world, etc.) run over HTTPS using Express wrapped in Node's `https.createServer()`.
+  - No HTTP servers are exposed externally in local development; all communication is encrypted.
 
 - **Frontend-to-service communication**
   - The frontend makes direct HTTPS calls to service endpoints (e.g. `https://localhost:4400/auth/login`, `https://localhost:4501/worlds`).
@@ -31,10 +32,24 @@ All of these components need to communicate securely, and we want to ensure that
   - Default location: `../Snapp-other/certs/localhost-key.pem` and `localhost-cert.pem`.
   - E2E tests are configured with `ignoreHTTPSErrors: true` to accept self-signed certs.
 
-- **Service ports**
-  - Web UI: `https://localhost:3000` (configurable via `WEB_PORT`).
-  - Auth service: `https://localhost:4400` (configurable via `AUTH_PORT`).
-  - World service: `https://localhost:4501` (configurable via `WORLD_PORT`).
+### Environments
+
+- **Local development**
+  - All services run HTTPS directly as described above, using self-signed certificates from a shared location.
+  - E2E tests (`npm run test:e2e`) target `https://localhost:3000` and are configured to accept these self-signed certificates.
+
+- **Staging / Production**
+  - External clients MUST always communicate with the system over HTTPS.
+  - It is acceptable for TLS to terminate at an edge proxy / load balancer, with HTTP between the edge and backend services, provided:
+    - No raw HTTP endpoints are exposed publicly.
+    - The edge is configured to enforce HTTPS and redirect or reject plain HTTP.
+  - The exact production TLS topology (per-service HTTPS vs edge-terminated HTTPS) will be captured in a future ADR once deployment infrastructure is fixed.
+
+### Service ports (development defaults)
+
+- Web UI: `https://localhost:3000` (configurable via `WEB_PORT`).
+- Auth service: `https://localhost:4400` (configurable via `AUTH_PORT`).
+- World service: `https://localhost:4501` (configurable via `WORLD_PORT`).
 
 ### Consequences
 

@@ -1,7 +1,8 @@
 ## 0006 – Campaigns, Sessions, and Scenes Domain Model
 
 - **Status**: Accepted  
-- **Date**: 2025-12-15
+- **Date**: 2025-12-15  
+  _For ADR lifecycle and conventions, see ADR 0001 – Rules of Engagement for the VTT System._
 
 ### Context
 
@@ -40,6 +41,12 @@ We need a clear model for how Campaigns, Sessions, and Scenes relate to Worlds a
     - `summary`
     - `worldId` – the World this Scene takes place in
     - `entityIds` – array of World Entity IDs (Locations, Creatures, Factions, etc.) referenced in the Scene
+
+  - **Referential integrity (desired invariants)**
+    - `Session.campaignId` SHOULD refer to an existing Campaign.
+    - `Scene.sessionId` SHOULD refer to an existing Session.
+    - `Scene.worldId` and all `Scene.entityIds` SHOULD refer to existing World / World Entity records in the World service.
+    - These invariants MAY initially be enforced only partially; stricter guarantees (including cross-service validation) can be introduced in a follow-up ADR as requirements tighten.
 
 - **Service responsibilities**
   - The **World service**:

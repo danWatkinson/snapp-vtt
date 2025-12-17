@@ -1,7 +1,8 @@
 ## 0003 – Authentication, Roles, and Token-Based Authorisation
 
 - **Status**: Accepted  
-- **Date**: 2025-12-15
+- **Date**: 2025-12-15  
+  _For ADR lifecycle and conventions, see ADR 0001 – Rules of Engagement for the VTT System._
 
 ### Context
 
@@ -29,6 +30,14 @@ The initial stories focus on:
   - Roles are represented as simple strings (e.g. `"admin"`, `"gm"`, `"player"`).
   - Role assignments are stored server-side in a dedicated user/role service.
   - Only users with the `"admin"` role may assign or revoke roles for other users.
+  - The initial role catalogue is:
+
+    | Role    | Who can assign | Intended use                                              |
+    |---------|----------------|-----------------------------------------------------------|
+    | `admin` | `admin`        | Full management of users, roles, and admin-only actions  |
+    | `gm`    | `admin`        | Game master; can manage worlds, campaigns, sessions, etc.|
+    | `player`| `admin`        | Regular player accounts                                   |
+
 
 - **Token-based authentication**
   - The system issues **access tokens** to authenticated users.
@@ -38,13 +47,17 @@ The initial stories focus on:
   - Tokens are signed (e.g. using JWT with a shared secret) so that services can validate them without central coordination.
 
 - **Updating permissions in (near) realtime**
-  - When an admin changes a user's roles:
-    - The change is persisted in the user/role store.
-    - Newly issued tokens will immediately reflect the updated role set.
-  - To ensure that tokens do not remain stale for long:
-    - Access tokens will be short-lived (e.g. minutes) and must be refreshed regularly, or
-    - Sensitive operations can re-check the current roles from the user/role service.
-  - The precise expiry/refresh strategy will be refined in a later ADR once concrete UX and security requirements emerge.
+  - **Current approach (MVP)**
+    - When an admin changes a user's roles:
+      - The change is persisted in the user/role store.
+      - Newly issued tokens (e.g. after the user signs in again) will immediately reflect the updated role set.
+    - Access tokens are short-lived (on the order of minutes), so explicit re-login or token renewal will pick up role changes in near real time.
+  - **Future strategy (to be decided in a follow-up ADR)**
+    - We have NOT yet chosen a long-term token refresh / revocation strategy. Options include:
+      - Short-lived access tokens with refresh tokens.
+      - Explicit re-login prompts when critical role changes occur.
+      - Sensitive operations re-checking current roles from the user/role service.
+    - The precise expiry/refresh strategy will be captured in a later ADR once concrete UX and security requirements emerge.
 
 - **Authorisation checks**
   - Services receiving a request:

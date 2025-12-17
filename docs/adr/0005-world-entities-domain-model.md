@@ -1,7 +1,8 @@
 ## 0005 – World Entities Domain Model
 
 - **Status**: Accepted  
-- **Date**: 2025-12-15
+- **Date**: 2025-12-15  
+  _For ADR lifecycle and conventions, see ADR 0001 – Rules of Engagement for the VTT System._
 
 ### Context
 

@@ -1,7 +1,8 @@
-## 0002 – Tech Stack and High-Level Testing Approach
+## 0002 – Tech Stack and Testing Strategy
 
 - **Status**: Accepted  
-- **Date**: 2025-12-15
+- **Date**: 2025-12-15  
+  _For ADR lifecycle and conventions, see ADR 0001 – Rules of Engagement for the VTT System._
 
 ### Context
 
@@ -29,11 +30,16 @@ The rules of engagement already require TypeScript, Next.js, RESTful services, a
   - The external HTTP contracts for each service MUST be documented in OpenAPI (or a compatible) format under `docs/api/` and kept in sync with the implementations.
 
 - **Testing**
-  - Use a modern JavaScript/TypeScript test runner (e.g. Vitest or similar) to support:
-    - **Unit tests** for all business logic, with **100% coverage** required.
-    - **API tests** that exercise RESTful services via HTTP.
-  - Use a modern browser automation tool (e.g. Playwright or similar) to execute:
-    - **E2E tests** defined in **Gherkin** feature files.
+  - Use a modern JavaScript/TypeScript test runner (e.g. Vitest or similar) and browser automation tool (e.g. Playwright) to support the following layers:
+
+    | Layer  | Tools                            | Location (examples)                                      | Requirements                            |
+    |--------|----------------------------------|----------------------------------------------------------|-----------------------------------------|
+    | Unit   | Vitest                          | `apps/services/**/*.test.ts`, `apps/web/lib/**/*.test.tsx` | **100% coverage** (lines/branches/etc.) |
+    | API    | Vitest + `supertest` (or similar) | `apps/services/**/app.test.ts`                          | Exercise REST endpoints via HTTP        |
+    | E2E    | Playwright + `playwright-bdd`   | `apps/web/tests/e2e/*.feature` + `steps/*.ts`           | UI flows defined in **Gherkin**         |
+
+  - All user-visible UI behaviour MUST be covered by **E2E tests defined in Gherkin** feature files and executed by the browser automation tool.
+  - New UI flows SHOULD NOT introduce ad-hoc Playwright `.spec.ts` tests; instead they MUST be expressed as Gherkin scenarios plus step definitions.
 
 ### Consequences
 
@@ -41,5 +47,4 @@ The rules of engagement already require TypeScript, Next.js, RESTful services, a
 - Next.js offers a productive environment for building and deploying modern UIs, but constrains some architectural choices to its conventions.
 - RESTful domain services with per-service data stores promote clear ownership and autonomy, but require careful design of cross-service contracts.
 - Committing to 100% unit test coverage and E2E Gherkin tests increases initial development effort, but provides strong regression protection and supports aggressive refactoring.
-
 

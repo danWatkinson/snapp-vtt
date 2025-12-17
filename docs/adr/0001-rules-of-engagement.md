@@ -54,4 +54,22 @@ Codifying these as rules of engagement provides a stable foundation for future d
 - Starting with failing E2E tests enforces a user-centric perspective and encourages meaningful failure messages, but may increase initial development time.
 - Ending each feature with a refactoring pass promotes long-term maintainability and adherence to clean code principles.
 
+Implementation status and drift for each ADR are tracked in matching review documents under `docs/` (for example, `docs/review-0001-rules-of-engagement-compliance.md` for this ADR). The ADRs themselves remain the single source of truth for the intended design.
+
+---
+
+### ADR Lifecycle
+
+- **New ADRs**
+  - All significant architectural decisions MUST be recorded as ADRs under `docs/adr` using the naming pattern `NNNN-title.md` (e.g. `0008-new-decision.md`).
+  - Each ADR MUST include at least: Status, Date, Context, Decision, Consequences.
+
+- **Evolving decisions**
+  - When a decision changes materially, prefer adding a **new ADR** that supersedes an older one rather than rewriting history.
+  - When an ADR is superseded:
+    - Update its **Status** to `Superseded by 000X`.
+    - Add a short note at the top linking to the new ADR.
+  - Minor clarifications that do not change the meaning of the decision (typos, wording improvements, expanded examples) MAY be made in-place without creating a new ADR.
+
+
 
