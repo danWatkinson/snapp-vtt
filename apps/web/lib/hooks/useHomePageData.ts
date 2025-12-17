@@ -23,9 +23,10 @@ import {
   fetchTimeline
 } from "../clients/campaignClient";
 import type { LoginResponse } from "../clients/authClient";
+import { fetchAssets } from "../clients/assetsClient";
 
 interface UseHomePageDataProps {
-  activeTab: "World" | "Campaigns" | "Sessions" | "Users" | null;
+  activeTab: "World" | "Campaigns" | "Sessions" | "Assets" | "Users" | null;
   currentUser: LoginResponse | null;
   selectedIds: {
     worldId: string | null;
@@ -50,6 +51,7 @@ interface UseHomePageDataProps {
   storyArcEventsLoadedFor: string | null;
   timelineLoadedFor: string | null;
   scenesLoadedFor: string | null;
+  assetsLoaded: boolean;
   
   // Setters
   setUsers: (users: any[]) => void;
@@ -73,6 +75,8 @@ interface UseHomePageDataProps {
   setTimelineLoadedFor: (key: string | null) => void;
   setScenes: (scenes: any[]) => void;
   setScenesLoadedFor: (key: string | null) => void;
+  setAssets: (assets: any[]) => void;
+  setAssetsLoaded: (loaded: boolean) => void;
   setError: (error: string | null) => void;
 }
 
@@ -99,6 +103,7 @@ export function useHomePageData(props: UseHomePageDataProps) {
     storyArcEventsLoadedFor,
     timelineLoadedFor,
     scenesLoadedFor,
+    assetsLoaded,
     setUsers,
     setUsersLoaded,
     setWorlds,
@@ -120,6 +125,8 @@ export function useHomePageData(props: UseHomePageDataProps) {
     setTimelineLoadedFor,
     setScenes,
     setScenesLoadedFor,
+    setAssets,
+    setAssetsLoaded,
     setError
   } = props;
 
@@ -232,4 +239,18 @@ export function useHomePageData(props: UseHomePageDataProps) {
     setScenesLoadedFor,
     setError
   );
+
+  // Assets: only load once the user is authenticated
+  if (currentUser && !assetsLoaded) {
+    fetchAssets(currentUser.token)
+      .then((assets) => {
+        setAssets(assets);
+        setAssetsLoaded(true);
+      })
+      .catch((err: unknown) => {
+        const message =
+          err instanceof Error ? err.message : "Failed to load assets";
+        setError(message);
+      });
+  }
 }

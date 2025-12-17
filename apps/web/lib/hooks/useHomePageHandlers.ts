@@ -45,7 +45,7 @@ interface UseHomePageHandlersProps {
   setError: (error: string | null) => void;
   setAuthServiceUnavailable: (unavailable: boolean) => void;
   setCurrentUser: (user: LoginResponse | null) => void;
-  setActiveTab: (tab: "World" | "Campaigns" | "Sessions" | "Users" | null) => void;
+  setActiveTab: (tab: "World" | "Campaigns" | "Sessions" | "Assets" | "Users" | null) => void;
   setActiveMode: (mode: "plan" | "play" | null) => void;
   setPlanningSubTab: (tab: "World Entities" | "Campaigns" | "Story Arcs" | "Users") => void;
   setSelectedEntityType: (type: "all" | "location" | "creature" | "faction" | "event") => void;

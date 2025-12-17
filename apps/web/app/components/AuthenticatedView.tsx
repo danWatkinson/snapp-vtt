@@ -4,6 +4,7 @@ import WorldTab from "./tabs/WorldTab";
 import CampaignsTab from "./tabs/CampaignsTab";
 import SessionsTab from "./tabs/SessionsTab";
 import UsersTab from "./tabs/UsersTab";
+import AssetsTab from "./tabs/AssetsTab";
 import ModeSelector from "./navigation/ModeSelector";
 import PlanningTabs from "./navigation/PlanningTabs";
 import { useHomePage } from "../../lib/contexts/HomePageContext";
@@ -33,6 +34,8 @@ export default function AuthenticatedView() {
       {activeTab === "Campaigns" && <CampaignsTab />}
 
       {activeTab === "Sessions" && <SessionsTab />}
+
+      {activeTab === "Assets" && <AssetsTab />}
 
       {activeTab === "Users" && currentUser && <UsersTab />}
     </section>

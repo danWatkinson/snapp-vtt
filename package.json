@@ -4,11 +4,12 @@
   "private": true,
   "description": "Virtual Table Top (VTT) system with explicit ADRs, TypeScript, Next.js UI, and RESTful services.",
   "scripts": {
-    "dev": "concurrently \"npm run dev:auth\" \"npm run dev:world\" \"npm run dev:campaign\" \"npm run dev:web\"",
+    "dev": "concurrently \"npm run dev:auth\" \"npm run dev:world\" \"npm run dev:campaign\" \"npm run dev:assets\" \"npm run dev:web\"",
     "dev:web": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/web/next-https-dev.ts",
     "dev:auth": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/auth/server.ts",
     "dev:world": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/world/server.ts",
     "dev:campaign": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/campaign/server.ts",
+    "dev:assets": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/assets/server.ts",
     "test": "npm run test:unit && npm run test:e2e",
     "test:e2e": "npm run test:e2e:generate && playwright test",
     "test:e2e:generate": "npx playwright-bdd test",

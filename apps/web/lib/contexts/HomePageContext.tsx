@@ -7,7 +7,8 @@ import { useHomePageHandlers } from "../hooks/useHomePageHandlers";
 import { useCustomEvent } from "../hooks/useCustomEvent";
 import {
   OPEN_USER_MANAGEMENT_EVENT,
-  OPEN_CREATE_WORLD_EVENT
+  OPEN_CREATE_WORLD_EVENT,
+  OPEN_MANAGE_ASSETS_EVENT
 } from "../auth/authEvents";
 
 type HomePageState = ReturnType<typeof useHomePageState>;
@@ -104,6 +105,9 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
     setTimelineLoadedFor: state.setTimelineLoadedFor,
     setScenes: state.setScenes,
     setScenesLoadedFor: state.setScenesLoadedFor,
+    assetsLoaded: state.assetsLoaded,
+    setAssets: state.setAssets,
+    setAssetsLoaded: state.setAssetsLoaded,
     setError: state.setError
   });
 
@@ -120,6 +124,12 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
     state.setActiveTab("World");
     state.setActiveMode("plan");
     state.openModal("world");
+  });
+
+  useCustomEvent(OPEN_MANAGE_ASSETS_EVENT, () => {
+    if (!state.currentUser) return;
+    state.setActiveTab("Assets");
+    state.setActiveMode(null);
   });
 
   return (

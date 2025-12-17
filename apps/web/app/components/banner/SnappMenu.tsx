@@ -3,7 +3,8 @@
 import { useState } from "react";
 import {
   OPEN_USER_MANAGEMENT_EVENT,
-  OPEN_CREATE_WORLD_EVENT
+  OPEN_CREATE_WORLD_EVENT,
+  OPEN_MANAGE_ASSETS_EVENT
 } from "../../../lib/auth/authEvents";
 
 function dispatchOpenUserManagement() {
@@ -15,6 +16,12 @@ function dispatchOpenUserManagement() {
 function dispatchOpenCreateWorld() {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(OPEN_CREATE_WORLD_EVENT));
+  }
+}
+
+function dispatchOpenManageAssets() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(OPEN_MANAGE_ASSETS_EVENT));
   }
 }
 
@@ -58,6 +65,17 @@ export default function SnappMenu() {
               }}
             >
               User Management
+            </button>
+            <button
+              type="button"
+              className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors"
+              style={{ color: "#3d2817" }}
+              onClick={() => {
+                dispatchOpenManageAssets();
+                setMenuOpen(false);
+              }}
+            >
+              Manage Assets
             </button>
             <button
               type="button"

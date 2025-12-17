@@ -7,7 +7,11 @@ import { useHomePageState } from "../hooks/useHomePageState";
 import { useHomePageHandlers } from "../hooks/useHomePageHandlers";
 import { useHomePageData } from "../hooks/useHomePageData";
 import { useCustomEvent } from "../hooks/useCustomEvent";
-import { OPEN_USER_MANAGEMENT_EVENT, OPEN_CREATE_WORLD_EVENT } from "../auth/authEvents";
+import {
+  OPEN_USER_MANAGEMENT_EVENT,
+  OPEN_CREATE_WORLD_EVENT,
+  OPEN_MANAGE_ASSETS_EVENT
+} from "../auth/authEvents";
 
 // Mock the hooks
 vi.mock("../hooks/useHomePageState");
@@ -362,6 +366,212 @@ describe("HomePageContext", () => {
     expect(setActiveTab).toHaveBeenCalledWith("World");
     expect(setActiveMode).toHaveBeenCalledWith("plan");
     expect(openModal).toHaveBeenCalledWith("world");
+
+    vi.mocked(useCustomEvent).mockReturnValue(undefined);
+  });
+
+  it("wires OPEN_MANAGE_ASSETS_EVENT to open Assets tab when currentUser exists", () => {
+    const setActiveTab = vi.fn();
+    const setActiveMode = vi.fn();
+
+    vi.mocked(useHomePageState).mockReturnValueOnce({
+      ...(vi.mocked(useHomePageState).mock.calls[0]?.[0] ?? {}),
+      activeTab: null,
+      setActiveTab,
+      activeMode: null,
+      setActiveMode,
+      currentUser: { user: { username: "admin", roles: ["admin"] }, token: "token" },
+      planningSubTab: "World Entities",
+      setPlanningSubTab: vi.fn(),
+      campaignView: null,
+      setCampaignView: vi.fn(),
+      loginForm: { form: { name: "", password: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      userManagementForm: { form: { username: "", role: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      createUserForm: { form: { username: "", password: "", roles: [] }, setField: vi.fn(), resetForm: vi.fn() },
+      worldForm: { form: { name: "", description: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      entityForm: { form: { name: "", summary: "", beginningTimestamp: "", endingTimestamp: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      campaignForm: { form: { name: "", summary: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      sessionForm: { form: { name: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      playerForm: { form: { username: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      storyArcForm: { form: { name: "", summary: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      sceneForm: { form: { name: "", summary: "", worldId: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      error: null,
+      setError: vi.fn(),
+      isLoading: false,
+      setIsLoading: vi.fn(),
+      authServiceUnavailable: false,
+      setAuthServiceUnavailable: vi.fn(),
+      modal: { login: { isOpen: false, open: vi.fn(), close: vi.fn(), toggle: vi.fn() } },
+      modals: {},
+      openModal: vi.fn(),
+      closeModal: vi.fn(),
+      users: [],
+      setUsers: vi.fn(),
+      usersLoaded: false,
+      setUsersLoaded: vi.fn(),
+      worlds: [],
+      setWorlds: vi.fn(),
+      worldsLoaded: false,
+      setWorldsLoaded: vi.fn(),
+      campaigns: [],
+      setCampaigns: vi.fn(),
+      campaignsLoaded: false,
+      setCampaignsLoaded: vi.fn(),
+      entities: [],
+      setEntities: vi.fn(),
+      entitiesLoadedFor: null,
+      setEntitiesLoadedFor: vi.fn(),
+      sessions: [],
+      setSessions: vi.fn(),
+      sessionsLoadedFor: null,
+      setSessionsLoadedFor: vi.fn(),
+      players: [],
+      setPlayers: vi.fn(),
+      playersLoadedFor: null,
+      setPlayersLoadedFor: vi.fn(),
+      storyArcs: [],
+      setStoryArcs: vi.fn(),
+      storyArcsLoadedFor: null,
+      setStoryArcsLoadedFor: vi.fn(),
+      storyArcEvents: [],
+      setStoryArcEvents: vi.fn(),
+      storyArcEventsLoadedFor: null,
+      setStoryArcEventsLoadedFor: vi.fn(),
+      allEvents: [],
+      setAllEvents: vi.fn(),
+      timeline: null,
+      setTimeline: vi.fn(),
+      timelineLoadedFor: null,
+      setTimelineLoadedFor: vi.fn(),
+      scenes: [],
+      setScenes: vi.fn(),
+      scenesLoadedFor: null,
+      setScenesLoadedFor: vi.fn(),
+      selectedIds: { worldId: null, campaignId: null, storyArcId: null, sessionId: null, eventId: "" },
+      setSelectionField: vi.fn(),
+      resetSelection: vi.fn(),
+      selectedEntityType: "all",
+      setSelectedEntityType: vi.fn()
+    } as any);
+
+    vi.mocked(useCustomEvent).mockImplementation(((eventName, handler) => {
+      if (eventName === OPEN_MANAGE_ASSETS_EVENT) {
+        handler({} as CustomEvent);
+      }
+      return undefined as any;
+    }) as any);
+
+    render(
+      <HomePageProvider>
+        <div />
+      </HomePageProvider>
+    );
+
+    expect(setActiveTab).toHaveBeenCalledWith("Assets");
+    expect(setActiveMode).toHaveBeenCalledWith(null);
+
+    vi.mocked(useCustomEvent).mockReturnValue(undefined);
+  });
+
+  it("ignores OPEN_MANAGE_ASSETS_EVENT when there is no currentUser", () => {
+    const setActiveTab = vi.fn();
+    const setActiveMode = vi.fn();
+
+    vi.mocked(useHomePageState).mockReturnValueOnce({
+      ...(vi.mocked(useHomePageState).mock.calls[0]?.[0] ?? {}),
+      activeTab: null,
+      setActiveTab,
+      activeMode: null,
+      setActiveMode,
+      currentUser: null,
+      planningSubTab: "World Entities",
+      setPlanningSubTab: vi.fn(),
+      campaignView: null,
+      setCampaignView: vi.fn(),
+      loginForm: { form: { name: "", password: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      userManagementForm: { form: { username: "", role: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      createUserForm: { form: { username: "", password: "", roles: [] }, setField: vi.fn(), resetForm: vi.fn() },
+      worldForm: { form: { name: "", description: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      entityForm: { form: { name: "", summary: "", beginningTimestamp: "", endingTimestamp: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      campaignForm: { form: { name: "", summary: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      sessionForm: { form: { name: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      playerForm: { form: { username: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      storyArcForm: { form: { name: "", summary: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      sceneForm: { form: { name: "", summary: "", worldId: "" }, setField: vi.fn(), resetForm: vi.fn() },
+      error: null,
+      setError: vi.fn(),
+      isLoading: false,
+      setIsLoading: vi.fn(),
+      authServiceUnavailable: false,
+      setAuthServiceUnavailable: vi.fn(),
+      modal: { login: { isOpen: false, open: vi.fn(), close: vi.fn(), toggle: vi.fn() } },
+      modals: {},
+      openModal: vi.fn(),
+      closeModal: vi.fn(),
+      users: [],
+      setUsers: vi.fn(),
+      usersLoaded: false,
+      setUsersLoaded: vi.fn(),
+      worlds: [],
+      setWorlds: vi.fn(),
+      worldsLoaded: false,
+      setWorldsLoaded: vi.fn(),
+      campaigns: [],
+      setCampaigns: vi.fn(),
+      campaignsLoaded: false,
+      setCampaignsLoaded: vi.fn(),
+      entities: [],
+      setEntities: vi.fn(),
+      entitiesLoadedFor: null,
+      setEntitiesLoadedFor: vi.fn(),
+      sessions: [],
+      setSessions: vi.fn(),
+      sessionsLoadedFor: null,
+      setSessionsLoadedFor: vi.fn(),
+      players: [],
+      setPlayers: vi.fn(),
+      playersLoadedFor: null,
+      setPlayersLoadedFor: vi.fn(),
+      storyArcs: [],
+      setStoryArcs: vi.fn(),
+      storyArcsLoadedFor: null,
+      setStoryArcsLoadedFor: vi.fn(),
+      storyArcEvents: [],
+      setStoryArcEvents: vi.fn(),
+      storyArcEventsLoadedFor: null,
+      setStoryArcEventsLoadedFor: vi.fn(),
+      allEvents: [],
+      setAllEvents: vi.fn(),
+      timeline: null,
+      setTimeline: vi.fn(),
+      timelineLoadedFor: null,
+      setTimelineLoadedFor: vi.fn(),
+      scenes: [],
+      setScenes: vi.fn(),
+      scenesLoadedFor: null,
+      setScenesLoadedFor: vi.fn(),
+      selectedIds: { worldId: null, campaignId: null, storyArcId: null, sessionId: null, eventId: "" },
+      setSelectionField: vi.fn(),
+      resetSelection: vi.fn(),
+      selectedEntityType: "all",
+      setSelectedEntityType: vi.fn()
+    } as any);
+
+    vi.mocked(useCustomEvent).mockImplementation(((eventName, handler) => {
+      if (eventName === OPEN_MANAGE_ASSETS_EVENT) {
+        handler({} as CustomEvent);
+      }
+      return undefined as any;
+    }) as any);
+
+    render(
+      <HomePageProvider>
+        <div />
+      </HomePageProvider>
+    );
+
+    expect(setActiveTab).not.toHaveBeenCalled();
+    expect(setActiveMode).not.toHaveBeenCalled();
 
     vi.mocked(useCustomEvent).mockReturnValue(undefined);
   });

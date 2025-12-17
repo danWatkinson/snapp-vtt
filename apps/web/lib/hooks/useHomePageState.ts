@@ -4,7 +4,14 @@ import { useFormState } from "./useFormState";
 import { useSelection } from "./useSelection";
 import type { LoginResponse, User } from "../clients/authClient";
 import type { World, WorldEntity } from "../clients/worldClient";
-import type { Campaign, Session, Scene, StoryArc, Timeline } from "../clients/campaignClient";
+import type {
+  Campaign,
+  Session,
+  Scene,
+  StoryArc,
+  Timeline
+} from "../clients/campaignClient";
+import type { DigitalAsset } from "../clients/assetsClient";
 
 type CurrentUser = LoginResponse | null;
 
@@ -15,7 +22,7 @@ type CurrentUser = LoginResponse | null;
 export function useHomePageState() {
   // Navigation state
   const [activeTab, setActiveTab] = useState<
-    "World" | "Campaigns" | "Sessions" | "Users" | null
+    "World" | "Campaigns" | "Sessions" | "Assets" | "Users" | null
   >(null);
   const [activeMode, setActiveMode] = useState<"plan" | "play" | null>(null);
   const [planningSubTab, setPlanningSubTab] = useState<
@@ -68,9 +75,13 @@ export function useHomePageState() {
   const [storyArcEventsLoadedFor, setStoryArcEventsLoadedFor] = useState<string | null>(null);
   const [allEvents, setAllEvents] = useState<WorldEntity[]>([]);
   const [timeline, setTimeline] = useState<Timeline | null>(null);
-  const [timelineLoadedFor, setTimelineLoadedFor] = useState<string | null>(null);
+  const [timelineLoadedFor, setTimelineLoadedFor] = useState<string | null>(
+    null
+  );
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [scenesLoadedFor, setScenesLoadedFor] = useState<string | null>(null);
+  const [assets, setAssets] = useState<DigitalAsset[]>([]);
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
 
   // Selection state
   const { selection: selectedIds, setField: setSelectionField, reset: resetSelection } = useSelection({
@@ -167,6 +178,10 @@ export function useHomePageState() {
     setScenes,
     scenesLoadedFor,
     setScenesLoadedFor,
+    assets,
+    setAssets,
+    assetsLoaded,
+    setAssetsLoaded,
     
     // Selection
     selectedIds,
