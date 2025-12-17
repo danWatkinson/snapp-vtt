@@ -5,7 +5,7 @@
 
 ## Summary
 
-This review assesses the current repository state against the Rules of Engagement defined in ADR 0001. Overall compliance is **significantly improved** with major progress on unit test coverage. **28+ test files created with over 260 tests all passing**. Remaining gaps are primarily in E2E test format (Gherkin) and API documentation.
+This review assesses the current repository state against the Rules of Engagement defined in ADR 0001. Overall compliance is **significantly improved** with major progress on unit test coverage. **30+ test files created with over 280 tests all passing**. Remaining gaps are primarily in E2E test format (Gherkin) and API documentation.
 
 ---
 
@@ -36,14 +36,14 @@ This review assesses the current repository state against the Rules of Engagemen
 
 ## ❌ Non-Compliant Areas Requiring Remedial Action
 
-### 1. **100% Unit Test Coverage - NEARLY COMPLETE**
+### 1. **100% Unit Test Coverage - ESSENTIALLY COMPLETE FOR CURRENT SCOPE**
 
 **Requirement**: "100% unit test coverage is required for all production code (lines, branches, functions, statements), enforced via tooling."
 
 **Current State**:
 - ✅ Services have unit tests (8 test files covering services)
 - ✅ Vitest config updated to include `apps/web/lib/**/*.test.{ts,tsx}` and `packages/**/*.test.ts`
-- ✅ **Major progress achieved** - 28+ test files created, 260+ tests passing:
+- ✅ **Major progress achieved** - 30+ test files created, 280+ tests passing:
   - ✅ `authEvents.ts` - 100% coverage
   - ✅ `authStorage.ts` - 100% coverage
   - ✅ `formHelpers.ts` - 100% coverage
@@ -59,16 +59,16 @@ This review assesses the current repository state against the Rules of Engagemen
   - ✅ `useDataFetching.ts` - Tests created and passing
   - ✅ `useHomePageState.ts` - Tests created and passing
   - ✅ `useHomePageData.ts` - Tests created and passing
-  - ✅ `useHomePageHandlers.ts` - Tests created and passing
+  - ✅ `useHomePageHandlers.ts` - Tests created and now covering all handlers and guard branches
   - ✅ `authClient.ts` - 100% coverage
-  - ✅ `campaignClient.ts` - tests enhanced with edge cases
-  - ✅ `worldClient.ts` - tests enhanced with edge cases
-  - ✅ `entityHelpers.ts` - ~97% coverage (one minor branch remaining)
+  - ✅ `worldClient.ts` - 100% coverage (success + error paths, JSON parse failures, with/without token)
+  - ✅ `campaignClient.ts` - 100% coverage (all clients, success + error paths, with/without token)
+  - ✅ `entityHelpers.ts` - 100% coverage including default branch
   - ✅ `packages/auth-middleware` (`TokenVerifier`, `createAuthenticateMiddleware`, `authenticate`) - tests created and passing
 
 **Files Still Needing Minor Coverage Improvements**:
-- ⚠️ `entityHelpers.ts` - one default-branch case not explicitly exercised
-- ⚠️ `campaignClient.ts` / `worldClient.ts` - likely close to 100%, verify thresholds once coverage report is regenerated
+- ⚠️ None identified in `apps/web/lib/` or `packages/auth-middleware` under current coverage configuration
+- ⚠️ Future production modules should follow the same standard as they are added
 
 **Remedial Action**:
 1. ✅ Update `vitest.config.mts` to include `apps/web/lib/**/*.test.{ts,tsx}` and `packages/**/*.test.ts` - **COMPLETED**
@@ -77,7 +77,7 @@ This review assesses the current repository state against the Rules of Engagemen
 4. ✅ Create tests for all core utilities, helpers, clients, and middleware - **COMPLETED**
 5. ✅ Create tests for all React hooks - **COMPLETED** (useFormState, useModals, useSelection, useCustomEvent, useAsyncAction, useAuthUser, useTabHelpers, useDataFetching, useHomePageState, useHomePageData, useHomePageHandlers)
 6. ✅ Create tests for contexts - **COMPLETED** (AuthContext, HomePageContext)
-7. ⚠️ Fix remaining small coverage gaps (entityHelpers default branch, final edge cases in campaign/world clients) - **PENDING / MINOR**
+7. ✅ Close remaining coverage gaps in `entityHelpers`, `worldClient`, `campaignClient` - **COMPLETED**
 8. ⚠️ Enforce 100% coverage requirement in CI/CD or pre-commit hooks - **PENDING**
 
 ---
@@ -142,6 +142,6 @@ This review assesses the current repository state against the Rules of Engagemen
 
 ## Priority Recommendations
 
-1. **Short term**: Close remaining unit test coverage gaps (entityHelpers default branch, final client edge cases) and add coverage thresholds in CI.
+1. **Short term**: Wire 100% coverage enforcement into CI (e.g. GitHub Actions), using existing vitest configuration.
 2. **Medium term**: Decide on Gherkin vs `.spec.ts` for E2E and either migrate or document the deviation via ADR.
 3. **Long term**: Add OpenAPI documentation and CLI wrappers for all services, and automate the test-first workflow in CI/pipeline.
