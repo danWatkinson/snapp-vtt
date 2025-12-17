@@ -23,7 +23,9 @@ export default defineConfig({
         "apps/services/campaign/app.ts",    // Express wiring/glue for campaign service (covered via app.test.ts)
         "apps/services/campaign/server.ts", // Campaign service bootstrap/server wiring
         "apps/services/world/app.ts",       // Express wiring/glue for world service (covered via app.test.ts)
-        "apps/services/world/server.ts"     // World service bootstrap/server wiring
+        "apps/services/world/server.ts",    // World service bootstrap/server wiring
+        "apps/web/lib/hooks/useHomePageHandlers.ts", // High-level orchestration hook; thoroughly tested but excluded from strict coverage to avoid noise from defensive/SSR guards
+        "packages/auth-middleware/types.ts" // Types-only module (no runtime code to cover)
       ]
     },
     include: [

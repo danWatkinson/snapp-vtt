@@ -51,6 +51,23 @@ describe("useTabHelpers", () => {
     expect(result.current.selectionStates.selectedCampaignId).toBe("c1");
   });
 
+  it("should default selection state to null when selectedIds entry is missing", () => {
+    const selection = renderHook(() => useSelection({ worldId: null, campaignId: null })).result.current;
+
+    const { result } = renderHook(() =>
+      useTabHelpers({
+        forms: {},
+        selections: ["worldId"],
+        setSelectionField: selection.setField,
+        openModal: () => {},
+        closeModal: () => {},
+        selectedIds: {}
+      })
+    );
+
+    expect(result.current.selectionStates.selectedWorldId).toBeNull();
+  });
+
   it("should create modal handlers", () => {
     const openModal = () => {};
     const closeModal = () => {};
@@ -63,7 +80,8 @@ describe("useTabHelpers", () => {
         setSelectionField: selection.setField,
         openModal,
         closeModal,
-        modalsState: { login: true, createUser: false }
+        // Only provide explicit state for login; createUser should default to false
+        modalsState: { login: true }
       })
     );
 
@@ -74,13 +92,13 @@ describe("useTabHelpers", () => {
   });
 
   it("should handle prefix that ends with field name", () => {
-    const form = renderHook(() => useFormState({ username: "user" })).result.current;
+    const form = renderHook(() => useFormState({ name: "user" })).result.current;
     const selection = renderHook(() => useSelection({ worldId: null })).result.current;
 
     const { result } = renderHook(() =>
       useTabHelpers({
         forms: {
-          newUser: { form, fields: ["username"], prefix: "newUser" }
+          user: { form, fields: ["name"], prefix: "user" }
         },
         setSelectionField: selection.setField,
         openModal: () => {},
@@ -88,11 +106,29 @@ describe("useTabHelpers", () => {
       })
     );
 
-    // The logic checks if prefix.toLowerCase().endsWith(fieldName.toLowerCase())
-    // "newUser" ends with "user", and "username" starts with "user", but doesn't end with it
-    // So it should create "setNewUserUsername"
-    expect(typeof result.current.formSetters.setNewUserUsername).toBe("function");
-    expect(result.current.formValues.newUserUsername).toBe("user");
+    // prefix "user" does not end with field name "name"; we hit the normal branch
+    expect(typeof result.current.formSetters.setUserName).toBe("function");
+    expect(result.current.formValues.userName).toBe("user");
+  });
+
+  it("should handle prefix that truly ends with field name", () => {
+    const form = renderHook(() => useFormState({ name: "user" })).result.current;
+    const selection = renderHook(() => useSelection({ worldId: null })).result.current;
+
+    const { result } = renderHook(() =>
+      useTabHelpers({
+        forms: {
+          username: { form, fields: ["name"], prefix: "username" }
+        },
+        setSelectionField: selection.setField,
+        openModal: () => {},
+        closeModal: () => {}
+      })
+    );
+
+    // Here prefix "username" ends with "name", so we should create "setUsername" and value key "username"
+    expect(typeof result.current.formSetters.setUsername).toBe("function");
+    expect(result.current.formValues.username).toBe("user");
   });
 
   it("should return empty objects when no forms, selections, or modals provided", () => {

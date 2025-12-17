@@ -48,6 +48,19 @@ describe("useSelection", () => {
     expect(result.current.selection.worldId).toBe("");
   });
 
+  it("should clear a field to null when current value is not a string", () => {
+    const { result } = renderHook(() =>
+      useSelection({ worldId: null, campaignId: null })
+    );
+
+    // worldId is currently null, so clearField should keep it null (non-string branch)
+    act(() => {
+      result.current.clearField("worldId");
+    });
+
+    expect(result.current.selection.worldId).toBeNull();
+  });
+
   it("should clear a field (empty string for strings)", () => {
     const { result } = renderHook(() =>
       useSelection({ eventId: "" })

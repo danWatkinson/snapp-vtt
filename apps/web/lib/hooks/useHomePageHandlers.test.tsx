@@ -128,6 +128,21 @@ describe("useHomePageHandlers", () => {
     expect(authClient.assignRoles).not.toHaveBeenCalled();
   });
 
+  it("should assign role when currentUser is present", async () => {
+    const props = createMockProps();
+    props.currentUser = { user: { username: "admin", roles: ["admin"] }, token: "token" } as any;
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleAssignRole(mockEvent);
+    });
+
+    expect(authClient.assignRoles).toHaveBeenCalledWith("token", "user1", ["gm"]);
+    expect(props.setUsersLoaded).toHaveBeenCalledWith(false);
+  });
+
   it("should handle create user", async () => {
     const props = createMockProps();
     props.currentUser = { user: { username: "admin", roles: ["admin"] }, token: "token" } as any;
@@ -149,6 +164,96 @@ describe("useHomePageHandlers", () => {
     expect(props.setUsersLoaded).toHaveBeenCalledWith(false);
   });
 
+  it("should not create user when currentUser is missing", async () => {
+    const props = createMockProps();
+    props.currentUser = null;
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleCreateUser(mockEvent);
+    });
+
+    expect(authClient.createUser).not.toHaveBeenCalled();
+  });
+
+  it("should revoke role when currentUser is present", async () => {
+    const props = createMockProps();
+    props.currentUser = { user: { username: "admin", roles: ["admin"] }, token: "token" } as any;
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+
+    await act(async () => {
+      await result.current.handleRevokeRole("user1", "gm");
+    });
+
+    expect(authClient.revokeRole).toHaveBeenCalledWith("token", "user1", "gm");
+    expect(props.setUsersLoaded).toHaveBeenCalledWith(false);
+  });
+
+  it("should not revoke role when currentUser is missing", async () => {
+    const props = createMockProps();
+    props.currentUser = null;
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+
+    await act(async () => {
+      await result.current.handleRevokeRole("user1", "gm");
+    });
+
+    expect(authClient.revokeRole).not.toHaveBeenCalled();
+  });
+
+  it("should not delete user when currentUser is missing", async () => {
+    const props = createMockProps();
+    props.currentUser = null;
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+
+    await act(async () => {
+      await result.current.handleDeleteUser("user1");
+    });
+
+    expect(authClient.deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("should not delete user when confirmation is rejected", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    const props = createMockProps();
+    props.currentUser = { user: { username: "admin", roles: ["admin"] }, token: "token" } as any;
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+
+    await act(async () => {
+      await result.current.handleDeleteUser("user1");
+    });
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(authClient.deleteUser).not.toHaveBeenCalled();
+
+    confirmSpy.mockRestore();
+  });
+
+  it("should delete user and reset usersLoaded when confirmed", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const props = createMockProps();
+    props.currentUser = { user: { username: "admin", roles: ["admin"] }, token: "token" } as any;
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+
+    await act(async () => {
+      await result.current.handleDeleteUser("user1");
+    });
+
+    expect(authClient.deleteUser).toHaveBeenCalledWith("token", "user1");
+    expect(props.setUsersLoaded).toHaveBeenCalledWith(false);
+
+    confirmSpy.mockRestore();
+  });
+
   it("should handle logout", () => {
     const props = createMockProps();
     props.currentUser = { user: { username: "admin", roles: [] }, token: "token" };
@@ -161,6 +266,40 @@ describe("useHomePageHandlers", () => {
 
     expect(props.setCurrentUser).toHaveBeenCalledWith(null);
     expect(props.resetSelection).toHaveBeenCalled();
+  });
+
+  it("should handle login network error by marking auth service unavailable", async () => {
+    const networkError = new Error("Failed to fetch") as any;
+    networkError.name = "TypeError";
+    vi.mocked(authClient.login).mockRejectedValue(networkError);
+
+    const props = createMockProps();
+    const { result } = renderHook(() => useHomePageHandlers(props));
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleLogin(mockEvent);
+    });
+
+    expect(props.setAuthServiceUnavailable).toHaveBeenCalledWith(true);
+    expect(props.setError).toHaveBeenCalledWith(
+      "Unable to connect to the authentication service. Please check your connection. If using self-signed certificates, you may need to accept the certificate in your browser."
+    );
+  });
+
+  it("should clear authServiceUnavailable on non-network login error", async () => {
+    const err = new Error("Boom");
+    vi.mocked(authClient.login).mockRejectedValue(err);
+
+    const props = createMockProps();
+    const { result } = renderHook(() => useHomePageHandlers(props));
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleLogin(mockEvent);
+    });
+
+    expect(props.setAuthServiceUnavailable).toHaveBeenCalledWith(false);
   });
 
   it("should handle create world", async () => {
@@ -180,6 +319,46 @@ describe("useHomePageHandlers", () => {
 
     expect(worldClient.createWorld).toHaveBeenCalledWith("World", "Desc", "token");
     expect(props.setWorlds).toHaveBeenCalled();
+  });
+
+  it("should not reload worlds when createWorld error is not duplicate", async () => {
+    const error = new Error("Boom");
+    vi.mocked(worldClient.createWorld).mockRejectedValue(error as any);
+    const fetchWorldsSpy = vi.mocked(worldClient.fetchWorlds);
+
+    const props = createMockProps();
+    props.currentUser = { user: { username: "admin", roles: [] }, token: "token" } as any;
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleCreateWorld(mockEvent);
+    });
+
+    expect(worldClient.createWorld).toHaveBeenCalled();
+    expect(fetchWorldsSpy).not.toHaveBeenCalled();
+  });
+
+  it("should reload worlds when createWorld reports duplicate name", async () => {
+    const duplicateError = new Error("World name already exists");
+    vi.mocked(worldClient.createWorld).mockRejectedValue(duplicateError as any);
+    const existingWorlds = [{ id: "1", name: "Existing", description: "Desc" }];
+    vi.mocked(worldClient.fetchWorlds).mockResolvedValue(existingWorlds as any);
+
+    const props = createMockProps();
+    props.currentUser = { user: { username: "admin", roles: [] }, token: "token" } as any;
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleCreateWorld(mockEvent);
+    });
+
+    expect(worldClient.createWorld).toHaveBeenCalled();
+    expect(worldClient.fetchWorlds).toHaveBeenCalled();
+    expect(props.setWorlds).toHaveBeenCalledWith(existingWorlds as any);
   });
 
   it("should handle create campaign", async () => {
@@ -214,6 +393,63 @@ describe("useHomePageHandlers", () => {
     expect(worldClient.createWorldEntity).not.toHaveBeenCalled();
   });
 
+  it("should create entity when world and type are set", async () => {
+    const mockEntity = { id: "e1", name: "Entity" };
+    vi.mocked(worldClient.createWorldEntity).mockResolvedValue(mockEntity as any);
+
+    const props = createMockProps();
+    // Set up selection and entity form for a non-"all" type; mutate form fields directly
+    props.selectedIds.worldId = "w1";
+    props.selectedEntityType = "event";
+    props.entityForm.form.beginningTimestamp = "2024-01-01T00:00:00Z" as any;
+    props.entityForm.form.endingTimestamp = "2024-01-02T00:00:00Z" as any;
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleCreateEntity(mockEvent);
+    });
+
+    expect(worldClient.createWorldEntity).toHaveBeenCalledWith(
+      "w1",
+      "event",
+      "Entity",
+      "Sum",
+      expect.any(Number),
+      expect.any(Number),
+      undefined
+    );
+    expect(props.setEntities).toHaveBeenCalled();
+    expect(props.setEntitiesLoadedFor).toHaveBeenCalledWith(null);
+  });
+
+  it("should create non-event entity with undefined timestamps", async () => {
+    const mockEntity = { id: "e2", name: "Entity" };
+    vi.mocked(worldClient.createWorldEntity).mockResolvedValue(mockEntity as any);
+
+    const props = createMockProps();
+    props.selectedIds.worldId = "w1";
+    props.selectedEntityType = "location";
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleCreateEntity(mockEvent);
+    });
+
+    expect(worldClient.createWorldEntity).toHaveBeenCalledWith(
+      "w1",
+      "location",
+      "Entity",
+      "Sum",
+      undefined,
+      undefined,
+      undefined
+    );
+  });
+
   it("should set error in handleCreateScene when session or world missing", async () => {
     const props = createMockProps();
     // Clear worldId to trigger guard
@@ -228,6 +464,19 @@ describe("useHomePageHandlers", () => {
     });
 
     expect(props.setError).toHaveBeenCalledWith("Session and World are required");
+  });
+
+  it("should not create session when no campaign is selected", async () => {
+    const props = createMockProps();
+    // campaignId remains null
+    const { result } = renderHook(() => useHomePageHandlers(props));
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleCreateSession(mockEvent);
+    });
+
+    expect(campaignClient.createSession).not.toHaveBeenCalled();
   });
 
   it("should handle add player to campaign", async () => {
@@ -247,6 +496,21 @@ describe("useHomePageHandlers", () => {
     expect(props.setPlayers).toHaveBeenCalled();
     expect(props.setPlayersLoadedFor).toHaveBeenCalledWith(null);
     expect(props.setStoryArcsLoadedFor).toHaveBeenCalledWith(null);
+  });
+
+  it("should not add player when no campaign is selected", async () => {
+    const props = createMockProps();
+    props.currentUser = { user: { username: "admin", roles: ["admin"] }, token: "token" } as any;
+    // campaignId remains null
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleAddPlayer(mockEvent);
+    });
+
+    expect(campaignClient.addPlayerToCampaign).not.toHaveBeenCalled();
   });
 
   it("should handle create story arc", async () => {
@@ -270,6 +534,21 @@ describe("useHomePageHandlers", () => {
     expect(props.setStoryArcsLoadedFor).toHaveBeenCalledWith(null);
   });
 
+  it("should not create story arc when no campaign is selected", async () => {
+    const props = createMockProps();
+    props.currentUser = { user: { username: "admin", roles: ["admin"] }, token: "token" } as any;
+    // campaignId remains null
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleCreateStoryArc(mockEvent);
+    });
+
+    expect(campaignClient.createStoryArc).not.toHaveBeenCalled();
+  });
+
   it("should handle add event to story arc", async () => {
     const props = createMockProps();
     props.currentUser = { user: { username: "admin", roles: ["admin"] }, token: "token" } as any;
@@ -289,6 +568,21 @@ describe("useHomePageHandlers", () => {
     expect(props.setStoryArcEventsLoadedFor).toHaveBeenCalledWith(null);
   });
 
+  it("should not add event to story arc when selections are missing", async () => {
+    const props = createMockProps();
+    props.currentUser = { user: { username: "admin", roles: ["admin"] }, token: "token" } as any;
+    // storyArcId and eventId remain unset/empty
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleAddEventToStoryArc(mockEvent);
+    });
+
+    expect(campaignClient.addEventToStoryArc).not.toHaveBeenCalled();
+  });
+
   it("should handle advance timeline", async () => {
     const mockTimeline = { currentMoment: 123 };
     vi.mocked(campaignClient.advanceTimeline).mockResolvedValue(mockTimeline as any);
@@ -306,6 +600,20 @@ describe("useHomePageHandlers", () => {
 
     expect(campaignClient.advanceTimeline).toHaveBeenCalledWith("c1", 1, "day", "token");
     expect(props.setTimeline).toHaveBeenCalledWith(mockTimeline as any);
+  });
+
+  it("should not advance timeline when no campaign is selected", async () => {
+    const props = createMockProps();
+    props.currentUser = { user: { username: "admin", roles: ["admin"] }, token: "token" } as any;
+    // campaignId remains null
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+
+    await act(async () => {
+      await result.current.handleAdvanceTimeline(1, "day");
+    });
+
+    expect(campaignClient.advanceTimeline).not.toHaveBeenCalled();
   });
 
   it("should handle create scene (success path)", async () => {

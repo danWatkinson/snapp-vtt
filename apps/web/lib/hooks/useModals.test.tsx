@@ -95,4 +95,41 @@ describe("useModals", () => {
 
     expect(result.current.modal.login.isOpen).toBe(true);
   });
+
+  it("should expose working controllers for all modals", () => {
+    const { result } = renderHook(() => useModals());
+
+    const keys = [
+      "login",
+      "createUser",
+      "world",
+      "entity",
+      "campaign",
+      "session",
+      "player",
+      "storyArc",
+      "storyArcEvent",
+      "scene"
+    ] as const;
+
+    keys.forEach((key) => {
+      // Initially all false
+      expect(result.current.modals[key]).toBe(false);
+
+      act(() => {
+        result.current.modal[key].open();
+      });
+      expect(result.current.modals[key]).toBe(true);
+
+      act(() => {
+        result.current.modal[key].toggle();
+      });
+      expect(result.current.modals[key]).toBe(false);
+
+      act(() => {
+        result.current.modal[key].close();
+      });
+      expect(result.current.modals[key]).toBe(false);
+    });
+  });
 });

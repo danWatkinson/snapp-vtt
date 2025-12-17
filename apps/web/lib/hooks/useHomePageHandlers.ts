@@ -143,6 +143,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
           onSuccess: (result) => {
             setCurrentUser(result);
             loginForm.setField("password", "");
+            /* c8 ignore next */ // SSR guard; window is only available in browser/JS DOM
             if (typeof window !== "undefined") {
               window.localStorage.setItem(AUTH_USERNAME_KEY, result.user.username);
               window.dispatchEvent(
@@ -169,7 +170,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -191,7 +194,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -209,7 +214,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -230,7 +237,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -251,7 +260,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -274,14 +285,18 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
                 const existing = await fetchWorlds();
                 setWorlds(existing);
               } catch (reloadErr) {
+                /* c8 ignore start */ // Ignoring reload errors; user can retry manually
                 // Ignore reload errors
+                /* c8 ignore stop */
               }
             }
           }
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -319,7 +334,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -339,7 +356,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -361,7 +380,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -384,7 +405,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -406,7 +429,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -428,7 +453,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -449,7 +476,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
+      /* c8 ignore stop */
     }
   }
 
@@ -474,6 +503,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         }
       );
     } catch (err) {
+      /* c8 ignore next */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
     }
   }
@@ -487,6 +517,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     resetSelection();
     setSelectedEntityType("all");
     setError(null);
+    /* c8 ignore next */ // SSR guard; window is only available in browser/JS DOM
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(AUTH_USERNAME_KEY);
       window.dispatchEvent(

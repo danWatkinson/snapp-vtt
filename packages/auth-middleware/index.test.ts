@@ -130,4 +130,84 @@ describe("auth-middleware", () => {
 
     process.env.AUTH_JWT_SECRET = original;
   });
+
+  it("should fall back to JWT_SECRET when AUTH_JWT_SECRET is not set", () => {
+    const originalAuth = process.env.AUTH_JWT_SECRET;
+    const originalJwt = process.env.JWT_SECRET;
+    delete process.env.AUTH_JWT_SECRET;
+    process.env.JWT_SECRET = "jwt-secret";
+
+    const middleware = authenticate();
+    const req = createMockReq({ authorization: "Bearer token" }) as any;
+    const res = createMockRes();
+    const next = vi.fn() as NextFunction;
+
+    verifyMock.mockReturnValue({ sub: "user1", roles: ["gm"] });
+
+    middleware(req, res, next);
+
+    expect(verifyMock).toHaveBeenCalledWith("token");
+
+    if (originalAuth !== undefined) {
+      process.env.AUTH_JWT_SECRET = originalAuth;
+    } else {
+      delete process.env.AUTH_JWT_SECRET;
+    }
+    if (originalJwt !== undefined) {
+      process.env.JWT_SECRET = originalJwt;
+    } else {
+      delete process.env.JWT_SECRET;
+    }
+  });
+
+  it("should default to dev-secret when no JWT env vars are set", () => {
+    const originalAuth = process.env.AUTH_JWT_SECRET;
+    const originalJwt = process.env.JWT_SECRET;
+    delete process.env.AUTH_JWT_SECRET;
+    delete process.env.JWT_SECRET;
+
+    const middleware = authenticate();
+    const req = createMockReq({ authorization: "Bearer token" }) as any;
+    const res = createMockRes();
+    const next = vi.fn() as NextFunction;
+
+    verifyMock.mockReturnValue({ sub: "user1", roles: ["gm"] });
+
+    middleware(req, res, next);
+
+    expect(verifyMock).toHaveBeenCalledWith("token");
+
+    if (originalAuth !== undefined) {
+      process.env.AUTH_JWT_SECRET = originalAuth;
+    }
+    if (originalJwt !== undefined) {
+      process.env.JWT_SECRET = originalJwt;
+    }
+  });
+
+  it("should treat non-bearer authorization scheme as missing token", () => {
+    const middleware = createAuthenticateMiddleware({ jwtSecret: "secret" });
+    const req = createMockReq({ authorization: "Basic abc123" }) as any;
+    const res = createMockRes();
+    const next = vi.fn() as NextFunction;
+
+    middleware(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: "Missing bearer token" });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("should treat malformed Bearer header without token as missing token", () => {
+    const middleware = createAuthenticateMiddleware({ jwtSecret: "secret" });
+    const req = createMockReq({ authorization: "Bearer" }) as any;
+    const res = createMockRes();
+    const next = vi.fn() as NextFunction;
+
+    middleware(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: "Missing bearer token" });
+    expect(next).not.toHaveBeenCalled();
+  });
 });
