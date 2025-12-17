@@ -99,6 +99,19 @@ describe("InMemoryUserStore", () => {
       "User 'nonexistent' not found"
     );
   });
+
+  it("updates password for an existing user", () => {
+    const store = new InMemoryUserStore();
+    store.createUser("alice", ["player"], "old-hash");
+    const updated = store.updatePassword("alice", "new-hash");
+    expect(updated.passwordHash).toBe("new-hash");
+    expect(store.getUser("alice")?.passwordHash).toBe("new-hash");
+  });
+
+  it("throws when updating password for non-existent user", () => {
+    const store = new InMemoryUserStore();
+    expect(() => store.updatePassword("nonexistent", "hash")).toThrow(
+      "User 'nonexistent' not found"
+    );
+  });
 });
-
-

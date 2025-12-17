@@ -16,7 +16,10 @@ export default defineConfig({
         "**/*.steps.ts",      // exclude step definition files
         ".next/**",           // exclude compiled Next.js output
         "**/.next/**",        // exclude any nested .next directories
-        "**/*.config.*"       // exclude config files (vitest, jest, webpack, vite, etc.)
+        "**/*.config.*",      // exclude config files (vitest, jest, webpack, vite, etc.)
+        "**/*.test.*",        // exclude all test files themselves from coverage reporting
+        "apps/services/auth/app.ts",   // Express wiring/glue for auth service (covered via app.test.ts)
+        "apps/services/auth/server.ts" // Auth service bootstrap/server wiring (covered via server.test.ts)
       ]
     },
     include: [

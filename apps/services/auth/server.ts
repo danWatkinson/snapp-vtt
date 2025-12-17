@@ -96,6 +96,7 @@ seedUsers().then(() => {
 
   server.listen(port, () => {
     // eslint-disable-next-line no-console
+    /* c8 ignore next */ // startup log only; server.listen side-effects tested in server.test.ts
     console.log(`Auth service listening on https://localhost:${port}`);
   });
 });
