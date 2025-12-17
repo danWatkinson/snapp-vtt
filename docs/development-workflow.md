@@ -71,6 +71,25 @@ When opening a pull request, use the checklist in `.github/PULL_REQUEST_TEMPLATE
 - [ ] Refactoring pass: Completed without changing observable behaviour.
 - [ ] ADRs updated: Relevant ADRs added or updated for architectural changes.
 
+### Local HTTPS and certificates
+
+All local development and E2E testing is expected to run over **HTTPS**, using the shared self‑signed certificates referenced by ADR [0004 – HTTPS-Only Transport Security](adr/0004-https-transport-security.md).
+
+- **Default certificate location** (relative to the repo root):
+  - Key: `../Snapp-other/certs/localhost-key.pem`
+  - Cert: `../Snapp-other/certs/localhost-cert.pem`
+- **Override via environment variables** (optional, e.g. for custom certs):
+  - `HTTPS_CERT_DIR`: base directory for certificates.
+  - `HTTPS_KEY_PATH`: full path to the private key file.
+  - `HTTPS_CERT_PATH`: full path to the certificate file.
+- **Service ports (over HTTPS)** – all configurable via env:
+  - Web UI: `WEB_PORT` (default `3000`) → `https://localhost:3000`
+  - Auth service: `AUTH_PORT` (default `4400`) → `https://localhost:4400`
+  - World service: `WORLD_PORT` (default `4501`) → `https://localhost:4501`
+  - Campaign service: `CAMPAIGN_PORT` (default `4600`) → `https://localhost:4600`
+
+> E2E tests are configured with `baseURL: https://localhost:3000` and `ignoreHTTPSErrors: true` so they work seamlessly with these self‑signed certificates.
+
 ### Testing Commands
 
 - **Unit tests**: `npm run test:unit` (runs Vitest with 100% coverage requirement).
@@ -87,5 +106,6 @@ When opening a pull request, use the checklist in `.github/PULL_REQUEST_TEMPLATE
 
 - [0001 – Rules of Engagement](adr/0001-rules-of-engagement.md) – The foundational ADR that defines this workflow.
 - [0002 – Tech Stack and High-Level Testing Approach](adr/0002-tech-stack-and-testing.md) – Details on testing tools and strategies.
+- [0004 – HTTPS-Only Transport Security](adr/0004-https-transport-security.md) – How HTTPS is enforced across web and services.
 - [API Overview](api-overview.md) – How to discover and use service APIs.
 - [Review of 0001 Compliance](review-0001-rules-of-engagement-compliance.md) – Current compliance status against the rules of engagement.
