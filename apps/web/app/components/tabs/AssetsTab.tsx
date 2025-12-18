@@ -8,6 +8,8 @@ import EmptyState from "../ui/EmptyState";
 import Modal from "../ui/Modal";
 import { useHomePage } from "../../../lib/contexts/HomePageContext";
 import { createAsset, type DigitalAsset } from "../../../lib/clients/assetsClient";
+import { dispatchTransitionEvent } from "../../../lib/utils/eventDispatcher";
+import { ASSET_UPLOADED_EVENT } from "../../../lib/auth/authEvents";
 
 function ImageViewer({ asset }: { asset: DigitalAsset }) {
   const [imageError, setImageError] = useState(false);
@@ -72,6 +74,14 @@ export default function AssetsTab() {
 
                   const asset = await res.json();
                   setAssets([...assets, asset]);
+                  // Dispatch asset uploaded event
+                  Promise.resolve().then(() => {
+                    dispatchTransitionEvent(ASSET_UPLOADED_EVENT, {
+                      assetId: asset.id,
+                      assetName: asset.name || asset.originalFileName,
+                      mediaType: asset.mediaType
+                    });
+                  });
                 } catch (err) {
                   const message =
                     err instanceof Error ? err.message : "Failed to upload asset";

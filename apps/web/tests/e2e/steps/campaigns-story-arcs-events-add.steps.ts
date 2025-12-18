@@ -40,12 +40,11 @@ When('story arc "The Ancient Prophecy" exists', async ({ page }) => {
     }
     
     // Wait for the story arc to appear in the list
-    await expect(
-      page.getByRole("listitem").filter({ hasText: "The Ancient Prophecy" }).first()
-    ).toBeVisible({ timeout: 3000 });
+    const storyArcItem = page.getByRole("listitem").filter({ hasText: "The Ancient Prophecy" }).first();
+    await expect(storyArcItem).toBeVisible({ timeout: 3000 });
     
-    // Wait a bit more for the UI to fully render the button
-    await page.waitForTimeout(500);
+    // Wait for the "View events" button to be visible (indicates UI is fully rendered)
+    await expect(storyArcItem.getByRole("button", { name: "View events" })).toBeVisible({ timeout: 3000 });
   }
 });
 
@@ -71,15 +70,14 @@ When('the admin views events for story arc "The Ancient Prophecy"', async ({ pag
   }
   
   // Not viewing events yet - click the "View events" button
-  // Wait a moment for the list to fully render
-  await page.waitForTimeout(200);
-  
-  await page
+  // Wait for the button to be visible (indicates list is fully rendered)
+  const viewEventsButton = page
     .getByRole("listitem")
     .filter({ hasText: "The Ancient Prophecy" })
     .first()
-    .getByRole("button", { name: "View events" })
-    .click({ timeout: 3000 });
+    .getByRole("button", { name: "View events" });
+  await expect(viewEventsButton).toBeVisible({ timeout: 3000 });
+  await viewEventsButton.click();
 
   await expect(page.getByRole("button", { name: "Add event" })).toBeVisible({ timeout: 3000 });
 });
@@ -129,15 +127,14 @@ When('world event "The Prophecy Revealed" exists', async ({ page }) => {
 
   if (!alreadyViewingEvents) {
     // Not viewing events yet - click the "View events" button
-    // Wait a moment for the list to fully render
-    await page.waitForTimeout(200);
-
-    await page
+    // Wait for the button to be visible (indicates list is fully rendered)
+    const viewEventsButton = page
       .getByRole("listitem")
       .filter({ hasText: "The Ancient Prophecy" })
       .first()
-      .getByRole("button", { name: "View events" })
-      .click({ timeout: 10000 });
+      .getByRole("button", { name: "View events" });
+    await expect(viewEventsButton).toBeVisible({ timeout: 3000 });
+    await viewEventsButton.click();
 
     await expect(page.getByRole("button", { name: "Add event" })).toBeVisible({ timeout: 3000 });
   }

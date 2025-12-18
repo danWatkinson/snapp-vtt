@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { loginAsAdmin, loginAs, ensureLoginDialogClosed, getUniqueUsername } from "../helpers";
+import { loginAsAdmin, loginAs, ensureLoginDialogClosed, getUniqueUsername, waitForAssetUploaded } from "../helpers";
 import { Buffer } from "buffer";
 import path from "path";
 import type { APIRequestContext } from "@playwright/test";
@@ -203,9 +203,8 @@ When('the admin signs in to the system as "admin"', async ({ page }) => {
         `3. The auth service is running and accessible.`
       );
       } else {
-        // Page might still be loading - wait a bit more and check again
-        await page.waitForTimeout(1000);
-        await page.waitForLoadState("domcontentloaded", { timeout: 2000 }).catch(() => {});
+        // Page might still be loading - wait for load state and check again
+        await page.waitForLoadState("domcontentloaded", { timeout: 3000 }).catch(() => {});
         
         const finalRetryLogout = page.getByRole("button", { name: "Log out" });
         const finalRetryLogin = page.getByRole("button", { name: "Login" });
@@ -315,10 +314,7 @@ When('the world builder signs in to the system as "worldbuilder"', async ({ page
     throw new Error(`Failed to ensure user ${uniqueUsername} exists with gm role`);
   }
   
-  // Wait a moment for the auth service to fully process the user creation
-  // This helps avoid race conditions where we try to login before the user is available
-  await page.waitForTimeout(500);
-  
+  // Wait for auth service to process user creation - use networkidle to ensure service is ready
   // Navigate to a clean page state first (must be on a valid origin to access localStorage)
   // Increase timeout to handle server load when running with multiple workers
   await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
@@ -352,21 +348,18 @@ When('the world builder signs in to the system as "worldbuilder"', async ({ page
   
   // Double-check login succeeded (loginAs should have already verified this)
   // This is a defensive check to ensure the UI has fully updated
-  // Wait a bit for the page to stabilize after login
-  await page.waitForTimeout(500);
-  
   // Wait for page to be in a stable state (no loading indicators)
   await page.waitForLoadState("networkidle", { timeout: 3000 }).catch(() => {});
   
   // Check for logout button with retries (page might be in transition)
   let finalLogoutButton = page.getByRole("button", { name: "Log out" });
-  let isLoggedIn = await finalLogoutButton.isVisible({ timeout: 2000 }).catch(() => false);
+  let isLoggedIn = await finalLogoutButton.isVisible({ timeout: 3000 }).catch(() => false);
   
-  // If not visible, wait a bit more and retry (page might be loading)
+  // If not visible, wait for load state and retry (page might be loading)
   if (!isLoggedIn) {
-    await page.waitForTimeout(500);
+    await page.waitForLoadState("domcontentloaded", { timeout: 2000 }).catch(() => {});
     finalLogoutButton = page.getByRole("button", { name: "Log out" });
-    isLoggedIn = await finalLogoutButton.isVisible({ timeout: 2000 }).catch(() => false);
+    isLoggedIn = await finalLogoutButton.isVisible({ timeout: 3000 }).catch(() => false);
   }
   
   // If still not visible, check if page is loading or in an error state
@@ -385,14 +378,13 @@ When('the world builder signs in to the system as "worldbuilder"', async ({ page
       );
     } else {
       // Neither button visible - page might be loading or in transition
-      // Wait a bit more and check one more time
-      await page.waitForTimeout(1000);
-      await page.waitForLoadState("domcontentloaded", { timeout: 2000 }).catch(() => {});
+      // Wait for load state and check one more time
+      await page.waitForLoadState("domcontentloaded", { timeout: 3000 }).catch(() => {});
       
       const finalLogoutCheck = page.getByRole("button", { name: "Log out" });
       const finalLoginCheck = page.getByRole("button", { name: "Login" });
-      const finalLoggedIn = await finalLogoutCheck.isVisible({ timeout: 1000 }).catch(() => false);
-      const finalLoginVisible = await finalLoginCheck.isVisible({ timeout: 1000 }).catch(() => false);
+      const finalLoggedIn = await finalLogoutCheck.isVisible({ timeout: 2000 }).catch(() => false);
+      const finalLoginVisible = await finalLoginCheck.isVisible({ timeout: 2000 }).catch(() => false);
       
       if (finalLoggedIn) {
         // We're logged in now, that's fine
@@ -473,25 +465,28 @@ When('the admin navigates to the {string} library screen', async ({ page }, libr
   
   await page.getByRole("button", { name: "Snapp" }).click();
   
-  // Wait a moment for the menu to open and render
-  await page.waitForTimeout(200);
-  
-  // Wait for the Manage Assets button to be visible
+  // Wait for the Manage Assets button to be visible (indicates menu is open and rendered)
   // This ensures the menu is fully rendered and role checks have passed
   await expect(page.getByRole("button", { name: "Manage Assets" })).toBeVisible({ timeout: 3000 });
   
   await page.getByRole("button", { name: "Manage Assets" }).click();
-  await page.waitForTimeout(200);
   await expect(page.getByRole("heading", { name: "Assets" })).toBeVisible({ timeout: 5000 });
 });
 
 When('the admin uploads an image asset {string}', async ({ page }, fileName: string) => {
-  // Reuse the same implementation as world builder
+  // Extract asset name from fileName (without extension) for matching
+  const assetNameBase = fileName.replace(/\.(jpg|png|jpeg|gif)$/i, "");
+  
+  // Set up event listener BEFORE uploading
+  const assetUploadedPromise = waitForAssetUploaded(page, assetNameBase, 15000);
+  
   const fileInput = page.getByLabel("Upload asset");
   const filePath = path.join(process.cwd(), "seeds", "assets", "images", fileName);
   
   await fileInput.setInputFiles(filePath);
-  await page.waitForTimeout(500);
+  
+  // Wait for the asset upload event
+  await assetUploadedPromise;
 });
 
 When("no campaign is selected", async ({ page }) => {
@@ -521,8 +516,9 @@ When("no campaign is selected", async ({ page }) => {
       await leaveCampaignButton.isVisible({ timeout: 1000 }).catch(() => false);
       await leaveCampaignButton.click({ timeout: 1000 }).catch(() => {});
       
-      // Brief wait for state update
-      await page.waitForTimeout(100).catch(() => {});
+      // Wait for campaign to be deselected (campaign tab should disappear or become inactive)
+      // Check if we're back to world selector or campaign tab is no longer selected
+      await page.waitForLoadState("domcontentloaded", { timeout: 1000 }).catch(() => {});
     } catch {
       // Any error - silently ignore and continue
       // The test will handle the state naturally

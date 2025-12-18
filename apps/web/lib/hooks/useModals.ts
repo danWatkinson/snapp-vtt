@@ -1,4 +1,6 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { dispatchTransitionEvent } from "../utils/eventDispatcher";
+import { MODAL_OPENED_EVENT, MODAL_CLOSED_EVENT } from "../auth/authEvents";
 
 type ModalKeys = 
   | "login"
@@ -34,6 +36,22 @@ export function useModals(initialState: Partial<ModalState> = {}) {
   };
 
   const [modals, setModals] = useState<ModalState>(defaultState);
+  const prevModalsRef = useRef<ModalState>(defaultState);
+
+  // Dispatch events when modal state actually changes
+  useEffect(() => {
+    const prevModals = prevModalsRef.current;
+    for (const key of Object.keys(modals) as ModalKeys[]) {
+      if (modals[key] && !prevModals[key]) {
+        // Modal opened
+        dispatchTransitionEvent(MODAL_OPENED_EVENT, { modalType: key });
+      } else if (!modals[key] && prevModals[key]) {
+        // Modal closed
+        dispatchTransitionEvent(MODAL_CLOSED_EVENT, { modalType: key });
+      }
+    }
+    prevModalsRef.current = modals;
+  }, [modals]);
 
   const openModal = useCallback((key: ModalKeys) => {
     setModals((prev) => ({ ...prev, [key]: true }));

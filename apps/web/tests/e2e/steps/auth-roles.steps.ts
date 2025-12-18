@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { loginAs, ensureLoginDialogClosed, getUniqueUsername } from "../helpers";
+import { loginAs, ensureLoginDialogClosed, getUniqueUsername, waitForRoleAssigned, waitForError } from "../helpers";
 import jwt from "jsonwebtoken";
 import type { APIRequestContext } from "@playwright/test";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
@@ -195,9 +195,6 @@ When('the admin navigates to the "Users" management screen', async ({ page }) =>
   // Use the Snapp menu's "User Management" entry, which doesn't require a world to be selected
   await page.getByRole("button", { name: /^Snapp/i }).click();
   
-  // Wait a moment for the menu to open and render
-  await page.waitForTimeout(200);
-  
   // Wait for the menu to be visible and the User Management button to appear
   // This ensures the menu is fully rendered and role checks have passed
   await expect(page.getByRole("button", { name: "User Management" })).toBeVisible({ timeout: 3000 });
@@ -219,18 +216,17 @@ When(
     await page.getByTestId("assign-role").fill("gm");
     await page.getByRole("button", { name: "Assign role" }).click();
 
-    // Wait for the form to reset (indicating success) or check for error
-    await Promise.race([
-      page.waitForTimeout(1000), // Give time for async action
-      page.getByTestId("error-message").waitFor({ timeout: 2000 }).catch(() => null)
-    ]);
+    // Set up event listeners BEFORE clicking submit
+    const roleAssignedPromise = waitForRoleAssigned(page, uniqueAliceName, "gm", 10000);
+    const errorPromise = waitForError(page, undefined, 5000).catch(() => null);
     
-    // Verify no error occurred
-    const errorVisible = await page.getByTestId("error-message").isVisible().catch(() => false);
-    if (errorVisible) {
-      const errorText = await page.getByTestId("error-message").textContent();
-      throw new Error(`Role assignment failed: ${errorText}`);
-    }
+    // Wait for either role assignment or error
+    await Promise.race([
+      roleAssignedPromise,
+      errorPromise.then((errorMsg) => {
+        if (errorMsg) throw new Error(`Role assignment failed: ${errorMsg}`);
+      })
+    ]);
   }
 );
 

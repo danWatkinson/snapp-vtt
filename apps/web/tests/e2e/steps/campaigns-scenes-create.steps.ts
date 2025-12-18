@@ -72,7 +72,16 @@ When('the admin ensures scene "The Throne Room" exists in the session', async ({
     
     // Wait for the dropdown to be populated with options
     await expect(worldSelect).toBeVisible({ timeout: 3000 });
-    await page.waitForTimeout(300); // Small wait for options to load
+    
+    // Wait for at least one option with a value (not the placeholder) to be available
+    // Options in select dropdowns are typically hidden, so check for existence instead of visibility
+    const validOption = worldSelect.locator("option[value]:not([value=''])").first();
+    await expect(validOption).toHaveCount(1, { timeout: 5000 });
+    // Also verify the option has text content
+    const optionText = await validOption.textContent({ timeout: 1000 }).catch(() => "");
+    if (!optionText || optionText.trim() === "") {
+      throw new Error("World dropdown option found but has no text content");
+    }
     
     // Get all available world options
     const options = await worldSelect.locator("option").all();

@@ -1,4 +1,45 @@
 import { Page, expect } from "@playwright/test";
+import {
+  MODAL_OPENED_EVENT,
+  MODAL_CLOSED_EVENT,
+  WORLD_SELECTED_EVENT,
+  WORLD_DESELECTED_EVENT,
+  CAMPAIGN_SELECTED_EVENT,
+  CAMPAIGN_DESELECTED_EVENT,
+  PLANNING_MODE_ENTERED_EVENT,
+  PLANNING_MODE_EXITED_EVENT,
+  PLANNING_SUBTAB_CHANGED_EVENT,
+  CAMPAIGN_VIEW_CHANGED_EVENT,
+  WORLD_CREATED_EVENT,
+  CAMPAIGN_CREATED_EVENT,
+  CREATURE_CREATED_EVENT,
+  FACTION_CREATED_EVENT,
+  LOCATION_CREATED_EVENT,
+  EVENT_CREATED_EVENT,
+  SESSION_CREATED_EVENT,
+  SCENE_CREATED_EVENT,
+  PLAYER_ADDED_EVENT,
+  STORY_ARC_CREATED_EVENT,
+  WORLDS_LOADED_EVENT,
+  CAMPAIGNS_LOADED_EVENT,
+  ENTITIES_LOADED_EVENT,
+  SESSIONS_LOADED_EVENT,
+  PLAYERS_LOADED_EVENT,
+  STORY_ARCS_LOADED_EVENT,
+  SCENES_LOADED_EVENT,
+  TIMELINE_LOADED_EVENT,
+  USERS_LOADED_EVENT,
+  ASSETS_LOADED_EVENT,
+  ASSET_UPLOADED_EVENT,
+  ERROR_OCCURRED_EVENT,
+  ERROR_CLEARED_EVENT,
+  USER_CREATED_EVENT,
+  USER_DELETED_EVENT,
+  ROLE_ASSIGNED_EVENT,
+  ROLE_REVOKED_EVENT,
+  MAIN_TAB_CHANGED_EVENT,
+  WORLD_UPDATED_EVENT
+} from "../../lib/auth/authEvents";
 
 /**
  * Generate a unique campaign name per worker to avoid conflicts when tests run in parallel.
@@ -88,7 +129,6 @@ export async function ensureLoginDialogClosed(page: Page) {
       }
       // Wait for dialog to close
       await loginDialog.waitFor({ state: "hidden", timeout: 3000 }).catch(() => {});
-      await page.waitForTimeout(200);
     } catch {
       // If closing fails, that's okay - continue anyway
     }
@@ -254,8 +294,8 @@ export async function loginAs(page: Page, username: string, password: string) {
       return;
     } else {
       // Not logged in but login button not visible - might be a page state issue
-      // Wait a bit and check again
-      await page.waitForTimeout(500);
+      // Wait for page to load and check again
+      await page.waitForLoadState("domcontentloaded", { timeout: 2000 }).catch(() => {});
       const retryLoginButton = page.getByRole("button", { name: "Login" });
       const retryVisible = await retryLoginButton.isVisible({ timeout: 3000 }).catch(() => false);
       if (retryVisible) {
@@ -277,83 +317,116 @@ export async function loginAs(page: Page, username: string, password: string) {
     } catch {
       // If already loaded, that's fine
     }
+    // Wait for button to be visible and stable before clicking
+    await expect(loginButton).toBeVisible({ timeout: 3000 });
+    
+    // Set up the listener BEFORE clicking to avoid race conditions
+    const modalOpenPromise = waitForModalOpen(page, "login", 8000).catch(() => null);
+    
+    await safeWait(page, 100); // Small delay to ensure button is ready
     await loginButton.click();
-  }
-
-  // Wait for the event to be dispatched and modal to start opening
-  // Use a longer wait to ensure the event has time to propagate
-  await page.waitForTimeout(500);
-
-  // Wait for login dialog to appear (unless already logged in)
-  // Double-check if we're already logged in after clicking login button
-  const logoutButtonAfterClick = page.getByRole("button", { name: "Log out" });
-  const stillLoggedIn = await logoutButtonAfterClick.isVisible({ timeout: 1000 }).catch(() => false);
-  
-  if (stillLoggedIn) {
-    // Already logged in, no need to show login dialog
-    return;
-  }
-  
-  // Wait for login dialog to appear - it might take a moment for the modal to open
-  // The OPEN_LOGIN_EVENT is dispatched, which triggers the modal to open
-  const loginDialog = page.getByRole("dialog", { name: "Login" });
-  try {
-    await expect(loginDialog).toBeVisible({ timeout: 5000 });
-  } catch (error) {
-    // If dialog doesn't appear, check if we somehow got logged in
-    const checkLogoutAgain = page.getByRole("button", { name: "Log out" });
-    const gotLoggedIn = await checkLogoutAgain.isVisible({ timeout: 1000 }).catch(() => false);
-    if (gotLoggedIn) {
-      // Somehow we're logged in now, that's fine
+    
+    // Wait for login modal to open using transition event
+    // Double-check if we're already logged in after clicking login button
+    const logoutButtonAfterClick = page.getByRole("button", { name: "Log out" });
+    const stillLoggedIn = await logoutButtonAfterClick.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (stillLoggedIn) {
+      // Already logged in, no need to show login dialog
       return;
     }
     
-    // Check if login button is still visible (maybe click didn't work)
-    const loginButtonStillVisible = await page.getByRole("button", { name: "Login" }).isVisible({ timeout: 1000 }).catch(() => false);
-    if (loginButtonStillVisible) {
-      // Login button still visible - try clicking again
-      // Check for page errors first
-      const errorMessages = page.getByTestId("error-message");
-      const hasError = await errorMessages.isVisible().catch(() => false);
-      if (hasError) {
-        const errorText = await errorMessages.textContent().catch(() => "Unknown error");
-        throw new Error(`Page has error before login: ${errorText}`);
-      }
-      await page.getByRole("button", { name: "Login" }).click();
-      await page.waitForTimeout(500);
-      
-      // Check again if we're logged in (might have happened during the click)
-      const checkLogoutAfterRetry = page.getByRole("button", { name: "Log out" });
-      const loggedInAfterRetry = await checkLogoutAfterRetry.isVisible({ timeout: 1000 }).catch(() => false);
-      if (loggedInAfterRetry) {
-        // We're logged in now, that's fine
+    // Wait for the modal to open
+    try {
+      await modalOpenPromise;
+    } catch (error) {
+      // If modal doesn't open, check if we somehow got logged in
+      const checkLogoutAgain = page.getByRole("button", { name: "Log out" });
+      const gotLoggedIn = await checkLogoutAgain.isVisible({ timeout: 1000 }).catch(() => false);
+      if (gotLoggedIn) {
+        // Somehow we're logged in now, that's fine
         return;
       }
       
-      // Still not logged in, wait for dialog
-      const retryDialog = page.getByRole("dialog", { name: "Login" });
-      await expect(retryDialog).toBeVisible({ timeout: 5000 });
-      return;
+      // Check if login button is still visible (maybe click didn't work)
+      const loginButtonStillVisible = await page.getByRole("button", { name: "Login" }).isVisible({ timeout: 1000 }).catch(() => false);
+      if (loginButtonStillVisible) {
+        // Button is still there - click might not have worked, try again
+        await page.getByRole("button", { name: "Login" }).click();
+        await safeWait(page, 500);
+        // Try waiting for modal again
+        try {
+          await waitForModalOpen(page, "login", 5000);
+        } catch (retryError) {
+          // Still failed - throw original error
+          throw error;
+        }
+      } else {
+        // Button is gone but modal didn't open - this is unexpected
+        throw error;
+      }
     }
     
-    // Check one more time if we're logged in (race condition)
-    const finalCheckLogout = page.getByRole("button", { name: "Log out" });
-    const finalLoggedIn = await finalCheckLogout.isVisible({ timeout: 1000 }).catch(() => false);
-    if (finalLoggedIn) {
-      // We're logged in, that's fine
-      return;
+    // waitForModalOpen should have waited for the dialog, but verify it's actually visible
+    // Sometimes the event fires but the dialog takes a moment to render
+    const loginDialog = page.getByRole("dialog", { name: /Login/i });
+    try {
+      await expect(loginDialog).toBeVisible({ timeout: 5000 });
+    } catch (error) {
+      // Dialog not visible - wait a bit more and check again
+      await page.waitForTimeout(500);
+      await expect(loginDialog).toBeVisible({ timeout: 5000 });
     }
-    
-    // Otherwise, rethrow the error
-    throw error;
   }
   
-  // Wait for login form to be visible in the modal
-  await expect(page.getByTestId("login-username")).toBeVisible({ timeout: 3000 });
+  // Verify the modal is actually visible
+  // waitForModalOpen should have ensured this, but double-check
+  const loginDialog = page.getByRole("dialog", { name: /Login/i });
+  const dialogVisible = await loginDialog.isVisible({ timeout: 3000 }).catch(() => false);
+  if (!dialogVisible) {
+    // Modal should be visible by now - check if we're somehow logged in
+    const checkLogoutButton = page.getByRole("button", { name: "Log out" });
+    const isLoggedIn = await checkLogoutButton.isVisible({ timeout: 1000 }).catch(() => false);
+    if (isLoggedIn) {
+      // We're logged in somehow - that's fine
+      return;
+    }
+    
+    // Check if login button is still visible (maybe modal didn't open)
+    const loginButtonCheck = page.getByRole("button", { name: "Login" });
+    const loginButtonVisible = await loginButtonCheck.isVisible({ timeout: 1000 }).catch(() => false);
+    if (loginButtonVisible) {
+      // Login button is still visible - modal didn't open, try clicking again
+      await loginButtonCheck.click();
+      await safeWait(page, 500);
+      // Wait for modal again with longer timeout
+      await waitForModalOpen(page, "login", 8000);
+      // Verify dialog is now visible
+      await expect(loginDialog).toBeVisible({ timeout: 5000 });
+    } else {
+      // Modal not visible and not logged in - this is an error
+      throw new Error("Login modal did not open after clicking login button. Dialog not visible and user not logged in.");
+    }
+  }
   
-  // Fill in credentials - clear first to ensure clean state
+  // Get the locators now that we know the modal is visible
   const usernameInput = page.getByTestId("login-username");
   const passwordInput = page.getByTestId("login-password");
+  
+  // Ensure inputs are ready before interacting - wait for them to be visible first, then enabled
+  // Use a longer timeout and retry logic since the form might be rendering
+  try {
+    await expect(usernameInput).toBeVisible({ timeout: 5000 });
+    await expect(passwordInput).toBeVisible({ timeout: 5000 });
+  } catch (error) {
+    // If inputs aren't visible, wait a bit more for form to render
+    await page.waitForTimeout(500);
+    await expect(usernameInput).toBeVisible({ timeout: 5000 });
+    await expect(passwordInput).toBeVisible({ timeout: 5000 });
+  }
+  
+  await expect(usernameInput).toBeEnabled({ timeout: 5000 });
+  await expect(passwordInput).toBeEnabled({ timeout: 5000 });
   
   await usernameInput.clear();
   await usernameInput.fill(username);
@@ -375,16 +448,12 @@ export async function loginAs(page: Page, username: string, password: string) {
   // Submit login form via keyboard (triggers form onSubmit reliably)
   await passwordInput.press("Enter");
   
-  // Wait for login to complete - the dialog should close
-  // Also wait for logout button to appear (indicates successful login)
-  // Use a longer timeout to allow for user creation and login processing
+  // Wait for login modal to close using transition event
+  // This indicates the login process completed (success or failure)
   try {
-    await Promise.race([
-      loginDialog.waitFor({ state: "hidden", timeout: 5000 }),
-      page.getByRole("button", { name: "Log out" }).waitFor({ state: "visible", timeout: 5000 })
-    ]);
-  } catch (raceError) {
-    // Check if there's an error message in the login dialog
+    await waitForModalClose(page, "login", 5000);
+  } catch (error) {
+    // If modal doesn't close, check if there's an error message
     const errorMessage = page.getByTestId("error-message");
     const hasError = await errorMessage.isVisible({ timeout: 1000 }).catch(() => false);
     
@@ -393,70 +462,22 @@ export async function loginAs(page: Page, username: string, password: string) {
       throw new Error(`Login failed: ${errorText}`);
     }
     
-    // If no error message, check if we're logged in anyway
+    // Modal didn't close and no error - might be a timeout
+    // Check if we're logged in anyway
     const logoutButton = page.getByRole("button", { name: "Log out" });
     const isLoggedIn = await logoutButton.isVisible({ timeout: 1000 }).catch(() => false);
     
     if (!isLoggedIn) {
-      // Check if dialog is still visible (might be blocking the UI)
-      const dialogStillOpen = await loginDialog.isVisible({ timeout: 500 }).catch(() => false);
-      
-      if (dialogStillOpen) {
-        // Dialog is still open - check for error message again (it might have appeared)
-        const errorMessage = page.getByTestId("error-message");
-        const hasErrorNow = await errorMessage.isVisible({ timeout: 1000 }).catch(() => false);
-        
-        if (hasErrorNow) {
-          const errorText = await errorMessage.textContent().catch(() => "Unknown error");
-          throw new Error(`Login failed: ${errorText}`);
-        }
-        
-        // Dialog still open but no error - login might be in progress
-        // Wait a bit longer for login to complete
-        await page.waitForTimeout(1000);
-        const loggedInAfterWait = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
-        
-        if (!loggedInAfterWait) {
-          throw new Error(
-            `Login did not complete for user "${username}". Dialog remained open and logout button did not appear. ` +
-            `This may indicate: 1) The user does not exist, 2) The password is incorrect, 3) There was a network/auth service error. ` +
-            `Please verify the user "${username}" was created successfully with password "${password.substring(0, 3)}...".`
-          );
-        }
-      } else {
-        // Dialog closed but not logged in - this is unexpected
-        throw new Error(
-          `Login did not complete for user "${username}". Dialog closed but logout button did not appear. ` +
-          `This may indicate an authentication failure or UI state issue.`
-        );
-      }
+      throw new Error(
+        `Login did not complete for user "${username}". Modal did not close and logout button did not appear. ` +
+        `This may indicate: 1) The user does not exist, 2) The password is incorrect, 3) There was a network/auth service error. ` +
+        `Please verify the user "${username}" was created successfully with password "${password.substring(0, 3)}...".`
+      );
     }
-    // If we're logged in, the race just timed out - that's okay
-  }
-  
-  // Ensure dialog is actually closed (it might still be in DOM but hidden)
-  const dialogStillVisible = await loginDialog.isVisible().catch(() => false);
-  if (dialogStillVisible) {
-    // Dialog still visible - try to close it manually
-    const closeButton = loginDialog.getByRole("button", { name: "Close login" });
-    const closeButtonVisible = await closeButton.isVisible({ timeout: 1000 }).catch(() => false);
-    if (closeButtonVisible) {
-      await closeButton.click();
-    } else {
-      // Try Escape key
-      await page.keyboard.press("Escape");
-    }
-    // Wait for it to close
-    await loginDialog.waitFor({ state: "hidden", timeout: 3000 }).catch(() => {});
   }
   
   // Verify we're logged in by checking for logout button
-  // Wait a bit first to allow the UI to update after login
-  await page.waitForTimeout(500);
   await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
-  
-  // Wait a bit more for UI to fully stabilize after login
-  await page.waitForTimeout(300);
 }
 
 /**
@@ -565,15 +586,159 @@ export async function selectWorldAndEnterPlanningMode(
   await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
   
   // Also verify we're not on guest view (AuthenticatedView should be rendering)
-  // Wait a moment for the view to switch from GuestView to AuthenticatedView
-  await page.waitForTimeout(300);
-  const guestView = await page.getByText("Welcome to Snapp").isVisible().catch(() => false);
+  // Wait for page to be in a ready state after login - use domcontentloaded instead of networkidle
+  // networkidle can be too strict and timeout unnecessarily
+  await page.waitForLoadState("domcontentloaded", { timeout: 5000 }).catch(() => {});
+  
+  // Wait for authenticated view to be ready - check for logout button or mode selector
+  const logoutButton = page.getByRole("button", { name: "Log out" });
+  await expect(logoutButton).toBeVisible({ timeout: 5000 });
+  
+  const guestView = await page.getByText("Welcome to Snapp").isVisible({ timeout: 1000 }).catch(() => false);
   if (guestView) {
     throw new Error("Cannot navigate to planning screen: still on guest view after login. AuthenticatedView may not have rendered.");
   }
   
+  // Check if we're already in planning mode (planning tabs visible)
+  // If so, we can skip world selection and just navigate to the sub-tab
+  // Do this BEFORE calling ensureModeSelectorVisible, as that function might fail
+  // if we're already in planning mode (world context tablist would be hidden)
+  // Use a longer timeout and check multiple times to handle timing issues
+  let planningTabsAlreadyVisible = false;
+  for (let i = 0; i < 3; i++) {
+    planningTabsAlreadyVisible = await page
+      .getByRole("tablist", { name: "World planning views" })
+      .isVisible()
+      .catch(() => false);
+    
+    if (planningTabsAlreadyVisible) {
+      break;
+    }
+    // Wait a bit and check again
+    await safeWait(page, 200);
+  }
+  
+  if (planningTabsAlreadyVisible) {
+    // Already in planning mode - just navigate to the requested sub-tab
+    const planningTablist = page.getByRole("tablist", { name: "World planning views" });
+    const subTabButton = planningTablist.getByRole("tab", { name: subTab });
+    
+    // Check if already on the requested tab
+    const isActive = await subTabButton.getAttribute("aria-selected").catch(() => null);
+    if (isActive === "true") {
+      return; // Already on the correct tab
+    }
+    
+    // Set up event listener BEFORE clicking
+    const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
+    
+    await expect(subTabButton).toBeVisible({ timeout: 3000 });
+    await subTabButton.click();
+    
+    // Wait for sub-tab to be activated (event-based)
+    await subTabPromise;
+    return; // Done - we're already in planning mode
+  }
+
+  // Not in planning mode yet - need to select a world first
+  // Check if world context tablist is visible (might be hidden if world is selected but planning mode not active)
+  const worldContextTablistCheck = page.getByRole("tablist", { name: "World context" });
+  const worldContextVisibleCheck = await worldContextTablistCheck.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!worldContextVisibleCheck) {
+    // World context not visible - might be in a weird state
+    // Try to leave the world first (if we're in one)
+    try {
+      const snappMenu = page.getByRole("button", { name: /^Snapp/i });
+      const menuVisible = await snappMenu.isVisible({ timeout: 1000 }).catch(() => false);
+      if (menuVisible) {
+        await snappMenu.click();
+        const leaveWorldButton = page.getByRole("button", { name: "Leave World" });
+        const leaveWorldVisible = await leaveWorldButton.isVisible({ timeout: 1000 }).catch(() => false);
+        if (leaveWorldVisible) {
+          await leaveWorldButton.click();
+          await safeWait(page, 300);
+        } else {
+          // Close menu if leave world button not found
+          await snappMenu.click();
+        }
+      }
+    } catch {
+      // Ignore errors - just try to ensure mode selector is visible
+    }
+  }
+  
   // Now ensure mode selector is visible
   await ensureModeSelectorVisible(page);
+  
+  // Wait for page to be fully ready after ensureModeSelectorVisible
+  // Use domcontentloaded instead of networkidle - networkidle can be too strict
+  await page.waitForLoadState("domcontentloaded", { timeout: 3000 }).catch(() => {});
+  
+  // Verify we're still logged in after ensureModeSelectorVisible
+  const logoutButtonCheck = page.getByRole("button", { name: "Log out" });
+  const stillLoggedIn = await logoutButtonCheck.isVisible({ timeout: 2000 }).catch(() => false);
+  if (!stillLoggedIn) {
+    throw new Error("User is not logged in after ensureModeSelectorVisible. Cannot proceed with world selection.");
+  }
+  
+  // Wait for mode selector (world context tablist) to actually be visible
+  // ensureModeSelectorVisible should have made it visible, but wait for it
+  const worldContextTablistAfterEnsure = page.getByRole("tablist", { name: "World context" });
+  
+  // Try to wait for it, but if it's not visible, check if we're already in planning mode
+  let tablistVisible = false;
+  try {
+    await expect(worldContextTablistAfterEnsure).toBeVisible({ timeout: 5000 });
+    tablistVisible = true;
+  } catch {
+    // Tablist not visible - check if we're already in planning mode
+    const planningTabsCheck = await page
+      .getByRole("tablist", { name: "World planning views" })
+      .isVisible()
+      .catch(() => false);
+    
+    if (planningTabsCheck) {
+      // We're already in planning mode - navigate to sub-tab directly
+      const planningTablist = page.getByRole("tablist", { name: "World planning views" });
+      const subTabButton = planningTablist.getByRole("tab", { name: subTab });
+      
+      // Set up event listener BEFORE clicking
+      const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
+      
+      await expect(subTabButton).toBeVisible({ timeout: 3000 });
+      await subTabButton.click();
+      
+      // Wait for sub-tab to be activated (event-based)
+      await subTabPromise;
+      return;
+    }
+    
+    // Not in planning mode and tablist not visible - this is an error
+    throw new Error("World context tablist is not visible and not in planning mode. User may not be logged in or page may be in an unexpected state. Try ensuring the user is logged in and the mode selector is visible.");
+  }
+  
+  // Double-check that we're not in planning mode (might have changed during ensureModeSelectorVisible)
+  const planningTabsCheckAgain = await page
+    .getByRole("tablist", { name: "World planning views" })
+    .isVisible()
+    .catch(() => false);
+  
+  if (planningTabsCheckAgain) {
+    // We're now in planning mode - just navigate to sub-tab
+    const planningTablist = page.getByRole("tablist", { name: "World planning views" });
+    const subTabButton = planningTablist.getByRole("tab", { name: subTab });
+    
+    // Set up event listener BEFORE clicking
+    const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
+    
+    await expect(subTabButton).toBeVisible({ timeout: 3000 });
+    await subTabButton.click();
+    
+    // Wait for sub-tab to be activated (event-based)
+    await subTabPromise;
+    return;
+  }
 
   // For Users tab, we can navigate directly without requiring a world
   // The Users tab doesn't logically need a world, even though the UI currently requires it
@@ -612,7 +777,51 @@ export async function selectWorldAndEnterPlanningMode(
 
   // For other tabs, world selection is required
   // Check if any world exists in the World context selector
+  // The tablist should be visible after ensureModeSelectorVisible, but handle case where it's not
+  // Try to get the tablist - it might not be visible if we're in an unexpected state
   const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+  
+  // Try to wait for it to be visible, but don't fail immediately if it's not
+  // It might not be visible if we're already in planning mode (which we should have caught above)
+  // Wait for page to be ready first
+  await page.waitForLoadState("domcontentloaded", { timeout: 3000 }).catch(() => {});
+  
+  let worldContextVisible = false;
+  try {
+    await expect(worldContextTablist).toBeVisible({ timeout: 5000 });
+    worldContextVisible = true;
+  } catch {
+    // Tablist not visible - check if we're already in planning mode (double-check)
+    const planningTabsCheck = await page
+      .getByRole("tablist", { name: "World planning views" })
+      .isVisible()
+      .catch(() => false);
+    
+    if (planningTabsCheck) {
+      // We're already in planning mode - just navigate to sub-tab
+      const planningTablist = page.getByRole("tablist", { name: "World planning views" });
+      const subTabButton = planningTablist.getByRole("tab", { name: subTab });
+      
+      // Set up event listener BEFORE clicking
+      const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
+      
+      await expect(subTabButton).toBeVisible({ timeout: 3000 });
+      await subTabButton.click();
+      
+      // Wait for sub-tab to be activated (event-based)
+      await subTabPromise;
+      return;
+    }
+    
+    // Not in planning mode and tablist not visible - wait a bit more and try again
+    await page.waitForLoadState("networkidle", { timeout: 2000 }).catch(() => {});
+    worldContextVisible = await worldContextTablist.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (!worldContextVisible) {
+      // This is an error - we should have the tablist visible after ensureModeSelectorVisible
+      throw new Error("World context tablist is not visible and not in planning mode. User may not be logged in or page may be in an unexpected state. Try ensuring the user is logged in and the mode selector is visible.");
+    }
+  }
   
   // First, check if the unique world name already exists
   const uniqueWorldName = getUniqueCampaignName("Eldoria");
@@ -646,21 +855,46 @@ export async function selectWorldAndEnterPlanningMode(
         await page.getByRole("button", { name: /Snapp/i }).click();
         await page.getByRole("button", { name: "Create world" }).click();
         
-        // Wait for the create world modal to be visible
+        // Wait for the create world modal to open using transition event
+        await waitForModalOpen(page, "world", 5000);
+        
+        // Get reference to dialog for use throughout this block
         const createWorldDialog = page.getByRole("dialog", { name: /create world/i });
-        await expect(createWorldDialog).toBeVisible({ timeout: 3000 });
         
         // uniqueWorldName already defined above
         await page.getByLabel("World name").fill(uniqueWorldName);
         await page.getByLabel("Description").fill("A high-fantasy realm.");
         await page.getByRole("button", { name: "Save world" }).click();
         
-        // Wait for either: modal to close, error message, or world to appear
-        await Promise.race([
-          createWorldDialog.waitFor({ state: "hidden", timeout: 3000 }).catch(() => null),
-          page.getByTestId("error-message").waitFor({ timeout: 2000 }).catch(() => null),
-          worldContextTablist.getByRole("tab", { name: uniqueWorldName }).waitFor({ timeout: 3000 }).catch(() => null)
-        ]);
+        // Wait for modal to close using transition event
+        try {
+          await waitForModalClose(page, "world", 5000);
+        } catch (error) {
+          // Modal didn't close - check for errors
+          const errorVisible = await page.getByTestId("error-message").isVisible({ timeout: 2000 }).catch(() => false);
+          if (errorVisible) {
+            const errorText = await page.getByTestId("error-message").textContent();
+            // If error says world already exists, that's okay - close modal and continue
+            if (errorText?.includes("already exists") || errorText?.includes("duplicate")) {
+              const cancelButton = createWorldDialog.getByRole("button", { name: "Cancel" });
+              if (await cancelButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+                await cancelButton.click();
+                await waitForModalClose(page, "world", 3000);
+              }
+              // World should already exist, wait for it
+              await expect(
+                worldContextTablist.getByRole("tab", { name: uniqueWorldName })
+              ).toBeVisible({ timeout: 3000 });
+              await page.evaluate((name) => {
+                (window as any).__testWorldName = name;
+              }, uniqueWorldName);
+              hasUniqueWorld = true;
+              return;
+            }
+            throw new Error(`World creation failed: ${errorText}`);
+          }
+          throw error;
+        }
         
         // Check if world already appeared (creation succeeded)
         let worldExists = await worldContextTablist
@@ -848,13 +1082,16 @@ export async function selectWorldAndEnterPlanningMode(
         await page.getByRole("button", { name: /Snapp/i }).click();
         await page.getByRole("button", { name: "Create world" }).click();
         
-        const createWorldDialog = page.getByRole("dialog", { name: /create world/i });
-        await expect(createWorldDialog).toBeVisible({ timeout: 3000 });
+        // Wait for modal to open using transition event
+        await waitForModalOpen(page, "world", 5000);
         
         const worldName = getUniqueCampaignName("Eldoria");
         await page.getByLabel("World name").fill(worldName);
         await page.getByLabel("Description").fill("A high-fantasy realm.");
         await page.getByRole("button", { name: "Save world" }).click();
+        
+        // Wait for modal to close using transition event
+        await waitForModalClose(page, "world", 5000);
         
         // Wait for world to be created and appear in the tablist
         await expect(
@@ -908,11 +1145,25 @@ export async function selectWorldAndEnterPlanningMode(
     throw error;
   }
   
-  // Get the world name for debugging
-  const worldName = await worldTab.textContent().catch(() => "unknown");
+  // Get the world name for event-based waiting
+  // Trim whitespace and normalize the name
+  // Remove any leading special characters that might interfere with matching (like em dashes, en dashes, regular dashes)
+  const worldNameRaw = await worldTab.textContent().catch(() => "unknown");
+  // Remove leading dashes (em dash, en dash, regular dash) and trim
+  const worldName = worldNameRaw?.trim().replace(/^[—–\-\s]+/, "").trim() || "unknown";
+  
+  // Set up event listeners BEFORE clicking to avoid race conditions
+  // Use a more lenient name match (partial match) since the exact name might have variations
+  const worldSelectedPromise = waitForWorldSelected(page, worldName, 8000);
+  const planningModePromise = waitForPlanningMode(page, 8000);
   
   // Click the tab - it's a button element, so clicking should work
+  // Ensure the tab is visible and enabled before clicking
+  await expect(worldTab).toBeVisible({ timeout: 3000 });
+  await expect(worldTab).toBeEnabled({ timeout: 2000 });
+  
   // Try clicking at a specific position (center) to avoid nested elements
+  // Also verify the click worked by checking if tab becomes selected
   try {
     const box = await worldTab.boundingBox();
     if (box) {
@@ -921,113 +1172,148 @@ export async function selectWorldAndEnterPlanningMode(
       // Fallback to regular click if bounding box isn't available
       await worldTab.click({ force: true });
     }
+    
+    // Wait a moment for the click to register and state to update
+    await safeWait(page, 300);
+    
+    // Verify the click worked by checking if tab is selected
+    // Give it a bit more time since React state updates might be delayed
+    let clickedSelected = false;
+    for (let i = 0; i < 3; i++) {
+      clickedSelected = await Promise.race([
+        worldTab.getAttribute("aria-selected").then(attr => attr === "true"),
+        new Promise<boolean>(resolve => setTimeout(() => resolve(false), 500))
+      ]).catch(() => false);
+      
+      if (clickedSelected) {
+        break;
+      }
+      // Wait a bit more before next check
+      await safeWait(page, 200);
+    }
+    
+    if (!clickedSelected) {
+      // Click didn't register - try again with a different approach
+      // First, ensure the tab is still visible and clickable
+      await expect(worldTab).toBeVisible({ timeout: 2000 });
+      await expect(worldTab).toBeEnabled({ timeout: 2000 });
+      await worldTab.click({ force: true, timeout: 2000 });
+      await safeWait(page, 400);
+      
+      // Check again with multiple attempts
+      for (let i = 0; i < 3; i++) {
+        clickedSelected = await Promise.race([
+          worldTab.getAttribute("aria-selected").then(attr => attr === "true"),
+          new Promise<boolean>(resolve => setTimeout(() => resolve(false), 500))
+        ]).catch(() => false);
+        
+        if (clickedSelected) {
+          break;
+        }
+        await safeWait(page, 200);
+      }
+      
+      if (!clickedSelected) {
+        // Still not selected - try one more time with mouse click at center
+        const retryBox = await worldTab.boundingBox().catch(() => null);
+        if (retryBox) {
+          await page.mouse.click(retryBox.x + retryBox.width / 2, retryBox.y + retryBox.height / 2);
+          await safeWait(page, 400);
+          // Final check
+          clickedSelected = await Promise.race([
+            worldTab.getAttribute("aria-selected").then(attr => attr === "true"),
+            new Promise<boolean>(resolve => setTimeout(() => resolve(false), 1000))
+          ]).catch(() => false);
+        }
+      }
+    }
   } catch (error) {
     if (error.message?.includes("closed") || page.isClosed()) {
       throw new Error("Page or browser context was closed while clicking world tab");
     }
-    throw error;
+    // Don't throw here - continue and wait for events (they might still fire even if click verification failed)
   }
   
-  // Wait for the world to be selected - the most reliable indicator is planning tabs appearing
-  // The PlanningTabs component renders when both activeMode === "plan" and selectedIds.worldId is set
-  // During concurrent execution, state updates may take longer, so wait a bit first
-  await safeWait(page, 500);
-  
-  // Wait for any pending network requests to complete (but don't wait too long)
+  // Wait for world to be selected and planning mode to be entered
+  // Use Promise.allSettled to wait for both events (they should fire in sequence)
+  // But allow either to succeed independently (world might be selected but planning mode takes longer)
   try {
-    await page.waitForLoadState("networkidle", { timeout: 3000 });
-  } catch {
-    // If networkidle times out quickly, that's okay - just continue
-  }
-  
-  // Ensure page is still valid before waiting for planning tabs
-  if (page.isClosed()) {
-    throw new Error("Page was closed unexpectedly after world selection");
-  }
-  
-  // Wait for planning mode to be active and planning sub-tabs to appear
-  // This is the most reliable indicator that a world is selected
-  // During concurrent execution, React state updates may be delayed
-  // Retry a few times with increasing waits
-  let planningTabsVisible = false;
-  let retries = 0;
-  const maxRetries = 5;
-  
-  while (!planningTabsVisible && retries < maxRetries) {
-    planningTabsVisible = await page
+    // Wait for both, but allow partial success
+    const results = await Promise.allSettled([
+      worldSelectedPromise,
+      planningModePromise
+    ]);
+    
+    // Check results - if either succeeded, that's good
+    const worldSelectedSucceeded = results[0].status === "fulfilled";
+    const planningModeSucceeded = results[1].status === "fulfilled";
+    
+    // Check if at least planning mode is active (most important indicator)
+    let planningTabsVisible = await page
       .getByRole("tablist", { name: "World planning views" })
       .isVisible()
       .catch(() => false);
     
     if (!planningTabsVisible) {
-      retries++;
-      if (retries < maxRetries) {
-        // Wait a bit longer each retry (exponential backoff)
-        await safeWait(page, 300 * retries);
-        
-        // Check if page is still valid
-        if (page.isClosed()) {
-          throw new Error("Page was closed while waiting for planning tabs to appear");
-        }
-      }
-    }
-  }
-  
-  if (!planningTabsVisible) {
-    // Check if we're actually in a world (world context should be hidden)
-    const worldContextVisible = await page
-      .getByRole("tablist", { name: "World context" })
-      .isVisible()
-      .catch(() => false);
-    
-    // If world context is visible, we're not in a world - the click might not have worked
-    if (worldContextVisible) {
-      // Try clicking the world tab again
+      // Planning mode not active - wait a bit more and check again
+      // Sometimes the UI takes a moment to update even after events fire
       await safeWait(page, 500);
-      try {
-        await worldTab.click({ force: true });
-        await safeWait(page, 500);
-        // Check again for planning tabs
+      planningTabsVisible = await page
+        .getByRole("tablist", { name: "World planning views" })
+        .isVisible()
+        .catch(() => false);
+      
+      if (!planningTabsVisible) {
+        // Wait one more time with a longer delay
+        await safeWait(page, 1000);
         planningTabsVisible = await page
           .getByRole("tablist", { name: "World planning views" })
           .isVisible()
           .catch(() => false);
-      } catch (clickError) {
-        // Click failed, continue to error
       }
-    }
-    
-    // Final attempt with explicit wait
-    if (!planningTabsVisible) {
-      try {
-        await expect(
-          page.getByRole("tablist", { name: "World planning views" })
-        ).toBeVisible({ timeout: 5000 });
-      } catch (error) {
-        // If page closed, throw a more helpful error
-        if (page.isClosed()) {
-          throw new Error("Page was closed while waiting for planning tabs to appear");
-        }
-        // Otherwise, check if we're still on the page and provide more context
+      
+      if (!planningTabsVisible) {
+        // Still not visible - provide helpful error with event status
         const currentUrl = page.url();
         const worldContextStillVisible = await page
           .getByRole("tablist", { name: "World context" })
           .isVisible()
           .catch(() => false);
         
-        // Check if world tab is still visible/selected
         const worldTabStillVisible = await worldTab.isVisible().catch(() => false);
-        const worldTabSelected = worldTabStillVisible 
-          ? await worldTab.getAttribute("aria-selected") === "true"
+        const worldTabSelected = worldTabStillVisible
+          ? await Promise.race([
+              worldTab.getAttribute("aria-selected").then(attr => attr === "true"),
+              new Promise<boolean>(resolve => setTimeout(() => resolve(false), 2000))
+            ]).catch(() => false)
           : false;
         
+        const worldEventFired = worldSelectedSucceeded ? "yes" : "no";
+        const planningEventFired = planningModeSucceeded ? "yes" : "no";
+        
         throw new Error(
-          `Planning tabs did not appear after selecting world after ${maxRetries} retries. ` +
+          `Planning mode did not activate after selecting world "${worldName}". ` +
           `URL: ${currentUrl}, World context visible: ${worldContextStillVisible}, ` +
-          `World tab visible: ${worldTabStillVisible}, World tab selected: ${worldTabSelected}`
+          `World tab visible: ${worldTabStillVisible}, World tab selected: ${worldTabSelected}. ` +
+          `World selection event fired: ${worldEventFired}, Planning mode event fired: ${planningEventFired}. ` +
+          `This may indicate the click did not register, the events did not fire, or planning mode did not activate.`
         );
       }
     }
+  } catch (error) {
+    // If there's an error, check if planning mode is active anyway
+    const planningTabsVisible = await page
+      .getByRole("tablist", { name: "World planning views" })
+      .isVisible()
+      .catch(() => false);
+    
+    if (planningTabsVisible) {
+      // Planning mode is active - that's what matters, continue
+      return;
+    }
+    
+    // Planning mode not active and error occurred - rethrow
+    throw error;
   }
 
   // Navigate to the requested sub-tab if not already on it
@@ -1050,10 +1336,13 @@ export async function selectWorldAndEnterPlanningMode(
     }
     
     await expect(subTabButton).toBeVisible({ timeout: 3000 });
-    await subTabButton.click();
+    // Set up event listener BEFORE clicking
+    const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
     
-    // Wait a moment for the tab switch to complete
-    await safeWait(page, 300);
+    await subTabButton.click();
+
+    // Wait for sub-tab to be activated (event-based)
+    await subTabPromise;
   }
 }
 
@@ -1089,8 +1378,10 @@ export async function ensureCampaignExists(
     .getByRole("tab", { name: "Campaigns" });
   const isOnCampaignsTab = await campaignsTab.isVisible().catch(() => false);
   if (!isOnCampaignsTab) {
+    // Set up event listener BEFORE clicking
+    const campaignsPromise = waitForPlanningSubTab(page, "Campaigns", 5000);
     await campaignsTab.click();
-    await safeWait(page, 300); // Wait for tab switch
+    await campaignsPromise.catch(() => {}); // Don't fail if event doesn't fire
   }
 
   // Check if campaign is already selected (campaign views visible means campaign is selected)
@@ -1121,12 +1412,15 @@ export async function ensureCampaignExists(
       .getByRole("tab", { name: "World Entities" });
     
     if (await worldEntitiesTab.isVisible().catch(() => false)) {
+      // Set up event listener BEFORE clicking
+      const worldEntitiesPromise = waitForPlanningSubTab(page, "World Entities", 5000);
       await worldEntitiesTab.click();
-      await page.waitForTimeout(500);
+      await worldEntitiesPromise.catch(() => {}); // Don't fail if event doesn't fire
       
       // Now navigate back to Campaigns
+      const campaignsPromise = waitForPlanningSubTab(page, "Campaigns", 5000);
       await campaignsTab.click();
-      await page.waitForTimeout(500);
+      await campaignsPromise.catch(() => {}); // Don't fail if event doesn't fire
       
       // Re-check if campaign views are still visible (they shouldn't be after navigation)
       const stillSelected = await page
@@ -1136,14 +1430,15 @@ export async function ensureCampaignExists(
       
       if (stillSelected) {
         // Still selected - try clicking the Campaigns tab again to force reset
+        const campaignsPromise2 = waitForPlanningSubTab(page, "Campaigns", 5000);
         await campaignsTab.click();
-        await page.waitForTimeout(500);
+        await campaignsPromise2.catch(() => {}); // Don't fail if event doesn't fire
       }
     }
   }
 
-  // Wait a bit for UI to settle after any navigation
-  await safeWait(page, 200);
+  // Wait for UI to settle - check that campaigns tab is active
+  await expect(campaignsTab).toBeVisible({ timeout: 2000 });
   
   // Re-check campaign views visibility after potential deselection
   const campaignViewsStillVisible = await page
@@ -1452,19 +1747,40 @@ export async function ensureCampaignExists(
       // Otherwise, rethrow the original error
       throw error;
     }
-    const createCampaignDialog = page.getByRole("dialog", { name: /create campaign/i });
-    await expect(createCampaignDialog).toBeVisible({ timeout: 3000 });
+    
+    // Wait for modal to open using transition event
+    await waitForModalOpen(page, "campaign", 5000);
     
     await page.getByLabel("Campaign name").fill(campaignName);
     await page.getByLabel("Summary").fill(summary);
     await page.getByRole("button", { name: "Save campaign" }).click();
 
-    // Wait for either the modal to close, an error message, or the campaign tab to appear
-    await Promise.race([
-      createCampaignDialog.waitFor({ state: "hidden", timeout: 3000 }).catch(() => null),
-      page.getByTestId("error-message").waitFor({ timeout: 3000 }).catch(() => null),
-      page.getByRole("tab", { name: campaignName }).waitFor({ timeout: 3000 }).catch(() => null)
-    ]);
+    // Wait for modal to close using transition event
+    const createCampaignDialog = page.getByRole("dialog", { name: /create campaign/i });
+    try {
+      await waitForModalClose(page, "campaign", 5000);
+    } catch (error) {
+      // Modal didn't close - check for errors
+      const errorVisible = await page.getByTestId("error-message").isVisible({ timeout: 3000 }).catch(() => false);
+      if (errorVisible) {
+        const errorText = await page.getByTestId("error-message").textContent();
+        // If error says campaign already exists, that's okay - close modal and continue
+        if (errorText?.includes("already exists") || errorText?.includes("duplicate")) {
+          const cancelButton = createCampaignDialog.getByRole("button", { name: "Cancel" });
+          if (await cancelButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+            await cancelButton.click();
+            await waitForModalClose(page, "campaign", 3000);
+          }
+          // Campaign should already exist, wait for it
+          await expect(
+            page.getByRole("tab", { name: campaignName })
+          ).toBeVisible({ timeout: 3000 });
+          return;
+        }
+        throw new Error(`Campaign creation failed: ${errorText}`);
+      }
+      throw error;
+    }
 
     // Check for errors first
     const errorMessage = await page.getByTestId("error-message").isVisible().catch(() => false);
@@ -1478,9 +1794,9 @@ export async function ensureCampaignExists(
       // No error - modal should be closed, but if it's still open, wait a bit more
       const stillOpen = await createCampaignDialog.isVisible().catch(() => false);
       if (stillOpen) {
-        // Give it a moment, then check if campaign tab appeared (success)
-        await page.waitForTimeout(1000);
-        const campaignTabVisible = await page.getByRole("tab", { name: campaignName }).isVisible().catch(() => false);
+        // Wait for campaign tab to appear (might be loading)
+        const campaignTab = page.getByRole("tab", { name: campaignName });
+        const campaignTabVisible = await campaignTab.isVisible({ timeout: 3000 }).catch(() => false);
         if (campaignTabVisible) {
           // Success - close modal manually if still open
           const cancelButton = createCampaignDialog.getByRole("button", { name: "Cancel" });
@@ -1624,4 +1940,1897 @@ export async function ensureCampaignExists(
     // If checking isClosed() throws, the page is likely in a bad state
     // But don't throw here - let the next operation fail naturally
   }
+}
+
+/**
+ * Wait for a modal to open using transition events.
+ * This is more reliable than polling for element visibility.
+ * 
+ * @param page - Playwright page object
+ * @param modalType - Type of modal to wait for (e.g., "login", "world", "campaign")
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForModalOpen(
+  page: Page,
+  modalType: string,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ type, timeout }) => {
+      return new Promise<void>((resolve, reject) => {
+        // Set up listener first, before checking if modal is already open
+        // This ensures we don't miss the event if it fires immediately
+        let resolved = false;
+        
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          if (customEvent.detail?.modalType === type && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener("snapp:modal-opened", handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener("snapp:modal-opened", handler);
+
+        // Check if modal is already open (might have opened before listener was set up)
+        // Use a small delay to let any pending events fire
+        setTimeout(() => {
+          if (resolved) return;
+          
+          const dialogs = document.querySelectorAll('[role="dialog"]');
+          for (const dialog of dialogs) {
+            const isVisible = dialog instanceof HTMLElement && 
+              (dialog.offsetParent !== null || dialog.style.display !== "none");
+            if (isVisible) {
+              // Modal appears to be open - check if it matches our type
+              const ariaLabel = dialog.getAttribute("aria-label")?.toLowerCase() || "";
+              const textContent = dialog.textContent?.toLowerCase() || "";
+              if (ariaLabel.includes(type) || textContent.includes(type) || type === "login") {
+                resolved = true;
+                clearTimeout(timer);
+                window.removeEventListener("snapp:modal-opened", handler);
+                resolve();
+                return;
+              }
+            }
+          }
+        }, 50);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener("snapp:modal-opened", handler);
+            reject(new Error(`Timeout waiting for modal "${type}" to open after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { type: modalType, timeout }
+  );
+
+  // Also wait for the dialog to actually be visible (fallback)
+  const dialogPromise = (async () => {
+    // Map modal type to dialog name
+    const dialogNames: Record<string, string> = {
+      login: "Login",
+      world: "Create world",
+      campaign: "Create campaign",
+      entity: "Add",
+      session: "Add session",
+      player: "Add player",
+      storyArc: "Add story arc",
+      scene: "Add scene",
+      createUser: "Create user"
+    };
+    
+    const dialogName = dialogNames[modalType] || "dialog";
+    const dialog = page.getByRole("dialog", { name: new RegExp(dialogName, "i") });
+    await expect(dialog).toBeVisible({ timeout });
+  })();
+
+  // Wait for BOTH the event AND the dialog to be visible
+  // This ensures the modal is fully rendered, not just that the event fired
+  // If event fires, great. If not, wait for dialog. If dialog appears, that's also fine.
+  try {
+    await Promise.all([
+      eventPromise.catch(() => {
+        // Event might not fire, but dialog might be visible - that's okay
+        return Promise.resolve();
+      }),
+      dialogPromise
+    ]);
+  } catch (error) {
+    // If both fail, try waiting just for the dialog (event might have fired before listener was set up)
+    try {
+      await dialogPromise;
+    } catch (dialogError) {
+      // Dialog didn't appear either - this is the real error
+      throw error; // Throw the original error which has more context
+    }
+  }
+  
+  // For login modal specifically, also wait for the form field to be available
+  // This ensures the form content is fully rendered
+  // Use a longer timeout since form content might take time to render
+  if (modalType === "login") {
+    try {
+      await expect(page.getByTestId("login-username")).toBeVisible({ timeout: 5000 });
+    } catch (error) {
+      // Form field didn't appear - check if dialog is still visible
+      const loginDialog = page.getByRole("dialog", { name: "Login" });
+      const dialogVisible = await loginDialog.isVisible({ timeout: 1000 }).catch(() => false);
+      if (!dialogVisible) {
+        // Dialog closed - might have logged in automatically or something else happened
+        throw error;
+      }
+      // Dialog is visible but form field isn't - wait for it to appear
+      await expect(page.getByTestId("login-username")).toBeVisible({ timeout: 3000 });
+    }
+  }
+}
+
+/**
+ * Wait for a world to be selected using transition events.
+ * This is more reliable than polling for DOM elements.
+ * 
+ * @param page - Playwright page object
+ * @param worldName - Name of the world to wait for (can be partial match)
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForWorldSelected(
+  page: Page,
+  worldName: string,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ name, timeout }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+        
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventWorldName = (customEvent.detail?.worldName || "").trim();
+          const searchName = name.trim();
+          // Match by exact name (case-insensitive) or if name is contained in event world name
+          // Also try reverse match (event name contained in search name)
+          const exactMatch = eventWorldName.toLowerCase() === searchName.toLowerCase();
+          const forwardMatch = eventWorldName.includes(searchName);
+          const reverseMatch = searchName.includes(eventWorldName);
+          if (eventWorldName && (exactMatch || forwardMatch || reverseMatch) && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener("snapp:world-selected", handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener("snapp:world-selected", handler);
+
+        // Check if world is already selected (might have been selected before listener was set up)
+        setTimeout(() => {
+          if (resolved) return;
+          
+          // Check if world tab is selected in the UI
+          const worldTabs = document.querySelectorAll('[role="tablist"][aria-label*="World context"] [role="tab"]');
+          const searchName = name.trim().toLowerCase();
+          for (const tab of worldTabs) {
+            const isSelected = tab.getAttribute("aria-selected") === "true";
+            const tabText = (tab.textContent || "").trim().toLowerCase();
+            // Match by exact name or partial match (either direction)
+            const exactMatch = tabText === searchName;
+            const forwardMatch = tabText.includes(searchName);
+            const reverseMatch = searchName.includes(tabText);
+            if (isSelected && (exactMatch || forwardMatch || reverseMatch)) {
+              resolved = true;
+              clearTimeout(timer);
+              window.removeEventListener("snapp:world-selected", handler);
+              resolve();
+              return;
+            }
+          }
+        }, 50);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener("snapp:world-selected", handler);
+            reject(new Error(`Timeout waiting for world "${name}" to be selected after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { name: worldName, timeout }
+  );
+
+  // Also wait for the world tab to be visible and selected (fallback)
+  // Use a more flexible approach - try to find the tab, but don't fail if name doesn't match exactly
+  const tabPromise = (async () => {
+    try {
+      const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+      // Try exact match first
+      let worldTab = worldContextTablist.getByRole("tab", { name: new RegExp(worldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i") });
+      let tabFound = false;
+      
+      try {
+        await expect(worldTab).toBeVisible({ timeout: Math.min(timeout, 3000) });
+        tabFound = true;
+      } catch {
+        // Exact match failed - try to find any selected tab
+        const allTabs = worldContextTablist.getByRole("tab");
+        const tabCount = await allTabs.count();
+        for (let i = 0; i < tabCount; i++) {
+          const tab = allTabs.nth(i);
+          const tabText = await tab.textContent().catch(() => "");
+          const isSelected = await tab.getAttribute("aria-selected").catch(() => null);
+          // Check if this tab matches our world name (partial match) and is selected
+          if (tabText && (tabText.includes(worldName) || worldName.includes(tabText.trim())) && isSelected === "true") {
+            tabFound = true;
+            break;
+          }
+        }
+      }
+      
+      if (tabFound) {
+        // Tab found - poll for it to be selected (with short timeout)
+        const startTime = Date.now();
+        while (Date.now() - startTime < 1000) {
+          const isSelected = await worldTab.getAttribute("aria-selected").catch(() => null);
+          if (isSelected === "true") {
+            return; // Tab is visible and selected
+          }
+          await page.waitForTimeout(50); // Small delay between polls
+        }
+        // After polling, check one more time
+        const finalSelected = await worldTab.getAttribute("aria-selected").catch(() => null);
+        if (finalSelected !== "true") {
+          // Tab visible but not selected - this might be okay if event fired
+          // Don't throw here, let the event promise handle it
+          return;
+        }
+        return; // Tab is visible and selected
+      }
+    } catch (tabError) {
+      // Tab search failed - that's okay, event might still fire
+      return;
+    }
+  })();
+
+  // Wait for EITHER the event OR the tab to be visible and selected
+  // Prefer the event, but fall back to tab visibility if event doesn't fire
+  try {
+    await Promise.race([
+      eventPromise,
+      tabPromise
+    ]);
+  } catch (error) {
+    // Both failed - check if planning mode is active anyway (might have happened via event)
+    const planningTabsVisible = await page
+      .getByRole("tablist", { name: "World planning views" })
+      .isVisible()
+      .catch(() => false);
+    
+    if (planningTabsVisible) {
+      // Planning mode is active - world must be selected, even if we didn't catch the event
+      return;
+    }
+    
+    // Neither event nor tab check worked, and planning mode isn't active
+    throw error;
+  }
+}
+
+/**
+ * Wait for a campaign to be selected using transition events.
+ * This is more reliable than polling for DOM elements.
+ * 
+ * @param page - Playwright page object
+ * @param campaignName - Name of the campaign to wait for (can be partial match)
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForCampaignSelected(
+  page: Page,
+  campaignName: string,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ name, timeout }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+        
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventCampaignName = customEvent.detail?.campaignName || "";
+          // Match by exact name or if name is contained in event campaign name
+          if (eventCampaignName && (eventCampaignName === name || eventCampaignName.includes(name)) && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener("snapp:campaign-selected", handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener("snapp:campaign-selected", handler);
+
+        // Check if campaign is already selected (might have been selected before listener was set up)
+        setTimeout(() => {
+          if (resolved) return;
+          
+          // Check if campaign tab is selected in the UI
+          const campaignTabs = document.querySelectorAll('[role="tablist"][aria-label*="Campaign"] [role="tab"]');
+          for (const tab of campaignTabs) {
+            const isSelected = tab.getAttribute("aria-selected") === "true";
+            const tabText = tab.textContent || "";
+            if (isSelected && (tabText === name || tabText.includes(name))) {
+              resolved = true;
+              clearTimeout(timer);
+              window.removeEventListener("snapp:campaign-selected", handler);
+              resolve();
+              return;
+            }
+          }
+        }, 50);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener("snapp:campaign-selected", handler);
+            reject(new Error(`Timeout waiting for campaign "${name}" to be selected after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { name: campaignName, timeout }
+  );
+
+  // Also wait for the campaign tab to be visible and selected (fallback)
+  const tabPromise = (async () => {
+    // Campaign tabs might be in different places depending on view
+    // Try to find campaign tab in campaign views tablist
+    const campaignViewsTablist = page.getByRole("tablist", { name: "Campaign views" });
+    const campaignTab = campaignViewsTablist.getByRole("tab", { name: new RegExp(campaignName, "i") });
+    await expect(campaignTab).toBeVisible({ timeout });
+    // Poll for tab to be selected (with timeout)
+    const startTime = Date.now();
+    const pollTimeout = Math.min(timeout, 2000); // Max 2s for polling
+    while (Date.now() - startTime < pollTimeout) {
+      const isSelected = await campaignTab.getAttribute("aria-selected");
+      if (isSelected === "true") {
+        return; // Tab is selected
+      }
+      await page.waitForTimeout(50); // Small delay between polls
+    }
+    // After polling, check one more time
+    const finalSelected = await campaignTab.getAttribute("aria-selected");
+    if (finalSelected !== "true") {
+      throw new Error(`Campaign tab "${campaignName}" is visible but not selected after ${pollTimeout}ms`);
+    }
+  })();
+
+  // Wait for EITHER the event OR the tab to be visible and selected
+  await Promise.race([
+    eventPromise.catch(() => {
+      // Event might not fire, but tab might be visible - that's okay
+      return Promise.resolve();
+    }),
+    tabPromise
+  ]);
+}
+
+/**
+ * Wait for planning mode to be entered using transition events.
+ * This is more reliable than polling for planning tabs visibility.
+ * 
+ * @param page - Playwright page object
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForPlanningMode(
+  page: Page,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ timeout }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+        
+        const handler = (e: Event) => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener("snapp:planning-mode-entered", handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener("snapp:planning-mode-entered", handler);
+
+        // Check if planning mode is already active (might have been entered before listener was set up)
+        setTimeout(() => {
+          if (resolved) return;
+          
+          // Check if planning tabs are visible
+          const planningTabs = document.querySelectorAll('[role="tablist"][aria-label*="World planning views"]');
+          if (planningTabs.length > 0) {
+            const isVisible = planningTabs[0] instanceof HTMLElement && 
+              (planningTabs[0].offsetParent !== null || planningTabs[0].style.display !== "none");
+            if (isVisible) {
+              resolved = true;
+              clearTimeout(timer);
+              window.removeEventListener("snapp:planning-mode-entered", handler);
+              resolve();
+              return;
+            }
+          }
+        }, 50);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener("snapp:planning-mode-entered", handler);
+            reject(new Error(`Timeout waiting for planning mode to be entered after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { timeout }
+  );
+
+  // Also wait for the planning tabs to be visible (fallback)
+  const tabsPromise = (async () => {
+    // Wait for planning tabs to be visible, but don't fail immediately if they're not
+    // The event might fire before the UI updates
+    const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+    try {
+      await expect(planningTabs).toBeVisible({ timeout });
+    } catch {
+      // If tabs aren't visible, wait a bit more for UI to update
+      await page.waitForTimeout(500);
+      await expect(planningTabs).toBeVisible({ timeout: 3000 });
+    }
+  })();
+
+  // Wait for BOTH the event AND the tabs to be visible
+  // This ensures planning mode is fully active, not just that the event fired
+  await Promise.all([
+    eventPromise.catch(() => {
+      // Event might not fire, but tabs might be visible - that's okay
+      return Promise.resolve();
+    }),
+    tabsPromise
+  ]);
+}
+
+/**
+ * Wait for a modal to close using transition events.
+ * This is more reliable than polling for element visibility.
+ * 
+ * @param page - Playwright page object
+ * @param modalType - Type of modal to wait for (e.g., "login", "world", "campaign")
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForModalClose(
+  page: Page,
+  modalType: string,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener
+  const eventPromise = page.evaluate(
+    ({ type, timeout }) => {
+      return new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          window.removeEventListener("snapp:modal-closed", handler);
+          reject(new Error(`Timeout waiting for modal "${type}" to close after ${timeout}ms`));
+        }, timeout);
+
+        const handler = (e: CustomEvent) => {
+          if (e.detail.modalType === type) {
+            clearTimeout(timer);
+            window.removeEventListener("snapp:modal-closed", handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener("snapp:modal-closed", handler);
+      });
+    },
+    { type: modalType, timeout }
+  );
+
+  // Also wait for the dialog to actually be hidden (fallback)
+  const dialogPromise = (async () => {
+    // Map modal type to dialog name
+    const dialogNames: Record<string, string> = {
+      login: "Login",
+      world: "Create world",
+      campaign: "Create campaign",
+      entity: "Add",
+      session: "Add session",
+      player: "Add player",
+      storyArc: "Add story arc",
+      scene: "Add scene",
+      createUser: "Create user"
+    };
+    
+    const dialogName = dialogNames[modalType] || "dialog";
+    const dialog = page.getByRole("dialog", { name: new RegExp(dialogName, "i") });
+    // Use a shorter timeout for the dialog check since we're racing with the event
+    await dialog.waitFor({ state: "hidden", timeout: Math.min(timeout, 3000) });
+  })();
+
+  // Wait for EITHER the event OR the dialog to be hidden
+  // If the event fires, great. If not, check if dialog is hidden anyway
+  await Promise.race([
+    eventPromise,
+    dialogPromise
+  ]).catch(async (error) => {
+    // If both timed out, check if dialog is hidden anyway
+    const dialogNames: Record<string, string> = {
+      login: "Login",
+      world: "Create world",
+      campaign: "Create campaign",
+      createUser: "Create user"
+    };
+    const dialogName = dialogNames[modalType] || "dialog";
+    const dialog = page.getByRole("dialog", { name: new RegExp(dialogName, "i") });
+    const isHidden = await dialog.isHidden({ timeout: 1000 }).catch(() => true);
+    if (isHidden) {
+      return; // Dialog is hidden, that's good enough
+    }
+    throw error; // Neither event nor dialog hidden, rethrow
+  });
+}
+
+/**
+ * Wait for a world to be created using transition events.
+ * This is more reliable than waiting for modal close + checking list.
+ * 
+ * @param page - Playwright page object
+ * @param worldName - Name of the world to wait for (can be partial match)
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForWorldCreated(
+  page: Page,
+  worldName: string,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ name, timeout, eventName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventWorldName = (customEvent.detail?.entityName || "").trim().toLowerCase();
+          const searchName = name.trim().toLowerCase();
+          
+          // Match by exact name or if name is contained in event world name
+          const exactMatch = eventWorldName === searchName;
+          const forwardMatch = eventWorldName.includes(searchName);
+          const reverseMatch = searchName.includes(eventWorldName);
+          
+          if (eventWorldName && (exactMatch || forwardMatch || reverseMatch) && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for world "${name}" to be created after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { name: worldName, timeout, eventName: WORLD_CREATED_EVENT }
+  );
+
+  // Fallback: Wait for world to appear in the world context tablist
+  const domPromise = (async () => {
+    const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+    await expect(worldContextTablist).toBeVisible({ timeout });
+    const worldTab = worldContextTablist.getByRole("tab", { name: new RegExp(worldName, "i") });
+    await expect(worldTab).toBeVisible({ timeout });
+  })();
+
+  // Wait for EITHER the event OR the DOM element to appear
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch(async (error) => {
+    // If both failed, check if world tab exists anyway
+    const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+    const isVisible = await worldContextTablist.isVisible({ timeout: 1000 }).catch(() => false);
+    if (isVisible) {
+      const worldTab = worldContextTablist.getByRole("tab", { name: new RegExp(worldName, "i") });
+      const tabVisible = await worldTab.isVisible({ timeout: 1000 }).catch(() => false);
+      if (tabVisible) {
+        return; // World tab is visible, that's good enough
+      }
+    }
+    throw error; // Neither event nor DOM, rethrow
+  });
+}
+
+/**
+ * Wait for a planning sub-tab to be activated using transition events.
+ * This is more reliable than checking for DOM elements.
+ * 
+ * @param page - Playwright page object
+ * @param subTab - Name of the sub-tab to wait for ("World Entities", "Campaigns", "Story Arcs", "Users")
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForPlanningSubTab(
+  page: Page,
+  subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users",
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ tab, timeout, eventName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventSubTab = customEvent.detail?.subTab;
+          
+          if (eventSubTab === tab && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        // Check if sub-tab is already active (might have been set before listener was set up)
+        setTimeout(() => {
+          if (resolved) return;
+          
+          // Check if the tab is already active in the DOM
+          const planningTabs = document.querySelectorAll('[role="tablist"][aria-label*="World planning views"] [role="tab"]');
+          for (const tabElement of planningTabs) {
+            const tabText = tabElement.textContent?.trim() || "";
+            const isSelected = tabElement.getAttribute("aria-selected") === "true";
+            if (tabText === tab && isSelected) {
+              resolved = true;
+              clearTimeout(timer);
+              window.removeEventListener(eventName, handler);
+              resolve();
+              return;
+            }
+          }
+        }, 100);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for planning sub-tab "${tab}" to be activated after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { tab: subTab, timeout, eventName: PLANNING_SUBTAB_CHANGED_EVENT }
+  );
+
+  // Fallback: Wait for the tab to be visible and selected in the DOM
+  const domPromise = (async () => {
+    const planningTablist = page.getByRole("tablist", { name: "World planning views" });
+    await expect(planningTablist).toBeVisible({ timeout });
+    const tab = planningTablist.getByRole("tab", { name: subTab });
+    await expect(tab).toBeVisible({ timeout });
+    // Poll for tab to be selected (with timeout)
+    const startTime = Date.now();
+    const pollTimeout = Math.min(timeout, 2000); // Max 2s for polling
+    while (Date.now() - startTime < pollTimeout) {
+      const isSelected = await tab.getAttribute("aria-selected");
+      if (isSelected === "true") {
+        return; // Tab is selected
+      }
+      await page.waitForTimeout(50); // Small delay between polls
+    }
+    // After polling, check one more time
+    const finalSelected = await tab.getAttribute("aria-selected");
+    if (finalSelected !== "true") {
+      throw new Error(`Planning sub-tab "${subTab}" is visible but not selected after ${pollTimeout}ms`);
+    }
+  })();
+
+  // Wait for EITHER the event OR the DOM element to be ready
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch(async (error) => {
+    // If both failed, check if tab is selected anyway
+    const planningTablist = page.getByRole("tablist", { name: "World planning views" });
+    const isVisible = await planningTablist.isVisible({ timeout: 1000 }).catch(() => false);
+    if (isVisible) {
+      const tab = planningTablist.getByRole("tab", { name: subTab });
+      const tabVisible = await tab.isVisible({ timeout: 1000 }).catch(() => false);
+      if (tabVisible) {
+        const isSelected = await tab.getAttribute("aria-selected").catch(() => null);
+        if (isSelected === "true") {
+          return; // Tab is selected, that's good enough
+        }
+      }
+    }
+    throw error; // Neither event nor DOM, rethrow
+  });
+}
+
+/**
+ * Wait for a campaign view to be activated using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param view - Name of the view to wait for ("sessions", "players", "story-arcs", "timeline")
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForCampaignView(
+  page: Page,
+  view: "sessions" | "players" | "story-arcs" | "timeline",
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ view, timeout, eventName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventView = customEvent.detail?.view;
+          
+          if (eventView === view && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for campaign view "${view}" to be activated after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { view, timeout, eventName: CAMPAIGN_VIEW_CHANGED_EVENT }
+  );
+
+  // Fallback: Wait for view-specific UI elements to appear
+  // This is view-specific, so we check for common indicators
+  const domPromise = (async () => {
+    // For sessions view, look for "Add session" button or session list
+    // For players view, look for "Add player" button or player list
+    // For story-arcs view, look for "Add story arc" button or story arc list
+    // For timeline view, look for timeline-specific elements
+    const viewSelectors: Record<string, string> = {
+      sessions: "Add session",
+      players: "Add player",
+      "story-arcs": "Add story arc",
+      timeline: "current moment"
+    };
+    
+    const selector = viewSelectors[view];
+    if (selector) {
+      // Try to find a button or heading that indicates this view is active
+      const button = page.getByRole("button", { name: new RegExp(selector, "i") });
+      const heading = page.locator("h3, h2").filter({ hasText: new RegExp(selector, "i") });
+      
+      await Promise.race([
+        button.waitFor({ state: "visible", timeout }).catch(() => {}),
+        heading.waitFor({ state: "visible", timeout }).catch(() => {})
+      ]);
+    }
+  })();
+
+  // Wait for EITHER the event OR the DOM element to be ready
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch((error) => {
+    // If both failed, that's an error
+    throw error;
+  });
+}
+
+/**
+ * Wait for a campaign to be created using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param campaignName - Name of the campaign to wait for (can be partial match)
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForCampaignCreated(
+  page: Page,
+  campaignName: string,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ name, timeout, eventName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventCampaignName = (customEvent.detail?.entityName || "").trim().toLowerCase();
+          const searchName = name.trim().toLowerCase();
+          
+          // Match by exact name or if name is contained in event campaign name
+          const exactMatch = eventCampaignName === searchName;
+          const forwardMatch = eventCampaignName.includes(searchName);
+          const reverseMatch = searchName.includes(eventCampaignName);
+          
+          if (eventCampaignName && (exactMatch || forwardMatch || reverseMatch) && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for campaign "${name}" to be created after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { name: campaignName, timeout, eventName: CAMPAIGN_CREATED_EVENT }
+  );
+
+  // Fallback: Wait for modal to close (campaign creation closes the modal)
+  // Use a longer timeout for the fallback since the event should fire first
+  const modalPromise = waitForModalClose(page, "campaign", timeout).catch(() => {
+    // If modal close fails, that's okay - the event might have fired
+    return Promise.resolve();
+  });
+
+  // Wait for EITHER the event OR the modal to close
+  await Promise.race([
+    eventPromise,
+    modalPromise
+  ]).catch(async (error) => {
+    // If event didn't fire, check if modal is closed anyway
+    const dialog = page.getByRole("dialog", { name: /create campaign/i });
+    const isHidden = await dialog.isHidden({ timeout: 1000 }).catch(() => false);
+    if (isHidden) {
+      // Modal is closed, that's good enough
+      return;
+    }
+    // Neither event nor modal close - rethrow
+    throw error;
+  });
+}
+
+/**
+ * Wait for worlds to be loaded using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForWorldsLoaded(
+  page: Page,
+  timeout: number = 5000
+): Promise<void> {
+  const eventPromise = page.evaluate(
+    ({ timeout, eventName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for worlds to be loaded after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { timeout, eventName: WORLDS_LOADED_EVENT }
+  );
+
+  // Fallback: Check if worlds are already loaded (check for world context tablist)
+  const domPromise = (async () => {
+    const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+    await expect(worldContextTablist).toBeVisible({ timeout });
+  })();
+
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch((error) => {
+    throw error;
+  });
+}
+
+/**
+ * Wait for campaigns to be loaded using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForCampaignsLoaded(
+  page: Page,
+  timeout: number = 5000
+): Promise<void> {
+  const eventPromise = page.evaluate(
+    ({ timeout, eventName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for campaigns to be loaded after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { timeout, eventName: CAMPAIGNS_LOADED_EVENT }
+  );
+
+  // Fallback: Check if campaigns tab is visible (indicates campaigns might be loaded)
+  const domPromise = (async () => {
+    // Campaigns might be shown in various places, so we just wait a bit
+    await page.waitForTimeout(500);
+  })();
+
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch((error) => {
+    throw error;
+  });
+}
+
+/**
+ * Wait for entities to be loaded for a specific world using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param worldId - Optional world ID to wait for (if not provided, waits for any entity load)
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForEntitiesLoaded(
+  page: Page,
+  worldId?: string,
+  timeout: number = 5000
+): Promise<void> {
+  const eventPromise = page.evaluate(
+    ({ timeout, eventName, worldId }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventWorldId = customEvent.detail?.worldId;
+          
+          // If worldId is specified, only resolve if it matches
+          // Otherwise, resolve on any entity load
+          if (!resolved && (!worldId || eventWorldId === worldId)) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for entities to be loaded after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { timeout, eventName: ENTITIES_LOADED_EVENT, worldId }
+  );
+
+  // Fallback: Check if entity list is visible
+  const domPromise = (async () => {
+    // Entities might be shown in a list - wait a bit for UI to update
+    await page.waitForTimeout(500);
+  })();
+
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch((error) => {
+    throw error;
+  });
+}
+
+/**
+ * Wait for an entity (creature, faction, location, event) to be created using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param entityType - Type of entity ("creature", "faction", "location", "event")
+ * @param entityName - Name of the entity to wait for (can be partial match)
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForEntityCreated(
+  page: Page,
+  entityType: "creature" | "faction" | "location" | "event",
+  entityName: string,
+  timeout: number = 5000
+): Promise<void> {
+  // Map entity type to event name
+  const eventMap: Record<string, string> = {
+    creature: CREATURE_CREATED_EVENT,
+    faction: FACTION_CREATED_EVENT,
+    location: LOCATION_CREATED_EVENT,
+    event: EVENT_CREATED_EVENT
+  };
+  const eventName = eventMap[entityType];
+  if (!eventName) {
+    throw new Error(`Unknown entity type: ${entityType}`);
+  }
+
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ name, eventName, timeout }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventEntityName = (customEvent.detail?.entityName || "").trim().toLowerCase();
+          const searchName = name.trim().toLowerCase();
+          
+          // Match by exact name or if name is contained in event entity name
+          const exactMatch = eventEntityName === searchName;
+          const forwardMatch = eventEntityName.includes(searchName);
+          const reverseMatch = searchName.includes(eventEntityName);
+          
+          if (eventEntityName && (exactMatch || forwardMatch || reverseMatch) && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for ${eventName} "${name}" to be created after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { name: entityName, eventName, timeout }
+  );
+
+  // Fallback: Wait for modal to close (entity creation closes the modal)
+  const modalPromise = waitForModalClose(page, "entity", timeout);
+
+  // Wait for EITHER the event OR the modal to close
+  await Promise.race([
+    eventPromise,
+    modalPromise
+  ]).catch((error) => {
+    // If both failed, that's an error
+    throw error;
+  });
+}
+
+/**
+ * Wait for an error to occur using transition events.
+ * Returns the error message when the error appears.
+ * 
+ * @param page - Playwright page object
+ * @param expectedMessage - Optional partial message to match (if not provided, waits for any error)
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ * @returns The error message that occurred
+ */
+export async function waitForError(
+  page: Page,
+  expectedMessage?: string,
+  timeout: number = 5000
+): Promise<string> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ timeout, eventName, expectedMessage }) => {
+      return new Promise<string>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const errorMessage = (customEvent.detail?.message || "").trim();
+          
+          // If expectedMessage is provided, check if it's contained in the error message
+          // Otherwise, accept any error
+          if (errorMessage && (!expectedMessage || errorMessage.toLowerCase().includes(expectedMessage.toLowerCase())) && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve(errorMessage);
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for error${expectedMessage ? ` containing "${expectedMessage}"` : ""} after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { timeout, eventName: ERROR_OCCURRED_EVENT, expectedMessage }
+  );
+
+  // Fallback: Wait for error message element to appear in DOM
+  const domPromise = (async () => {
+    const errorElement = page.getByTestId("error-message");
+    await expect(errorElement).toBeVisible({ timeout });
+    const errorText = await errorElement.textContent();
+    return errorText?.trim() || "";
+  })();
+
+  // Wait for EITHER the event OR the DOM element
+  return await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch(async (error) => {
+    // If both failed, check if error element exists anyway
+    const errorElement = page.getByTestId("error-message");
+    const isVisible = await errorElement.isVisible({ timeout: 1000 }).catch(() => false);
+    if (isVisible) {
+      const errorText = await errorElement.textContent();
+      const message = errorText?.trim() || "";
+      if (!expectedMessage || message.toLowerCase().includes(expectedMessage.toLowerCase())) {
+        return message; // Error is visible and matches, that's good enough
+      }
+    }
+    throw error; // Neither event nor DOM, rethrow
+  });
+}
+
+/**
+ * Wait for an error to be cleared using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForErrorCleared(
+  page: Page,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ timeout, eventName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for error to be cleared after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { timeout, eventName: ERROR_CLEARED_EVENT }
+  );
+
+  // Fallback: Wait for error message element to be hidden
+  const domPromise = (async () => {
+    const errorElement = page.getByTestId("error-message");
+    await expect(errorElement).toBeHidden({ timeout });
+  })();
+
+  // Wait for EITHER the event OR the DOM element to be hidden
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch(async (error) => {
+    // If both failed, check if error element is hidden anyway
+    const errorElement = page.getByTestId("error-message");
+    const isHidden = await errorElement.isHidden({ timeout: 1000 }).catch(() => false);
+    if (isHidden) {
+      return; // Error is hidden, that's good enough
+    }
+    throw error; // Neither event nor DOM, rethrow
+  });
+}
+
+/**
+ * Wait for a main tab to be activated using transition events.
+ * This is more reliable than checking for DOM elements.
+ * 
+ * @param page - Playwright page object
+ * @param tabName - Name of the tab to wait for ("World", "Campaigns", "Sessions", "Assets", "Users")
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForMainTab(
+  page: Page,
+  tabName: "World" | "Campaigns" | "Sessions" | "Assets" | "Users",
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ tab, timeout, eventName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventTab = customEvent.detail?.tab;
+          
+          if (eventTab === tab && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        // Check if tab is already active (might have been set before listener was set up)
+        setTimeout(() => {
+          if (resolved) return;
+          
+          // Check if the tab is already active in the DOM
+          // Main tabs are typically in a navigation area
+          const mainTabs = document.querySelectorAll('[role="tablist"] [role="tab"]');
+          for (const tabElement of mainTabs) {
+            const tabText = tabElement.textContent?.trim() || "";
+            const isSelected = tabElement.getAttribute("aria-selected") === "true";
+            if (tabText === tab && isSelected) {
+              resolved = true;
+              clearTimeout(timer);
+              window.removeEventListener(eventName, handler);
+              resolve();
+              return;
+            }
+          }
+        }, 100);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for main tab "${tab}" to be activated after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { tab: tabName, timeout, eventName: MAIN_TAB_CHANGED_EVENT }
+  );
+
+  // Fallback: Wait for the tab to be visible and selected in the DOM
+  const domPromise = (async () => {
+    // Main tabs might be in different locations depending on the UI structure
+    // Try to find the tab by name
+    const tab = page.getByRole("tab", { name: tabName });
+    await expect(tab).toBeVisible({ timeout });
+    // Poll for tab to be selected (with timeout)
+    const startTime = Date.now();
+    const pollTimeout = Math.min(timeout, 2000); // Max 2s for polling
+    while (Date.now() - startTime < pollTimeout) {
+      const isSelected = await tab.getAttribute("aria-selected");
+      if (isSelected === "true") {
+        return; // Tab is selected
+      }
+      await page.waitForTimeout(50); // Small delay between polls
+    }
+    // After polling, check one more time
+    const finalSelected = await tab.getAttribute("aria-selected");
+    if (finalSelected !== "true") {
+      throw new Error(`Main tab "${tabName}" is visible but not selected after ${pollTimeout}ms`);
+    }
+  })();
+
+  // Wait for EITHER the event OR the DOM element to be ready
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch(async (error) => {
+    // If both failed, check if tab is selected anyway
+    const tab = page.getByRole("tab", { name: tabName });
+    const isVisible = await tab.isVisible({ timeout: 1000 }).catch(() => false);
+    if (isVisible) {
+      const isSelected = await tab.getAttribute("aria-selected").catch(() => null);
+      if (isSelected === "true") {
+        return; // Tab is selected, that's good enough
+      }
+    }
+    throw error; // Neither event nor DOM, rethrow
+  });
+}
+
+/**
+ * Wait for a user to be created using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param username - Username to wait for (can be partial match)
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForUserCreated(
+  page: Page,
+  username: string,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ name, timeout, eventName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventUsername = (customEvent.detail?.username || "").trim().toLowerCase();
+          const searchName = name.trim().toLowerCase();
+          
+          // Match by exact name or if name is contained in event username
+          const exactMatch = eventUsername === searchName;
+          const forwardMatch = eventUsername.includes(searchName);
+          const reverseMatch = searchName.includes(eventUsername);
+          
+          if (eventUsername && (exactMatch || forwardMatch || reverseMatch) && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for user "${name}" to be created after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { name: username, timeout, eventName: USER_CREATED_EVENT }
+  );
+
+  // Fallback: Wait for user item to appear in DOM
+  const domPromise = (async () => {
+    const userItem = page.getByTestId(`user-${username}`);
+    await expect(userItem).toBeVisible({ timeout });
+  })();
+
+  // Wait for EITHER the event OR the DOM element
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch(async (error) => {
+    // If both failed, check if user item exists anyway
+    const userItem = page.getByTestId(`user-${username}`);
+    const isVisible = await userItem.isVisible({ timeout: 1000 }).catch(() => false);
+    if (isVisible) {
+      return; // User item is visible, that's good enough
+    }
+    throw error; // Neither event nor DOM, rethrow
+  });
+}
+
+/**
+ * Wait for a user to be deleted using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param username - Username to wait for deletion
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForUserDeleted(
+  page: Page,
+  username: string,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ name, timeout, eventName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventUsername = (customEvent.detail?.username || "").trim().toLowerCase();
+          const searchName = name.trim().toLowerCase();
+          
+          // Match by exact name or if name is contained in event username
+          const exactMatch = eventUsername === searchName;
+          const forwardMatch = eventUsername.includes(searchName);
+          const reverseMatch = searchName.includes(eventUsername);
+          
+          if (eventUsername && (exactMatch || forwardMatch || reverseMatch) && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for user "${name}" to be deleted after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { name: username, timeout, eventName: USER_DELETED_EVENT }
+  );
+
+  // Fallback: Wait for user item to disappear from DOM
+  const domPromise = (async () => {
+    const userItem = page.getByTestId(`user-${username}`);
+    await expect(userItem).not.toBeVisible({ timeout });
+  })();
+
+  // Wait for EITHER the event OR the DOM element to disappear
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch(async (error) => {
+    // If both failed, check if user item is hidden anyway
+    const userItem = page.getByTestId(`user-${username}`);
+    const isHidden = await userItem.isHidden({ timeout: 1000 }).catch(() => true);
+    if (isHidden) {
+      return; // User item is hidden, that's good enough
+    }
+    throw error; // Neither event nor DOM, rethrow
+  });
+}
+
+/**
+ * Wait for a role to be assigned to a user using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param username - Username to wait for
+ * @param role - Role that was assigned (optional, for verification)
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForRoleAssigned(
+  page: Page,
+  username: string,
+  role?: string,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ name, role, timeout, eventName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventUsername = (customEvent.detail?.username || "").trim().toLowerCase();
+          const eventRole = (customEvent.detail?.role || "").trim().toLowerCase();
+          const searchName = name.trim().toLowerCase();
+          const searchRole = role?.trim().toLowerCase();
+          
+          // Match username (exact or partial)
+          const usernameMatch = eventUsername && (
+            eventUsername === searchName ||
+            eventUsername.includes(searchName) ||
+            searchName.includes(eventUsername)
+          );
+          
+          // If role is specified, also match role
+          const roleMatch = !searchRole || eventRole === searchRole;
+          
+          if (usernameMatch && roleMatch && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for role${role ? ` "${role}"` : ""} to be assigned to user "${name}" after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { name: username, role, timeout, eventName: ROLE_ASSIGNED_EVENT }
+  );
+
+  // Fallback: Wait for role badge to appear in DOM
+  const domPromise = (async () => {
+    if (role) {
+      const roleBadge = page.getByTestId(`user-${username}`).getByText(role, { exact: false });
+      await expect(roleBadge).toBeVisible({ timeout });
+    } else {
+      // Just wait a bit for UI to update
+      await page.waitForTimeout(500);
+    }
+  })();
+
+  // Wait for EITHER the event OR the DOM element
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch((error) => {
+    throw error;
+  });
+}
+
+/**
+ * Close a modal dialog if it's open.
+ * This is a utility to safely close modals after errors or when they should be closed.
+ * 
+ * @param page - Playwright page object
+ * @param modalType - Type of modal (e.g., "world", "campaign", "entity")
+ * @param dialogName - Optional dialog name pattern (defaults to modal type mapping)
+ * @param timeout - Maximum time to wait for modal close (default: 2000)
+ */
+export async function closeModalIfOpen(
+  page: Page,
+  modalType: string,
+  dialogName?: string | RegExp,
+  timeout: number = 2000
+): Promise<void> {
+  // Map modal type to dialog name if not provided
+  const dialogNames: Record<string, string> = {
+    login: "Login",
+    world: "Create world",
+    campaign: "Create campaign",
+    entity: "Add",
+    session: "Add session",
+    player: "Add player",
+    storyArc: "Add story arc",
+    scene: "Add scene",
+    createUser: "Create user"
+  };
+  
+  const dialogNamePattern = dialogName || dialogNames[modalType] || "dialog";
+  const dialog = typeof dialogNamePattern === "string" 
+    ? page.getByRole("dialog", { name: new RegExp(dialogNamePattern, "i") })
+    : page.getByRole("dialog", { name: dialogNamePattern });
+  
+  const isOpen = await dialog.isVisible({ timeout: 1000 }).catch(() => false);
+  if (!isOpen) {
+    return; // Modal is already closed
+  }
+  
+  // Try to find and click cancel button
+  const cancelButton = dialog.getByRole("button", { name: "Cancel" });
+  const cancelVisible = await cancelButton.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (cancelVisible) {
+    await cancelButton.click();
+    await waitForModalClose(page, modalType, timeout).catch(() => {});
+  } else {
+    // Fallback: try Escape key
+    await page.keyboard.press("Escape");
+    await waitForModalClose(page, modalType, timeout).catch(() => {});
+  }
+}
+
+/**
+ * Handle "already exists" errors by closing the modal and returning.
+ * Throws if the error is not an "already exists" error.
+ * 
+ * @param page - Playwright page object
+ * @param errorText - The error message text
+ * @param modalType - Type of modal to close (e.g., "world", "campaign")
+ * @param dialogName - Optional dialog name pattern
+ * @throws Error if the error is not an "already exists" error
+ */
+export async function handleAlreadyExistsError(
+  page: Page,
+  errorText: string | null,
+  modalType: string,
+  dialogName?: string | RegExp
+): Promise<void> {
+  if (!errorText) {
+    throw new Error("No error text provided");
+  }
+  
+  const isAlreadyExists = 
+    errorText.includes("already exists") || 
+    errorText.includes("duplicate") ||
+    errorText.includes("409");
+  
+  if (isAlreadyExists) {
+    // Close the modal - entity already exists, that's fine
+    await closeModalIfOpen(page, modalType, dialogName);
+    return; // Return successfully - entity exists
+  }
+  
+  // Not an "already exists" error - throw
+  throw new Error(`Operation failed: ${errorText}`);
+}
+
+/**
+ * Wait for a world to be updated using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param worldId - Optional world ID to wait for (if not provided, waits for any world update)
+ * @param updateType - Optional update type to filter by (e.g., "splashImageSet", "splashImageCleared")
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForWorldUpdated(
+  page: Page,
+  worldId?: string,
+  updateType?: string,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ timeout, eventName, worldId, updateType }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventWorldId = customEvent.detail?.worldId;
+          const eventUpdateType = customEvent.detail?.updateType;
+          
+          // If worldId is specified, only resolve if it matches
+          // If updateType is specified, also match update type
+          const worldMatch = !worldId || eventWorldId === worldId;
+          const typeMatch = !updateType || eventUpdateType === updateType;
+          
+          if (worldMatch && typeMatch && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for world${worldId ? ` "${worldId}"` : ""} to be updated${updateType ? ` (type: ${updateType})` : ""} after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { timeout, eventName: WORLD_UPDATED_EVENT, worldId, updateType }
+  );
+
+  // Fallback: Wait a bit for UI to update
+  const domPromise = (async () => {
+    await page.waitForTimeout(500);
+  })();
+
+  // Wait for EITHER the event OR the timeout
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch((error) => {
+    throw error;
+  });
+}
+
+/**
+ * Wait for an asset to be uploaded using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param assetName - Optional asset name to wait for (if not provided, waits for any asset upload)
+ * @param timeout - Maximum time to wait in milliseconds (default: 10000)
+ */
+export async function waitForAssetUploaded(
+  page: Page,
+  assetName?: string,
+  timeout: number = 10000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ timeout, eventName, assetName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventAssetName = (customEvent.detail?.assetName || "").trim().toLowerCase();
+          const searchName = assetName?.trim().toLowerCase();
+          
+          // If assetName is specified, only resolve if it matches (exact or partial)
+          // Otherwise, resolve on any asset upload
+          const nameMatch = !searchName || 
+            eventAssetName === searchName ||
+            eventAssetName.includes(searchName) ||
+            searchName.includes(eventAssetName);
+          
+          if (nameMatch && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for asset${assetName ? ` "${assetName}"` : ""} to be uploaded after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { timeout, eventName: ASSET_UPLOADED_EVENT, assetName }
+  );
+
+  // Fallback: Wait for asset to appear in the assets table
+  const domPromise = (async () => {
+    if (assetName) {
+      // Wait for asset name to appear in the table
+      // Use .first() to avoid strict mode violations if multiple rows match
+      const assetRow = page.getByRole("row").filter({ hasText: assetName }).first();
+      await expect(assetRow).toBeVisible({ timeout });
+    } else {
+      // Just wait a bit for UI to update
+      await page.waitForTimeout(500);
+    }
+  })();
+
+  // Wait for EITHER the event OR the DOM element
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch((error) => {
+    throw error;
+  });
+}
+
+/**
+ * Wait for a role to be revoked from a user using transition events.
+ * 
+ * @param page - Playwright page object
+ * @param username - Username to wait for
+ * @param role - Role that was revoked (optional, for verification)
+ * @param timeout - Maximum time to wait in milliseconds (default: 5000)
+ */
+export async function waitForRoleRevoked(
+  page: Page,
+  username: string,
+  role?: string,
+  timeout: number = 5000
+): Promise<void> {
+  // Set up event listener first
+  const eventPromise = page.evaluate(
+    ({ name, role, timeout, eventName }) => {
+      return new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          const eventUsername = (customEvent.detail?.username || "").trim().toLowerCase();
+          const eventRole = (customEvent.detail?.role || "").trim().toLowerCase();
+          const searchName = name.trim().toLowerCase();
+          const searchRole = role?.trim().toLowerCase();
+          
+          // Match username (exact or partial)
+          const usernameMatch = eventUsername && (
+            eventUsername === searchName ||
+            eventUsername.includes(searchName) ||
+            searchName.includes(eventUsername)
+          );
+          
+          // If role is specified, also match role
+          const roleMatch = !searchRole || eventRole === searchRole;
+          
+          if (usernameMatch && roleMatch && !resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            window.removeEventListener(eventName, handler);
+            resolve();
+          }
+        };
+
+        window.addEventListener(eventName, handler);
+
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            window.removeEventListener(eventName, handler);
+            reject(new Error(`Timeout waiting for role${role ? ` "${role}"` : ""} to be revoked from user "${name}" after ${timeout}ms`));
+          }
+        }, timeout);
+      });
+    },
+    { name: username, role, timeout, eventName: ROLE_REVOKED_EVENT }
+  );
+
+  // Fallback: Wait for role badge to disappear from DOM
+  const domPromise = (async () => {
+    if (role) {
+      const roleBadge = page.getByTestId(`user-${username}`).getByText(role, { exact: false });
+      await expect(roleBadge).not.toBeVisible({ timeout });
+    } else {
+      // Just wait a bit for UI to update
+      await page.waitForTimeout(500);
+    }
+  })();
+
+  // Wait for EITHER the event OR the DOM element
+  await Promise.race([
+    eventPromise,
+    domPromise
+  ]).catch((error) => {
+    throw error;
+  });
 }

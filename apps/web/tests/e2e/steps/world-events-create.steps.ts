@@ -6,8 +6,13 @@ const { When, Then } = createBdd();
 // Note: "world Eldoria exists" and "the admin selects world Eldoria" are defined in world-entities-create.steps.ts
 
 When("the admin navigates to the events tab", async ({ page }) => {
+  // Ensure planning tabs are visible (world must be selected)
+  const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+  await expect(planningTabs).toBeVisible({ timeout: 5000 });
+  
+  await expect(page.getByRole("tab", { name: "Events" })).toBeVisible({ timeout: 3000 });
   await page.getByRole("tab", { name: "Events" }).click();
-  await expect(page.getByRole("button", { name: "Add event" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add event" })).toBeVisible({ timeout: 3000 });
 });
 
 When('the admin ensures event "The Great Awakening" exists', async ({ page }) => {

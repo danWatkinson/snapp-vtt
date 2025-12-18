@@ -23,15 +23,12 @@ Then('the campaign "Authenticated Test Campaign" appears in the campaigns list',
   // Campaigns appear in a TabList with aria-label="Campaigns"
   // Each campaign is a TabButton with the campaign name
   // The campaigns tablist is only visible when a world is selected
-  // Wait a bit for the campaign to be created and appear in the list
-  await page.waitForTimeout(500);
-  
   const campaignsTabList = page.getByRole("tablist", { name: "Campaigns" });
   
   // Wait for the tablist to be visible (campaigns might still be loading)
   await expect(campaignsTabList).toBeVisible({ timeout: 3000 });
   
-  // Look for the campaign tab by name
+  // Look for the campaign tab by name - wait directly for it to appear
   const campaignTab = campaignsTabList.getByRole("tab", { name: "Authenticated Test Campaign" });
-  await expect(campaignTab).toBeVisible({ timeout: 3000 });
+  await expect(campaignTab).toBeVisible({ timeout: 5000 });
 });

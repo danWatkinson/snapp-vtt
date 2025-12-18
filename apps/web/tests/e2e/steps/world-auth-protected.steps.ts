@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { ensureModeSelectorVisible } from "../helpers";
+import { ensureModeSelectorVisible, waitForWorldCreated, waitForError, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError } from "../helpers";
 
 const { Then, When } = createBdd();
 
@@ -26,32 +26,31 @@ When('the admin creates a world named "Authenticated Test World"', async ({ page
 
     await page.getByLabel("World name").fill(worldName);
     await page.getByLabel("Description").fill("A test world created by authenticated user");
+    
+    // Set up event listeners BEFORE clicking submit
+    const worldCreatedPromise = waitForWorldCreated(page, worldName, 10000);
+    const errorPromise = waitForError(page, undefined, 5000).catch(() => null);
+    
     await page.getByRole("button", { name: "Save world" }).click();
 
-    await page.waitForTimeout(2000);
-
-    const errorVisible = await page.getByTestId("error-message").isVisible().catch(() => false);
-    if (errorVisible) {
-      const errorText = await page.getByTestId("error-message").textContent();
-      if (errorText && errorText.includes("already exists")) {
-        const cancelButton = page
-          .getByRole("dialog", { name: /create world/i })
-          .getByRole("button", { name: /cancel/i });
-        if (await cancelButton.isVisible().catch(() => false)) {
-          await cancelButton.click();
-        } else {
-          await page.keyboard.press("Escape");
-        }
-        await expect(page.getByRole("dialog", { name: /create world/i })).not.toBeVisible({
-          timeout: 2000
-        });
-      } else {
-        throw new Error(`World creation failed with error: ${errorText}`);
+    // Wait for either world creation or error
+    try {
+      await Promise.race([
+        worldCreatedPromise,
+        errorPromise.then(async (errorMsg) => {
+          if (errorMsg) {
+            // Handle "already exists" errors gracefully
+            await handleAlreadyExistsError(page, errorMsg, "world", /create world/i);
+          }
+        })
+      ]);
+      // Success - world was created or error was handled
+    } catch (error) {
+      // If error doesn't include "already exists", close modal and rethrow
+      if (!error.message?.includes("already exists")) {
+        await closeModalIfOpen(page, "world", /create world/i);
+        throw error;
       }
-    } else {
-      await expect(page.getByRole("dialog", { name: /create world/i })).not.toBeVisible({
-        timeout: 3000
-      });
     }
   }
 });

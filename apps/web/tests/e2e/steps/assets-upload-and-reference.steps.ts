@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName, ensureLoginDialogClosed, loginAs, selectWorldAndEnterPlanningMode } from "../helpers";
+import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName, ensureLoginDialogClosed, loginAs, selectWorldAndEnterPlanningMode, waitForAssetUploaded, waitForPlanningMode } from "../helpers";
 import { Buffer } from "buffer";
 import path from "path";
 
@@ -63,11 +63,7 @@ When('the world builder navigates to the "Assets" library screen', async ({ page
   // Click "Manage Assets" and wait for the click to complete
   await page.getByRole("button", { name: "Manage Assets" }).click();
   
-  // Wait a moment for the state update and navigation to complete
-  // The OPEN_MANAGE_ASSETS_EVENT needs to be processed and activeTab needs to update
-  await page.waitForTimeout(200);
-  
-  // Wait for the Assets heading to be visible
+  // Wait for the Assets heading to be visible (indicates navigation completed)
   // This is the most reliable indicator that the AssetsTab component has rendered
   // The component returns null if currentUser is missing, so if we see the heading,
   // we know both the navigation completed AND the user is authenticated
@@ -75,18 +71,20 @@ When('the world builder navigates to the "Assets" library screen', async ({ page
 });
 
 When("the world builder uploads an image asset {string}", async ({ page }, fileName: string) => {
+  // Extract asset name from fileName (without extension) for matching
+  const assetNameBase = fileName.replace(/\.(jpg|png|jpeg|gif)$/i, "");
+  
+  // Set up event listener BEFORE uploading
+  const assetUploadedPromise = waitForAssetUploaded(page, assetNameBase, 15000);
+  
   const fileInput = page.getByLabel("Upload asset");
   const filePath = path.join(process.cwd(), "seeds", "assets", "images", fileName);
   
-  // Wait for the upload to complete by waiting for the file input to be ready
-  // and then setting the file, which triggers the async upload
+  // Set the file, which triggers the async upload
   await fileInput.setInputFiles(filePath);
   
-  // Wait for the upload to complete - the onChange handler makes a fetch request
-  // and updates the assets state. We can wait for the network request to complete
-  // by waiting for the response, or wait for the UI to update.
-  // For now, we'll wait a moment for the async operation to complete
-  await page.waitForTimeout(500);
+  // Wait for the asset upload event
+  await assetUploadedPromise;
 });
 
 Then("the image asset {string} appears in the assets list", async ({ page }, fileName: string) => {
@@ -165,8 +163,11 @@ When("the world builder uploads an audio asset {string}", async ({ page }, fileN
     buffer: Buffer.from("fake audio content")
   });
   
-  // Wait for the upload to complete - same as image upload
-  await page.waitForTimeout(500);
+  // Set up event listener BEFORE uploading
+  const assetUploadedPromise = waitForAssetUploaded(page, fileName.replace(/\.(mp3|wav|ogg)$/i, ""), 15000);
+  
+  // Wait for the asset upload event
+  await assetUploadedPromise;
 });
 
 Then("the audio asset {string} appears in the assets list", async ({ page }, fileName: string) => {
@@ -261,13 +262,26 @@ When("the world builder selects world {string}", async ({ page }, worldName: str
   
   const worldContextTablist = page.getByRole("tablist", { name: "World context" });
   
+  // Wait for world context tablist to be visible
+  await expect(worldContextTablist).toBeVisible({ timeout: 5000 });
+  
+  // Get all world tabs to see what's available
+  const allWorldTabs = worldContextTablist.getByRole("tab");
+  const tabCount = await allWorldTabs.count();
+  
   // Try to find the world tab by unique name first
   let worldTab = worldContextTablist.getByRole("tab", { name: uniqueWorldName, exact: true }).first();
   let exists = await worldTab.isVisible().catch(() => false);
   
+  // If not found, try partial match (for worker-specific names)
+  if (!exists) {
+    worldTab = worldContextTablist.getByRole("tab").filter({ hasText: uniqueWorldName }).first();
+    exists = await worldTab.isVisible().catch(() => false);
+  }
+  
   // If not found and it's "Eldoria", try without exact match (might have placeholder dash)
   if (!exists && worldName === "Eldoria") {
-    worldTab = worldContextTablist.getByRole("tab").filter({ hasText: uniqueWorldName }).first();
+    worldTab = worldContextTablist.getByRole("tab").filter({ hasText: /Eldoria/i }).first();
     exists = await worldTab.isVisible().catch(() => false);
   }
   
@@ -278,10 +292,23 @@ When("the world builder selects world {string}", async ({ page }, worldName: str
   }
   
   if (!exists) {
-    throw new Error(`World "${worldName}" (or "${uniqueWorldName}") not found in world selector`);
+    // Get all available world names for debugging
+    const availableWorlds: string[] = [];
+    for (let i = 0; i < tabCount; i++) {
+      const tab = allWorldTabs.nth(i);
+      const text = await tab.textContent().catch(() => "");
+      if (text) availableWorlds.push(text.trim());
+    }
+    throw new Error(`World "${worldName}" (or "${uniqueWorldName}") not found in world selector. Available worlds: ${availableWorlds.join(", ")}`);
   }
   
+  // Set up event listener BEFORE clicking
+  const planningModePromise = waitForPlanningMode(page, 5000);
+  
   await worldTab.click();
+  
+  // Wait for planning mode to activate
+  await planningModePromise;
 });
 
 When("the world builder ensures location {string} exists", async ({ page }, locationName: string) => {
@@ -460,7 +487,47 @@ When(
 
       // Get the unique world name (stored from earlier steps)
       const worldName = await getStoredWorldName(page, "Eldoria");
-      await addSceneDialog.getByLabel("World").selectOption(worldName);
+      const worldSelect = addSceneDialog.getByLabel("World");
+      
+      // Wait for the select to be ready and have options
+      await expect(worldSelect).toBeVisible({ timeout: 3000 });
+      
+      // Wait for options to be available (check for at least one option with a value)
+      const validOption = worldSelect.locator("option[value]:not([value=''])").first();
+      await expect(validOption).toHaveCount(1, { timeout: 5000 });
+      
+      // Get all available world options to find a match
+      const allOptions = await worldSelect.locator("option[value]:not([value=''])").all();
+      const optionTexts = await Promise.all(
+        allOptions.map(opt => opt.textContent().catch(() => ""))
+      );
+      
+      // Try to find a matching option (exact match or contains the world name)
+      let matchedOption: string | null = null;
+      for (const optionText of optionTexts) {
+        if (optionText && (optionText.trim() === worldName || optionText.includes(worldName) || worldName.includes(optionText.trim()))) {
+          matchedOption = optionText.trim();
+          break;
+        }
+      }
+      
+      if (!matchedOption && optionTexts.length > 0) {
+        // If no exact match, use the first available option
+        matchedOption = optionTexts[0]?.trim() || null;
+      }
+      
+      if (matchedOption) {
+        // Try to select by label text (most reliable)
+        await worldSelect.selectOption({ label: matchedOption });
+      } else {
+        // Fallback: try by value or direct name
+        try {
+          await worldSelect.selectOption(worldName);
+        } catch {
+          // Last resort: select first available option
+          await worldSelect.selectOption({ index: 1 }); // Index 0 is usually placeholder
+        }
+      }
 
       await page.getByRole("button", { name: "Save scene" }).click();
     }

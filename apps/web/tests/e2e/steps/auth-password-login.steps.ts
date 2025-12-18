@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { loginAs } from "../helpers";
+import { loginAs, waitForModalOpen } from "../helpers";
 
 const { When, Then } = createBdd();
 
@@ -9,8 +9,10 @@ When("I open the Snapp home page", async ({ page }) => {
 });
 
 When("I open the login dialog", async ({ page }) => {
+  // Set up listener BEFORE clicking to avoid race conditions
+  const modalPromise = waitForModalOpen(page, "login", 5000);
   await page.getByRole("button", { name: "Login" }).click();
-  await page.getByTestId("login-username").waitFor({ timeout: 3000 });
+  await modalPromise;
 });
 
 When(

@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { getUniqueUsername } from "../helpers";
+import { getUniqueUsername, waitForRoleRevoked, waitForError } from "../helpers";
 
 const { When, Then } = createBdd();
 
@@ -28,40 +28,24 @@ When('the admin revokes the "gm" role from user "alice"', async ({ page }) => {
   const gmRoleBadge = aliceItem.locator("span").filter({ hasText: "gm" });
   await expect(gmRoleBadge).toBeVisible();
 
+  // Set up event listener BEFORE clicking revoke
+  const roleRevokedPromise = waitForRoleRevoked(page, uniqueAliceName, "gm", 10000);
+  const errorPromise = waitForError(page, undefined, 5000).catch(() => null);
+
   await gmRoleBadge.getByText("×").click();
 
+  // Wait for either role revocation or error
   try {
     await Promise.race([
-      page.getByTestId("error-message").waitFor({ timeout: 2000 }).catch(() => null),
-      page.waitForTimeout(1000).catch(() => null)
+      roleRevokedPromise,
+      errorPromise.then((errorMsg) => {
+        if (errorMsg) throw new Error(`Role revocation failed: ${errorMsg}`);
+      })
     ]);
+    // Role was revoked successfully
   } catch (error) {
     if (error.message?.includes("closed") || page.isClosed()) {
       throw new Error("Page was closed unexpectedly during role revocation");
-    }
-    // If it's not a page closure error, continue
-  }
-
-  // Check if page is still valid before continuing
-  if (page.isClosed()) {
-    throw new Error("Page was closed unexpectedly during role revocation");
-  }
-
-  const revokeErrorVisible = await page
-    .getByTestId("error-message")
-    .isVisible()
-    .catch(() => false);
-  if (revokeErrorVisible) {
-    const errorText = await page.getByTestId("error-message").textContent();
-    throw new Error(`Role revocation failed: ${errorText}`);
-  }
-
-  // Wait for UI to update, but check if page is still valid
-  try {
-    await page.waitForTimeout(500);
-  } catch (error) {
-    if (error.message?.includes("closed") || page.isClosed()) {
-      throw new Error("Page was closed unexpectedly after role revocation");
     }
     throw error;
   }

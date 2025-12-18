@@ -1,6 +1,24 @@
 import type { FormEvent } from "react";
 import { AUTH_EVENT } from "../auth/authEvents";
+import {
+  WORLD_CREATED_EVENT,
+  WORLD_UPDATED_EVENT,
+  CAMPAIGN_CREATED_EVENT,
+  CREATURE_CREATED_EVENT,
+  FACTION_CREATED_EVENT,
+  LOCATION_CREATED_EVENT,
+  EVENT_CREATED_EVENT,
+  SESSION_CREATED_EVENT,
+  SCENE_CREATED_EVENT,
+  PLAYER_ADDED_EVENT,
+  STORY_ARC_CREATED_EVENT,
+  USER_CREATED_EVENT,
+  USER_DELETED_EVENT,
+  ROLE_ASSIGNED_EVENT,
+  ROLE_REVOKED_EVENT
+} from "../auth/authEvents";
 import { AUTH_USERNAME_KEY } from "../auth/authStorage";
+import { dispatchTransitionEvent } from "../utils/eventDispatcher";
 import {
   assignRoles,
   login,
@@ -279,8 +297,17 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
           setIsLoading,
           setError,
           onAuthError: handleLogout,
-          onSuccess: () => {
+          onSuccess: (result) => {
             setUsersLoaded(false);
+            // Dispatch role assigned event
+            // assignRoles may return a User object or just a success response
+            Promise.resolve().then(() => {
+              dispatchTransitionEvent(ROLE_ASSIGNED_EVENT, {
+                username: userManagementForm.form.username,
+                role: userManagementForm.form.role,
+                updatedUser: result
+              });
+            });
           }
         }
       );
@@ -299,8 +326,16 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
-          onSuccess: () => {
+          onSuccess: (user) => {
             setUsersLoaded(false);
+            // Dispatch role revoked event
+            Promise.resolve().then(() => {
+              dispatchTransitionEvent(ROLE_REVOKED_EVENT, {
+                username: username,
+                role: role,
+                updatedUser: user
+              });
+            });
           }
         }
       );
@@ -325,6 +360,12 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
           onAuthError: handleLogout,
           onSuccess: () => {
             setUsersLoaded(false);
+            // Dispatch user deleted event
+            Promise.resolve().then(() => {
+              dispatchTransitionEvent(USER_DELETED_EVENT, {
+                username: username
+              });
+            });
           }
         }
       );
@@ -344,10 +385,17 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
-          onSuccess: () => {
+          onSuccess: (user) => {
             createUserForm.resetForm();
             closeModal("createUser");
             setUsersLoaded(false);
+            // Dispatch user created event
+            Promise.resolve().then(() => {
+              dispatchTransitionEvent(USER_CREATED_EVENT, {
+                username: user.username,
+                roles: user.roles
+              });
+            });
           }
         }
       );
@@ -371,6 +419,11 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
             setWorlds((prev) => [...prev, world]);
             worldForm.resetForm();
             closeModal("world");
+            dispatchTransitionEvent(WORLD_CREATED_EVENT, {
+              entityId: world.id,
+              entityName: world.name,
+              entityType: "world"
+            });
           },
           onError: async (err) => {
             if (err.message.includes("already exists")) {
@@ -409,6 +462,15 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
             setWorlds((prev) =>
               prev.map((w) => (w.id === updatedWorld.id ? updatedWorld : w))
             );
+            // Dispatch world updated event
+            Promise.resolve().then(() => {
+              dispatchTransitionEvent(WORLD_UPDATED_EVENT, {
+                worldId: updatedWorld.id,
+                worldName: updatedWorld.name,
+                updateType: splashImageAssetId ? "splashImageSet" : "splashImageCleared",
+                splashImageAssetId: splashImageAssetId
+              });
+            });
           }
         }
       );
@@ -448,7 +510,26 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
             setEntities((prev) => [...prev, entity]);
             entityForm.resetForm();
             closeModal("entity");
-            setEntitiesLoadedFor(null);
+            // Don't reset entitiesLoadedFor - keep the cache so the entity stays in the list
+            // The entity is already added to state above, so it will appear in the UI
+            // Dispatch type-specific entity creation event after a microtask
+            const eventMap: Record<string, string> = {
+              creature: CREATURE_CREATED_EVENT,
+              faction: FACTION_CREATED_EVENT,
+              location: LOCATION_CREATED_EVENT,
+              event: EVENT_CREATED_EVENT
+            };
+            const eventName = eventMap[selectedEntityType];
+            if (eventName) {
+              Promise.resolve().then(() => {
+                dispatchTransitionEvent(eventName, {
+                  entityId: entity.id,
+                  entityName: entity.name,
+                  entityType: selectedEntityType,
+                  worldId: selectedIds.worldId
+                });
+              });
+            }
           }
         }
       );
@@ -472,6 +553,14 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
             setCampaigns((prev) => [...prev, camp]);
             campaignForm.resetForm();
             closeModal("campaign");
+            // Dispatch event after a microtask to ensure state updates and modal close have processed
+            Promise.resolve().then(() => {
+              dispatchTransitionEvent(CAMPAIGN_CREATED_EVENT, {
+                entityId: camp.id,
+                entityName: camp.name,
+                entityType: "campaign"
+              });
+            });
           }
         }
       );
@@ -497,6 +586,12 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
             sessionForm.resetForm();
             closeModal("session");
             setSessionsLoadedFor(null);
+            dispatchTransitionEvent(SESSION_CREATED_EVENT, {
+              entityId: session.id,
+              entityName: session.name,
+              entityType: "session",
+              campaignId: selectedIds.campaignId
+            });
           }
         }
       );
@@ -523,6 +618,10 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
             closeModal("player");
             setPlayersLoadedFor(null);
             setStoryArcsLoadedFor(null);
+            dispatchTransitionEvent(PLAYER_ADDED_EVENT, {
+              username: playerForm.form.username,
+              campaignId: selectedIds.campaignId
+            });
           }
         }
       );
@@ -548,6 +647,12 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
             storyArcForm.resetForm();
             closeModal("storyArc");
             setStoryArcsLoadedFor(null);
+            dispatchTransitionEvent(STORY_ARC_CREATED_EVENT, {
+              entityId: storyArc.id,
+              entityName: storyArc.name,
+              entityType: "storyArc",
+              campaignId: selectedIds.campaignId
+            });
           }
         }
       );
@@ -625,6 +730,13 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
             sceneForm.resetForm();
             closeModal("scene");
             setScenesLoadedFor(null);
+            dispatchTransitionEvent(SCENE_CREATED_EVENT, {
+              entityId: scene.id,
+              entityName: scene.name,
+              entityType: "scene",
+              sessionId: selectedIds.sessionId,
+              worldId: sceneForm.form.worldId
+            });
           }
         }
       );

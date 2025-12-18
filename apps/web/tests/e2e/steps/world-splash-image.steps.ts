@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { getStoredWorldName } from "../helpers";
+import { getStoredWorldName, waitForWorldUpdated, waitForModalOpen } from "../helpers";
 
 const { When, Then } = createBdd();
 
@@ -15,9 +15,6 @@ When(
     // This button only appears when a world is selected and WorldHeader is rendered
     const settingsButton = page.getByRole("button", { name: "World settings" });
     await expect(settingsButton).toBeVisible({ timeout: 3000 });
-    
-    // Wait a bit for the UI to stabilize
-    await page.waitForTimeout(300);
     
     // Click the "World settings" button
     await settingsButton.click();
@@ -49,13 +46,18 @@ When(
       .first();
     
     await expect(assetButton).toBeVisible({ timeout: 3000 });
+    
+    // Set up event listener BEFORE clicking (wait for world update with splash image set)
+    // We can't easily get worldId here, so we'll wait for any world update
+    const worldUpdatedPromise = waitForWorldUpdated(page, undefined, "splashImageSet", 10000);
+    
     await assetButton.click();
     
     // Wait for modal to close (it closes automatically after selection)
     await expect(settingsModal).toBeHidden({ timeout: 3000 });
     
-    // Wait a bit for the change to propagate
-    await page.waitForTimeout(500);
+    // Wait for world update event (splash image was set)
+    await worldUpdatedPromise;
   }
 );
 
@@ -71,10 +73,7 @@ Then(
     const settingsButton = page.getByRole("button", { name: "World settings" });
     await expect(settingsButton).toBeVisible({ timeout: 3000 });
     
-    // Wait a bit for the image to load
-    await page.waitForTimeout(500);
-    
-    // Look for an image in the WorldHeader area
+    // Look for an image in the WorldHeader area - wait for it to be visible
     // The splash image should be in a container near the world name
     // Try multiple strategies to find it
     
@@ -125,9 +124,11 @@ Then(
       if (worldSelected) {
         // Leave the world to show the world selector
         await page.getByRole("button", { name: /Snapp/i }).click();
-        await page.waitForTimeout(200);
+        // Wait for menu to be visible
+        await expect(page.getByRole("button", { name: "Leave World" })).toBeVisible({ timeout: 2000 });
         await page.getByRole("button", { name: "Leave World" }).click();
-        await page.waitForTimeout(300);
+        // Wait for world selector to appear (indicates we left the world)
+        await expect(page.getByRole("tablist", { name: "World context" })).toBeVisible({ timeout: 3000 });
       }
     }
     
@@ -172,9 +173,6 @@ Then(
     const settingsButton = page.getByRole("button", { name: "World settings" });
     await expect(settingsButton).toBeVisible({ timeout: 3000 });
     
-    // Wait a bit for the WorldHeader to fully render
-    await page.waitForTimeout(300);
-    
     // Check for the "No splash image configured" placeholder text
     // The text is in a span with specific classes, so we can be more specific
     const placeholder = page.getByText("No splash image configured");
@@ -217,9 +215,11 @@ Then(
       if (worldSelected) {
         // Leave the world to show the world selector
         await page.getByRole("button", { name: /Snapp/i }).click();
-        await page.waitForTimeout(200);
+        // Wait for menu to be visible
+        await expect(page.getByRole("button", { name: "Leave World" })).toBeVisible({ timeout: 2000 });
         await page.getByRole("button", { name: "Leave World" }).click();
-        await page.waitForTimeout(300);
+        // Wait for world selector to appear (indicates we left the world)
+        await expect(page.getByRole("tablist", { name: "World context" })).toBeVisible({ timeout: 3000 });
       }
     }
     

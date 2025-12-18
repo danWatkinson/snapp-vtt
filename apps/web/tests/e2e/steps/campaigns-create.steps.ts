@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName } from "../helpers";
+import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError } from "../helpers";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
 
 const { When, Then } = createBdd();
@@ -46,64 +46,39 @@ When(
     const newCampaignButton = page.getByRole("button", { name: "New Campaign" });
     await expect(newCampaignButton).toBeVisible({ timeout: 3000 });
     await newCampaignButton.click();
-    // Wait for dialog to appear (menu closes when button is clicked, tab navigates, modal opens)
-    await expect(
-      page.getByRole("dialog", { name: "Create campaign" })
-    ).toBeVisible({ timeout: 3000 });
+    
+    // Wait for modal to open using transition event
+    await waitForModalOpen(page, "campaign", 5000);
 
     // Fill in campaign details
     await page.getByLabel("Campaign name").fill(campaignName);
     await page.getByLabel("Summary").fill(summary);
 
+    // Set up event listener BEFORE clicking submit
+    // This ensures we don't miss the event if it fires quickly
+    const campaignCreatedPromise = waitForCampaignCreated(page, campaignName, 10000);
+
     // Submit the form
     await page.getByRole("button", { name: "Save campaign" }).click();
     
-    // Wait for either the modal to close (success) or an error message to appear
-    const createCampaignDialog = page.getByRole("dialog", { name: /create campaign/i });
-    await Promise.race([
-      createCampaignDialog.waitFor({ state: "hidden", timeout: 3000 }).catch(() => null),
-      page.getByTestId("error-message").waitFor({ timeout: 3000, state: "visible" }).catch(() => null),
-      // Also wait for campaign tab to appear (indicates success)
-      page.getByRole("tab", { name: campaignName }).waitFor({ timeout: 3000 }).catch(() => null)
-    ]);
-    
-    // Check if there's an error message
-    const errorVisible = await page.getByTestId("error-message").isVisible({ timeout: 1000 }).catch(() => false);
-    if (errorVisible) {
-      const errorText = await page.getByTestId("error-message").textContent();
-      // If error says campaign already exists, that's okay - close the modal and continue
-      if (errorText?.includes("already exists") || errorText?.includes("duplicate")) {
-        // Close the modal by clicking cancel
-        const cancelButton = createCampaignDialog.getByRole("button", { name: "Cancel" });
-        if (await cancelButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await cancelButton.click();
-        }
-        // Campaign already exists, it should appear in the list
-        return;
-      } else {
-        // Some other error - close modal and throw
-        const cancelButton = createCampaignDialog.getByRole("button", { name: "Cancel" });
-        if (await cancelButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await cancelButton.click();
-        }
-        throw new Error(`Campaign creation failed: ${errorText}`);
+    // Wait for campaign creation event (this fires after API success + state update)
+    // The helper includes modal close fallback, so this is more reliable
+    try {
+      await campaignCreatedPromise;
+      // Campaign was created successfully - event fired
+      // Modal should be closed automatically, but if not, close it
+      await closeModalIfOpen(page, "campaign", /create campaign/i);
+    } catch (error) {
+      // Event didn't fire - check for errors
+      const errorVisible = await page.getByTestId("error-message").isVisible({ timeout: 1000 }).catch(() => false);
+      if (errorVisible) {
+        const errorText = await page.getByTestId("error-message").textContent();
+        // Handle "already exists" errors gracefully
+        await handleAlreadyExistsError(page, errorText || null, "campaign", /create campaign/i);
+        return; // Campaign already exists, it should appear in the list
       }
-    }
-    
-    // Check if modal is closed (success case)
-    const dialogStillVisible = await createCampaignDialog.isVisible({ timeout: 1000 }).catch(() => true);
-    if (dialogStillVisible) {
-      // Modal still open - might be a timing issue, wait a bit more
-      await page.waitForTimeout(1000);
-      const stillVisible = await createCampaignDialog.isVisible({ timeout: 1000 }).catch(() => true);
-      if (stillVisible) {
-        // Still visible - try to close it manually and check for errors
-        const cancelButton = createCampaignDialog.getByRole("button", { name: "Cancel" });
-        if (await cancelButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await cancelButton.click();
-        }
-        throw new Error("Campaign creation modal did not close after submission");
-      }
+      // No error but event didn't fire - rethrow original error
+      throw error;
     }
   }
 );
@@ -128,13 +103,9 @@ Then(
       .catch(() => false);
     
     if (!campaignTabVisible && !campaignHeadingVisible) {
-      // Neither visible - wait a bit and check again
-      await page.waitForTimeout(500);
-      const tabVisibleAfterWait = await page
-        .getByRole("tab", { name: campaignName })
-        .first()
-        .isVisible()
-        .catch(() => false);
+      // Neither visible - wait for campaign to appear (might be loading)
+      const campaignTab = page.getByRole("tab", { name: campaignName }).first();
+      const tabVisibleAfterWait = await campaignTab.isVisible({ timeout: 5000 }).catch(() => false);
       
       const headingVisibleAfterWait = await page
         .locator('h3.snapp-heading')
