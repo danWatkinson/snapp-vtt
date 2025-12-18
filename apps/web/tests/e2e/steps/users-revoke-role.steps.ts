@@ -1,10 +1,28 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { getUniqueUsername } from "../helpers";
 
 const { When, Then } = createBdd();
 
+// Helper to get the unique alice username from page context
+async function getStoredAliceUsername(page: any): Promise<string> {
+  try {
+    const storedName = await page.evaluate(() => {
+      return (window as any).__testAliceUsername;
+    });
+    if (storedName) {
+      return storedName;
+    }
+  } catch {
+    // Can't retrieve - fall back to unique name generation
+  }
+  // Fall back to generating unique name if not stored
+  return getUniqueUsername("alice");
+}
+
 When('the admin revokes the "gm" role from user "alice"', async ({ page }) => {
-  const aliceItem = page.getByTestId("user-alice");
+  const uniqueAliceName = await getStoredAliceUsername(page);
+  const aliceItem = page.getByTestId(`user-${uniqueAliceName}`);
   await expect(aliceItem).toBeVisible();
 
   const gmRoleBadge = aliceItem.locator("span").filter({ hasText: "gm" });
@@ -50,7 +68,8 @@ When('the admin revokes the "gm" role from user "alice"', async ({ page }) => {
 });
 
 Then('user "alice" no longer has the "gm" role in the users list', async ({ page }) => {
-  const aliceItem = page.getByTestId("user-alice");
+  const uniqueAliceName = await getStoredAliceUsername(page);
+  const aliceItem = page.getByTestId(`user-${uniqueAliceName}`);
   const gmRoleBadge = aliceItem.locator("span").filter({ hasText: "gm" });
   await expect(gmRoleBadge).not.toBeVisible({ timeout: 3000 });
 });

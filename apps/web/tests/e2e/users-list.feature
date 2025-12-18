@@ -6,6 +6,7 @@ Feature: Admin views the list of users
 
   Background:
     Given there is an admin user "admin" with the "admin" role
+    And there is a user "alice" with no roles
 
   Scenario: Admin can view list of all users
     When the admin signs in to the system as "admin"

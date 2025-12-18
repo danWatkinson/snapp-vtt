@@ -164,17 +164,8 @@ When('the admin signs in to the system as "admin"', async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
   await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
   
-  // Clear any existing auth state
-  try {
-    await page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-    });
-  } catch {
-    // If we can't clear storage, that's okay - continue
-  }
-  
-  // Now login - use try/catch to handle errors gracefully
+  // loginAsAdmin (which calls loginAs) already handles logout if user is logged in
+  // No need to clear storage or reload - let loginAs handle it
   try {
     await loginAsAdmin(page);
   } catch (loginError) {
@@ -211,12 +202,61 @@ When('the admin signs in to the system as "admin"', async ({ page }) => {
         `2. The password is correct, ` +
         `3. The auth service is running and accessible.`
       );
-    } else {
-      throw new Error(
-        `Login state unclear for admin user. Neither login nor logout button is visible. ` +
-        `The page may be in an unexpected state.`
-      );
-    }
+      } else {
+        // Page might still be loading - wait a bit more and check again
+        await page.waitForTimeout(1000);
+        await page.waitForLoadState("domcontentloaded", { timeout: 2000 }).catch(() => {});
+        
+        const finalRetryLogout = page.getByRole("button", { name: "Log out" });
+        const finalRetryLogin = page.getByRole("button", { name: "Login" });
+        const finalRetryLoggedIn = await finalRetryLogout.isVisible({ timeout: 2000 }).catch(() => false);
+        const finalRetryLoginVisible = await finalRetryLogin.isVisible({ timeout: 2000 }).catch(() => false);
+        
+        if (finalRetryLoggedIn) {
+          // We're logged in now
+          return;
+        } else if (finalRetryLoginVisible) {
+          throw new Error(
+            `Login did not complete for admin user. The login button is still visible after waiting. ` +
+            `This suggests authentication failed.`
+          );
+        } else {
+          // Page might be in a loading state - wait for it to be ready
+          // Try waiting for networkidle to ensure all resources are loaded
+          await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+          
+          // Check one more time after waiting
+          const finalCheckLogout = page.getByRole("button", { name: "Log out" });
+          const finalCheckLogin = page.getByRole("button", { name: "Login" });
+          const finalLoggedIn = await finalCheckLogout.isVisible({ timeout: 3000 }).catch(() => false);
+          const finalLoginVisible = await finalCheckLogin.isVisible({ timeout: 3000 }).catch(() => false);
+          
+          if (finalLoggedIn) {
+            return; // We're logged in now
+          } else if (finalLoginVisible) {
+            throw new Error(
+              `Login did not complete for admin user after waiting for page to load. ` +
+              `The login button is still visible, which suggests authentication failed.`
+            );
+          } else {
+            // Check for error messages on the page
+            const errorMessage = page.getByTestId("error-message");
+            const hasError = await errorMessage.isVisible().catch(() => false);
+            if (hasError) {
+              const errorText = await errorMessage.textContent().catch(() => "Unknown error");
+              throw new Error(
+                `Login state unclear for admin user. Page shows error: ${errorText}. ` +
+                `Current URL: ${page.url()}`
+              );
+            }
+            
+            throw new Error(
+              `Login state unclear for admin user. Neither login nor logout button is visible after waiting. ` +
+              `The page may be in a loading or error state. Current URL: ${page.url()}`
+            );
+          }
+        }
+      }
   }
 });
 
@@ -282,44 +322,22 @@ When('the world builder signs in to the system as "worldbuilder"', async ({ page
   // Navigate to a clean page state first (must be on a valid origin to access localStorage)
   // Increase timeout to handle server load when running with multiple workers
   await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
-  
-  // Wait for the page to be fully loaded and ready
-  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {
-    // If networkidle times out, that's okay - continue anyway
-  });
-  
-  // Now that we're on a valid origin, clear any existing auth state
-  // This prevents issues from previous test runs or manual debugging
-  try {
-    await page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-    });
-    // Reload the page after clearing storage to ensure clean state
-    // This helps prevent issues where the UI hasn't updated after clearing storage
-    await page.reload({ waitUntil: "domcontentloaded", timeout: 15000 });
-    // Wait for page to be ready after reload
-    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
-  } catch (storageError) {
-    // If we can't clear storage (e.g., security error), that's okay - continue
-    // The login process will handle authentication state
-  }
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
   
   // Store the username in page context for other steps to use
   await page.evaluate((username) => {
     (window as any).__testWorldBuilderUsername = username;
   }, uniqueUsername);
   
-  // Now log in with the unique username
-  // The loginAs function should handle the login flow and wait for logout button
-  // But we add an additional check here to ensure login completed
+  // loginAs already handles logout if user is logged in
+  // No need to clear storage or reload - let loginAs handle it
   try {
     await loginAs(page, uniqueUsername, password);
   } catch (loginError) {
     // loginAs should have already waited for logout button, but if it failed,
     // check if we're actually logged in
-    const logoutButton = page.getByRole("button", { name: "Log out" });
-    const isLoggedIn = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
+    const checkLogoutButton = page.getByRole("button", { name: "Log out" });
+    const isLoggedIn = await checkLogoutButton.isVisible({ timeout: 2000 }).catch(() => false);
     
     if (!isLoggedIn) {
       // Login definitely failed - provide detailed error
@@ -341,14 +359,14 @@ When('the world builder signs in to the system as "worldbuilder"', async ({ page
   await page.waitForLoadState("networkidle", { timeout: 3000 }).catch(() => {});
   
   // Check for logout button with retries (page might be in transition)
-  let logoutButton = page.getByRole("button", { name: "Log out" });
-  let isLoggedIn = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
+  let finalLogoutButton = page.getByRole("button", { name: "Log out" });
+  let isLoggedIn = await finalLogoutButton.isVisible({ timeout: 2000 }).catch(() => false);
   
   // If not visible, wait a bit more and retry (page might be loading)
   if (!isLoggedIn) {
     await page.waitForTimeout(500);
-    logoutButton = page.getByRole("button", { name: "Log out" });
-    isLoggedIn = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
+    finalLogoutButton = page.getByRole("button", { name: "Log out" });
+    isLoggedIn = await finalLogoutButton.isVisible({ timeout: 2000 }).catch(() => false);
   }
   
   // If still not visible, check if page is loading or in an error state
@@ -384,12 +402,30 @@ When('the world builder signs in to the system as "worldbuilder"', async ({ page
           `Login did not complete for user ${uniqueUsername}. The login button is still visible after waiting. ` +
           `This suggests authentication failed. Please verify the user was created and credentials are correct.`
         );
-      } else {
-        throw new Error(
-          `Login state unclear for user ${uniqueUsername}. Neither login nor logout button is visible after waiting. ` +
-          `The page may be in a loading or error state. Current URL: ${page.url()}`
-        );
-      }
+        } else {
+          // Page might be in a loading state - wait for it to be ready
+          await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+          
+          // Check one more time after waiting
+          const finalCheckLogout = page.getByRole("button", { name: "Log out" });
+          const finalCheckLogin = page.getByRole("button", { name: "Login" });
+          const finalLoggedIn = await finalCheckLogout.isVisible({ timeout: 3000 }).catch(() => false);
+          const finalLoginVisible = await finalCheckLogin.isVisible({ timeout: 3000 }).catch(() => false);
+          
+          if (finalLoggedIn) {
+            return; // We're logged in now
+          } else if (finalLoginVisible) {
+            throw new Error(
+              `Login did not complete for user ${uniqueUsername} after waiting for page to load. ` +
+              `The login button is still visible, which suggests authentication failed.`
+            );
+          } else {
+            throw new Error(
+              `Login state unclear for user ${uniqueUsername}. Neither login nor logout button is visible after waiting. ` +
+              `The page may be in a loading or error state. Current URL: ${page.url()}`
+            );
+          }
+        }
     }
   }
 });

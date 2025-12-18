@@ -1,9 +1,25 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { loginAs, ensureLoginDialogClosed } from "../helpers";
+import { loginAs, ensureLoginDialogClosed, getUniqueUsername } from "../helpers";
 import jwt from "jsonwebtoken";
 import type { APIRequestContext } from "@playwright/test";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
+
+// Helper to get the unique alice username from page context
+async function getStoredAliceUsername(page: any): Promise<string> {
+  try {
+    const storedName = await page.evaluate(() => {
+      return (window as any).__testAliceUsername;
+    });
+    if (storedName) {
+      return storedName;
+    }
+  } catch {
+    // Can't retrieve - fall back to unique name generation
+  }
+  // Fall back to generating unique name if not stored
+  return getUniqueUsername("alice");
+}
 
 const { Given, When, Then } = createBdd();
 
@@ -137,15 +153,23 @@ async function getAdminToken(request: APIRequestContext): Promise<string> {
 }
 
 Given('there is a user "alice" with no roles', async ({ page, request }) => {
+  // Generate unique username per worker to avoid concurrency issues
+  const uniqueAliceName = getUniqueUsername("alice");
+  
+  // Store the unique name in page context for other steps to use
+  await page.evaluate((username) => {
+    (window as any).__testAliceUsername = username;
+  }, uniqueAliceName);
+  
   // Ensure alice user exists with no roles via API
   const adminToken = await getAdminToken(request);
   
   try {
     // Try to get the user first
-    const user = await apiCall(request, "GET", "/users/alice", { token: adminToken });
+    const user = await apiCall(request, "GET", `/users/${uniqueAliceName}`, { token: adminToken });
     // User exists - ensure no roles
     if (user.user.roles.length > 0) {
-      await apiCall(request, "PUT", "/users/alice/roles", {
+      await apiCall(request, "PUT", `/users/${uniqueAliceName}/roles`, {
         token: adminToken,
         body: { roles: [] }
       });
@@ -154,7 +178,7 @@ Given('there is a user "alice" with no roles', async ({ page, request }) => {
     // User doesn't exist - create it
     await apiCall(request, "POST", "/users", {
       token: adminToken,
-      body: { username: "alice", password: "alice123", roles: [] }
+      body: { username: uniqueAliceName, password: "alice123", roles: [] }
     });
   }
 });
@@ -187,8 +211,11 @@ When('the admin navigates to the "Users" management screen', async ({ page }) =>
 When(
   'the admin assigns the "gm" role to user "alice"',
   async ({ page }) => {
+    // Get the unique alice username
+    const uniqueAliceName = await getStoredAliceUsername(page);
+    
     // Fill in the form to assign GM role
-    await page.getByTestId("assign-target-username").fill("alice");
+    await page.getByTestId("assign-target-username").fill(uniqueAliceName);
     await page.getByTestId("assign-role").fill("gm");
     await page.getByRole("button", { name: "Assign role" }).click();
 
@@ -210,12 +237,15 @@ When(
 Then(
   'the UI shows that user "alice" has role "gm"',
   async ({ page }) => {
+    // Get the unique alice username
+    const uniqueAliceName = await getStoredAliceUsername(page);
+    
     // Clear storage to logout admin first
     await page.context().clearCookies();
     await page.evaluate(() => localStorage.clear());
     await page.goto("/");
     
-    await loginAs(page, "alice", "alice123");
+    await loginAs(page, uniqueAliceName, "alice123");
 
     // Verify login succeeded by checking for authenticated UI
     await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
@@ -225,20 +255,23 @@ Then(
     const rolesDisplay = page.getByTestId("user-roles-display");
     await expect(rolesDisplay).toBeVisible({ timeout: 3000 });
     
-    // Verify it shows alice with gm role
-    await expect(rolesDisplay.getByText(/alice/)).toBeVisible({ timeout: 3000 });
+    // Verify it shows alice with gm role (use unique name for matching)
+    await expect(rolesDisplay.getByText(new RegExp(uniqueAliceName))).toBeVisible({ timeout: 3000 });
     await expect(rolesDisplay.getByText(/gm/)).toBeVisible({ timeout: 3000 });
   }
 );
 
 When('user "alice" signs in to the system', async ({ page }) => {
+  // Get the unique alice username
+  const uniqueAliceName = await getStoredAliceUsername(page);
+  
   // Clear any existing session
   await page.context().clearCookies();
   await page.evaluate(() => localStorage.clear());
-  // Increase timeout to handle server load when running with multiple workers
-  await page.goto("/", { waitUntil: "load", timeout: 30000 });
+  // Use domcontentloaded instead of load - faster and more reliable
+  await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
   
-  await loginAs(page, "alice", "alice123");
+  await loginAs(page, uniqueAliceName, "alice123");
 });
 
 Then(
@@ -249,17 +282,50 @@ Then(
       throw new Error("Request context was disposed. This may indicate a test isolation issue.");
     }
     
-    // Get the token by logging in as alice via API (since UI login stores it in React state, not localStorage)
-    let loginResponse;
+    // Get the unique alice username
+    const uniqueAliceName = await getStoredAliceUsername(page);
+    
+    // First, verify that alice actually has the gm role by checking the user via API
+    // This ensures the role assignment was persisted before we check the token
+    const adminToken = await getAdminToken(request);
+    let userData;
     try {
-      loginResponse = await apiCall(request, "POST", "/auth/login", {
-        body: { username: "alice", password: "alice123" }
-      });
+      userData = await apiCall(request, "GET", `/users/${uniqueAliceName}`, { token: adminToken });
     } catch (error: any) {
-      if (error.message?.includes("disposed") || error.message?.includes("Request context")) {
-        throw new Error(`Request context was disposed during API call. This may indicate concurrent test execution issues. Original error: ${error.message}`);
+      throw new Error(`Failed to verify alice's roles before token check: ${error.message}`);
+    }
+    
+    if (!userData.user?.roles?.includes("gm")) {
+      throw new Error(`Alice (${uniqueAliceName}) does not have the "gm" role assigned. Current roles: ${JSON.stringify(userData.user?.roles || [])}`);
+    }
+    
+    // Get the token by logging in as alice via API (since UI login stores it in React state, not localStorage)
+    // Retry if request context is disposed (can happen during concurrent execution)
+    let loginResponse;
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        // Check request context is still valid before making the call
+        if (!request || (request as any).__disposed) {
+          throw new Error("Request context was disposed before API call");
+        }
+        loginResponse = await apiCall(request, "POST", "/auth/login", {
+          body: { username: uniqueAliceName, password: "alice123" }
+        });
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        if ((error.message?.includes("disposed") || error.message?.includes("Request context")) && retries > 1) {
+          // Request context was disposed, wait a bit and retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+          retries--;
+          continue;
+        }
+        // Either not a disposal error, or out of retries
+        if (error.message?.includes("disposed") || error.message?.includes("Request context")) {
+          throw new Error(`Request context was disposed during API call after retries. This may indicate concurrent test execution issues. Original error: ${error.message}`);
+        }
+        throw error;
       }
-      throw error;
     }
 
     const token = loginResponse.token;
@@ -270,7 +336,7 @@ Then(
     // Decode and verify the token
     const decoded = jwt.verify(token, JWT_SECRET) as { sub: string; roles: string[] };
     
-    expect(decoded.sub).toBe("alice");
+    expect(decoded.sub).toBe(uniqueAliceName);
     expect(decoded.roles).toContain("gm");
   }
 );
@@ -278,9 +344,12 @@ Then(
 Then(
   'an API request made as "alice" to a GM-only endpoint succeeds',
   async ({ page, request }) => {
+    // Get the unique alice username
+    const uniqueAliceName = await getStoredAliceUsername(page);
+    
     // Get the token by logging in as alice via API
     const loginResponse = await apiCall(request, "POST", "/auth/login", {
-      body: { username: "alice", password: "alice123" }
+      body: { username: uniqueAliceName, password: "alice123" }
     });
 
     const token = loginResponse.token;
@@ -298,9 +367,12 @@ Then(
 Then(
   'an API request made as "alice" to an admin-only endpoint is forbidden',
   async ({ page, request }) => {
+    // Get the unique alice username
+    const uniqueAliceName = await getStoredAliceUsername(page);
+    
     // Get the token by logging in as alice via API
     const loginResponse = await apiCall(request, "POST", "/auth/login", {
-      body: { username: "alice", password: "alice123" }
+      body: { username: uniqueAliceName, password: "alice123" }
     });
 
     const token = loginResponse.token;

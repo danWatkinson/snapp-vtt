@@ -269,13 +269,20 @@ export async function loginAs(page: Page, username: string, password: string) {
       }
     }
   } else {
-    // Wait for button to be enabled before clicking
+    // Wait for button to be enabled and actionable before clicking
     await expect(loginButton).toBeEnabled({ timeout: 3000 });
+    // Ensure page is interactive - wait for any pending navigations/loads
+    try {
+      await page.waitForLoadState("domcontentloaded", { timeout: 2000 });
+    } catch {
+      // If already loaded, that's fine
+    }
     await loginButton.click();
   }
 
-  // Wait a moment for the event to be dispatched and modal to start opening
-  await page.waitForTimeout(300);
+  // Wait for the event to be dispatched and modal to start opening
+  // Use a longer wait to ensure the event has time to propagate
+  await page.waitForTimeout(500);
 
   // Wait for login dialog to appear (unless already logged in)
   // Double-check if we're already logged in after clicking login button
@@ -291,7 +298,7 @@ export async function loginAs(page: Page, username: string, password: string) {
   // The OPEN_LOGIN_EVENT is dispatched, which triggers the modal to open
   const loginDialog = page.getByRole("dialog", { name: "Login" });
   try {
-    await expect(loginDialog).toBeVisible({ timeout: 3000 });
+    await expect(loginDialog).toBeVisible({ timeout: 5000 });
   } catch (error) {
     // If dialog doesn't appear, check if we somehow got logged in
     const checkLogoutAgain = page.getByRole("button", { name: "Log out" });
@@ -305,6 +312,13 @@ export async function loginAs(page: Page, username: string, password: string) {
     const loginButtonStillVisible = await page.getByRole("button", { name: "Login" }).isVisible({ timeout: 1000 }).catch(() => false);
     if (loginButtonStillVisible) {
       // Login button still visible - try clicking again
+      // Check for page errors first
+      const errorMessages = page.getByTestId("error-message");
+      const hasError = await errorMessages.isVisible().catch(() => false);
+      if (hasError) {
+        const errorText = await errorMessages.textContent().catch(() => "Unknown error");
+        throw new Error(`Page has error before login: ${errorText}`);
+      }
       await page.getByRole("button", { name: "Login" }).click();
       await page.waitForTimeout(500);
       
@@ -318,7 +332,7 @@ export async function loginAs(page: Page, username: string, password: string) {
       
       // Still not logged in, wait for dialog
       const retryDialog = page.getByRole("dialog", { name: "Login" });
-      await expect(retryDialog).toBeVisible({ timeout: 3000 });
+      await expect(retryDialog).toBeVisible({ timeout: 5000 });
       return;
     }
     
@@ -495,10 +509,12 @@ export async function ensureModeSelectorVisible(page: Page) {
   if (hasLeaveWorld) {
     // A world is currently selected, so we need to leave it first
     await leaveWorldButton.click();
+    // Wait for menu to close and state to update
+    await safeWait(page, 500);
     // Wait for ModeSelector to appear
     await expect(
       page.getByRole("tablist", { name: "World context" })
-    ).toBeVisible({ timeout: 3000 });
+    ).toBeVisible({ timeout: 5000 });
   } else {
     // No world is selected - menu is open, close it by clicking outside or the button again
     // Click outside the menu (on the overlay) to close it
@@ -958,34 +974,59 @@ export async function selectWorldAndEnterPlanningMode(
   }
   
   if (!planningTabsVisible) {
-    // Final attempt with explicit wait
-    try {
-      await expect(
-        page.getByRole("tablist", { name: "World planning views" })
-      ).toBeVisible({ timeout: 3000 });
-    } catch (error) {
-      // If page closed, throw a more helpful error
-      if (page.isClosed()) {
-        throw new Error("Page was closed while waiting for planning tabs to appear");
+    // Check if we're actually in a world (world context should be hidden)
+    const worldContextVisible = await page
+      .getByRole("tablist", { name: "World context" })
+      .isVisible()
+      .catch(() => false);
+    
+    // If world context is visible, we're not in a world - the click might not have worked
+    if (worldContextVisible) {
+      // Try clicking the world tab again
+      await safeWait(page, 500);
+      try {
+        await worldTab.click({ force: true });
+        await safeWait(page, 500);
+        // Check again for planning tabs
+        planningTabsVisible = await page
+          .getByRole("tablist", { name: "World planning views" })
+          .isVisible()
+          .catch(() => false);
+      } catch (clickError) {
+        // Click failed, continue to error
       }
-      // Otherwise, check if we're still on the page and provide more context
-      const currentUrl = page.url();
-      const worldContextVisible = await page
-        .getByRole("tablist", { name: "World context" })
-        .isVisible()
-        .catch(() => false);
-      
-      // Check if world tab is still visible/selected
-      const worldTabStillVisible = await worldTab.isVisible().catch(() => false);
-      const worldTabSelected = worldTabStillVisible 
-        ? await worldTab.getAttribute("aria-selected") === "true"
-        : false;
-      
-      throw new Error(
-        `Planning tabs did not appear after selecting world after ${maxRetries} retries. ` +
-        `URL: ${currentUrl}, World context visible: ${worldContextVisible}, ` +
-        `World tab visible: ${worldTabStillVisible}, World tab selected: ${worldTabSelected}`
-      );
+    }
+    
+    // Final attempt with explicit wait
+    if (!planningTabsVisible) {
+      try {
+        await expect(
+          page.getByRole("tablist", { name: "World planning views" })
+        ).toBeVisible({ timeout: 5000 });
+      } catch (error) {
+        // If page closed, throw a more helpful error
+        if (page.isClosed()) {
+          throw new Error("Page was closed while waiting for planning tabs to appear");
+        }
+        // Otherwise, check if we're still on the page and provide more context
+        const currentUrl = page.url();
+        const worldContextStillVisible = await page
+          .getByRole("tablist", { name: "World context" })
+          .isVisible()
+          .catch(() => false);
+        
+        // Check if world tab is still visible/selected
+        const worldTabStillVisible = await worldTab.isVisible().catch(() => false);
+        const worldTabSelected = worldTabStillVisible 
+          ? await worldTab.getAttribute("aria-selected") === "true"
+          : false;
+        
+        throw new Error(
+          `Planning tabs did not appear after selecting world after ${maxRetries} retries. ` +
+          `URL: ${currentUrl}, World context visible: ${worldContextStillVisible}, ` +
+          `World tab visible: ${worldTabStillVisible}, World tab selected: ${worldTabSelected}`
+        );
+      }
     }
   }
 

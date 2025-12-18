@@ -6,6 +6,7 @@ Feature: Admin revokes a role from a user
 
   Background:
     Given there is an admin user "admin" with the "admin" role
+    And there is a user "alice" with no roles
 
   Scenario: Admin can revoke a role from a user
     When the admin signs in to the system as "admin"

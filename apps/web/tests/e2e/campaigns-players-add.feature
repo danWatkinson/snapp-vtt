@@ -6,6 +6,7 @@ Feature: Game master adds players to a campaign
 
   Background:
     Given there is an admin user "admin" with the "admin" role
+    And there is a user "alice" with no roles
 
   Scenario: Game master can add Players to a Campaign
     When the admin signs in to the system as "admin"
