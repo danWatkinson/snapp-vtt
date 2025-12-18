@@ -50,12 +50,16 @@ When('the admin creates a world named "Authenticated Test World"', async ({ page
       }
     } else {
       await expect(page.getByRole("dialog", { name: /create world/i })).not.toBeVisible({
-        timeout: 8000
+        timeout: 3000
       });
     }
   }
 });
 
 Then('the world "Authenticated Test World" appears in the worlds list', async ({ page }) => {
-  await expect(page.getByText("Authenticated Test World").first()).toBeVisible({ timeout: 5000 });
+  // The world should appear in the World context selector (tablist)
+  const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+  await expect(
+    worldContextTablist.getByRole("tab", { name: "Authenticated Test World" })
+  ).toBeVisible({ timeout: 3000 });
 });

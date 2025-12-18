@@ -44,12 +44,12 @@ When(
     await page.getByRole("button", { name: /^Snapp/i }).click();
     // Wait for menu to be visible and "New Campaign" button to appear
     const newCampaignButton = page.getByRole("button", { name: "New Campaign" });
-    await expect(newCampaignButton).toBeVisible({ timeout: 5000 });
+    await expect(newCampaignButton).toBeVisible({ timeout: 3000 });
     await newCampaignButton.click();
     // Wait for dialog to appear (menu closes when button is clicked, tab navigates, modal opens)
     await expect(
       page.getByRole("dialog", { name: "Create campaign" })
-    ).toBeVisible({ timeout: 10000 });
+    ).toBeVisible({ timeout: 3000 });
 
     // Fill in campaign details
     await page.getByLabel("Campaign name").fill(campaignName);
@@ -61,10 +61,10 @@ When(
     // Wait for either the modal to close (success) or an error message to appear
     const createCampaignDialog = page.getByRole("dialog", { name: /create campaign/i });
     await Promise.race([
-      createCampaignDialog.waitFor({ state: "hidden", timeout: 10000 }).catch(() => null),
-      page.getByTestId("error-message").waitFor({ timeout: 10000, state: "visible" }).catch(() => null),
+      createCampaignDialog.waitFor({ state: "hidden", timeout: 3000 }).catch(() => null),
+      page.getByTestId("error-message").waitFor({ timeout: 3000, state: "visible" }).catch(() => null),
       // Also wait for campaign tab to appear (indicates success)
-      page.getByRole("tab", { name: campaignName }).waitFor({ timeout: 10000 }).catch(() => null)
+      page.getByRole("tab", { name: campaignName }).waitFor({ timeout: 3000 }).catch(() => null)
     ]);
     
     // Check if there's an error message
@@ -147,7 +147,7 @@ Then(
         // Still not visible - expect the tab (original behavior)
         await expect(
           page.getByRole("tab", { name: campaignName }).first()
-        ).toBeVisible({ timeout: 10000 });
+        ).toBeVisible({ timeout: 3000 });
       }
     }
     // If either is visible, the campaign exists and is shown in the UI

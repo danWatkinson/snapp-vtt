@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { loginAs } from "../helpers";
+import { loginAs, ensureLoginDialogClosed } from "../helpers";
 import jwt from "jsonwebtoken";
 import type { APIRequestContext } from "@playwright/test";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
@@ -162,12 +162,26 @@ Given('there is a user "alice" with no roles', async ({ page, request }) => {
 // Common steps (admin user setup, admin login) are imported from common.steps.ts
 
 When('the admin navigates to the "Users" management screen', async ({ page }) => {
+  // Ensure login dialog is closed (it blocks clicks if open)
+  await ensureLoginDialogClosed(page);
+  
+  // Verify we're logged in as admin (User Management is only visible to admin)
+  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
+  
   // Use the Snapp menu's "User Management" entry, which doesn't require a world to be selected
   await page.getByRole("button", { name: /^Snapp/i }).click();
+  
+  // Wait a moment for the menu to open and render
+  await page.waitForTimeout(200);
+  
+  // Wait for the menu to be visible and the User Management button to appear
+  // This ensures the menu is fully rendered and role checks have passed
+  await expect(page.getByRole("button", { name: "User Management" })).toBeVisible({ timeout: 3000 });
+  
   await page.getByRole("button", { name: "User Management" }).click();
   
-  // Wait for the Users tab to be visible
-  await page.waitForSelector('[data-component="UsersTab"]', { timeout: 5000 });
+  // Wait for the Users tab to be visible (it may take a moment for the state to update and component to render)
+  await page.waitForSelector('[data-component="UsersTab"]', { timeout: 3000 });
 });
 
 When(
@@ -204,25 +218,16 @@ Then(
     await loginAs(page, "alice", "alice123");
 
     // Verify login succeeded by checking for authenticated UI
-    await expect(
-      page.getByRole("heading", { name: "World context and mode" })
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
 
-    // Open User Management via the Snapp menu in the banner
-    await page.getByRole("button", { name: /Snapp/i }).click();
-    await page.getByRole("button", { name: /User Management/i }).click();
-
-    // Wait for the Users tab content to load
-    const userManagementHeading = page.getByRole("heading", { name: /User Management/i });
-    await expect(userManagementHeading).toBeVisible({
-      timeout: 5000
-    });
+    // Check that the header displays alice's roles
+    // The header shows "Logged in as alice (gm)" when alice has the gm role
+    const rolesDisplay = page.getByTestId("user-roles-display");
+    await expect(rolesDisplay).toBeVisible({ timeout: 3000 });
     
-    // Roles are shown in the format "Logged in as alice (gm)" in the UsersTab header
-    const usersTabContainer = userManagementHeading.locator("..");
-    await expect(usersTabContainer.getByText(/Logged in as alice \(gm\)/)).toBeVisible({
-      timeout: 5000
-    });
+    // Verify it shows alice with gm role
+    await expect(rolesDisplay.getByText(/alice/)).toBeVisible({ timeout: 3000 });
+    await expect(rolesDisplay.getByText(/gm/)).toBeVisible({ timeout: 3000 });
   }
 );
 
@@ -230,7 +235,8 @@ When('user "alice" signs in to the system', async ({ page }) => {
   // Clear any existing session
   await page.context().clearCookies();
   await page.evaluate(() => localStorage.clear());
-  await page.goto("/");
+  // Increase timeout to handle server load when running with multiple workers
+  await page.goto("/", { waitUntil: "load", timeout: 30000 });
   
   await loginAs(page, "alice", "alice123");
 });

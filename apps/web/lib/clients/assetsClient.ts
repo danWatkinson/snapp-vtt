@@ -1,3 +1,5 @@
+import { AuthenticationError, isAuthenticationError } from "../auth/authErrors";
+
 export type MediaType = "image" | "audio";
 
 export interface DigitalAsset {
@@ -36,6 +38,9 @@ export async function fetchAssets(
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     throw new Error(body.error ?? "Failed to load assets");
   }
 
@@ -63,6 +68,9 @@ export async function createAsset(
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     throw new Error(body.error ?? "Failed to create asset");
   }
 

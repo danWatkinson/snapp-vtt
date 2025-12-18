@@ -10,8 +10,10 @@ When("the admin navigates to the campaign timeline view", async ({ page }) => {
 });
 
 Then("the active story arcs section is visible", async ({ page }) => {
-  await expect(page.getByRole("heading", { name: /timeline/i })).toBeVisible();
+  // The Timeline view shows "Timeline" as a heading (h4 via SectionHeader) and "Active Story Arcs" as a heading (h3)
+  // Check for either heading - both should be visible when timeline view is active
+  await expect(page.getByRole("heading", { name: /^Timeline$/i })).toBeVisible({ timeout: 3000 });
   await expect(
-    page.getByRole("heading", { name: /active story arcs/i })
-  ).toBeVisible({ timeout: 10000 });
+    page.getByRole("heading", { name: /^Active Story Arcs$/i })
+  ).toBeVisible({ timeout: 3000 });
 });

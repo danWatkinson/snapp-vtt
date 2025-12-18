@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { useHomePageState } from "../hooks/useHomePageState";
 import { useHomePageData } from "../hooks/useHomePageData";
 import { useHomePageHandlers } from "../hooks/useHomePageHandlers";
@@ -9,8 +9,10 @@ import {
   OPEN_USER_MANAGEMENT_EVENT,
   OPEN_CREATE_WORLD_EVENT,
   OPEN_CREATE_CAMPAIGN_EVENT,
-  OPEN_MANAGE_ASSETS_EVENT
+  OPEN_MANAGE_ASSETS_EVENT,
+  AUTH_EVENT
 } from "../auth/authEvents";
+import { AUTH_USERNAME_KEY } from "../auth/authStorage";
 
 type HomePageState = ReturnType<typeof useHomePageState>;
 type HomePageHandlers = ReturnType<typeof useHomePageHandlers>;
@@ -52,13 +54,20 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
     setStoryArcEvents: state.setStoryArcEvents,
     setScenes: state.setScenes,
     setTimeline: state.setTimeline,
+    setUsers: state.setUsers,
+    setAssets: state.setAssets,
+    setAllEvents: state.setAllEvents,
     setUsersLoaded: state.setUsersLoaded,
+    setWorldsLoaded: state.setWorldsLoaded,
+    setCampaignsLoaded: state.setCampaignsLoaded,
+    setAssetsLoaded: state.setAssetsLoaded,
     setEntitiesLoadedFor: state.setEntitiesLoadedFor,
     setSessionsLoadedFor: state.setSessionsLoadedFor,
     setPlayersLoadedFor: state.setPlayersLoadedFor,
     setStoryArcsLoadedFor: state.setStoryArcsLoadedFor,
     setStoryArcEventsLoadedFor: state.setStoryArcEventsLoadedFor,
     setScenesLoadedFor: state.setScenesLoadedFor,
+    setTimelineLoadedFor: state.setTimelineLoadedFor,
     selectedIds: state.selectedIds,
     setSelectionField: state.setSelectionField,
     resetSelection: state.resetSelection,
@@ -110,6 +119,8 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
     setAssets: state.setAssets,
     setAssetsLoaded: state.setAssetsLoaded,
     setError: state.setError
+    // Removed onAuthError - assets fetch errors shouldn't trigger logout
+    // Only user-initiated actions should trigger logout on auth errors
   });
 
   // Set up custom event handlers
@@ -140,6 +151,68 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
     if (!state.currentUser) return;
     state.setActiveTab("Assets");
     state.setActiveMode(null);
+  });
+
+  // Ensure localStorage is cleared if currentUser is null on initialization
+  // This prevents stale authentication state from showing "Log out" button
+  // when the user is actually not authenticated
+  // Only run on mount, not on every currentUser change, to avoid clearing
+  // localStorage during legitimate state transitions
+  useEffect(() => {
+    /* c8 ignore next */ // SSR guard
+    if (typeof window === "undefined") return;
+    
+    // Only clear on initial mount if currentUser is null
+    // This handles the case where the page loads with stale localStorage
+    // but we don't want to clear it during normal state transitions
+    const stored = window.localStorage.getItem(AUTH_USERNAME_KEY);
+    if (!state.currentUser && stored) {
+      // Clear stale localStorage entry
+      window.localStorage.removeItem(AUTH_USERNAME_KEY);
+      // Don't dispatch AUTH_EVENT here - it would clear currentUser in the listener
+      // Instead, just let useAuthUser sync naturally when it reads from localStorage
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // Listen for AUTH_EVENT to sync currentUser state when logout happens elsewhere
+  useCustomEvent(AUTH_EVENT, (event: Event) => {
+    const custom = event as CustomEvent<{ username: string | null }>;
+    if (!custom.detail.username) {
+      // Logout detected - clear all state
+      state.setCurrentUser(null);
+      state.setActiveTab(null);
+      state.setActiveMode(null);
+      state.setPlanningSubTab("World Entities");
+      state.resetSelection();
+      state.setSelectedEntityType("all");
+      state.setError(null);
+      // Clear all data
+      state.setWorlds([]);
+      state.setCampaigns([]);
+      state.setEntities([]);
+      state.setSessions([]);
+      state.setPlayers([]);
+      state.setStoryArcs([]);
+      state.setStoryArcEvents([]);
+      state.setScenes([]);
+      state.setTimeline(null);
+      state.setUsers([]);
+      state.setAssets([]);
+      state.setAllEvents([]);
+      // Reset loaded flags
+      state.setUsersLoaded(false);
+      state.setWorldsLoaded(false);
+      state.setCampaignsLoaded(false);
+      state.setAssetsLoaded(false);
+      state.setEntitiesLoadedFor(null);
+      state.setSessionsLoadedFor(null);
+      state.setPlayersLoadedFor(null);
+      state.setStoryArcsLoadedFor(null);
+      state.setStoryArcEventsLoadedFor(null);
+      state.setScenesLoadedFor(null);
+      state.setTimelineLoadedFor(null);
+    }
   });
 
   return (

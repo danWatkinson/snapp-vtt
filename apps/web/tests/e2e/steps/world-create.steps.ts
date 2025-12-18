@@ -42,8 +42,8 @@ When(
 
     // Wait for modal to close (success) or error message
     await Promise.race([
-      page.getByRole("dialog", { name: "Create world" }).waitFor({ state: "hidden", timeout: 5000 }).catch(() => null),
-      page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null)
+      page.getByRole("dialog", { name: "Create world" }).waitFor({ state: "hidden", timeout: 3000 }).catch(() => null),
+      page.getByTestId("error-message").waitFor({ timeout: 3000 }).catch(() => null)
     ]);
 
     // Check for errors - if it's "already exists", that's fine
@@ -73,7 +73,7 @@ Then(
       // Wait for ModeSelector to appear
       await expect(
         page.getByRole("tablist", { name: "World context" })
-      ).toBeVisible({ timeout: 5000 });
+      ).toBeVisible({ timeout: 3000 });
     }
 
     const worldContextTablist = page.getByRole("tablist", { name: "World context" });
@@ -83,11 +83,11 @@ Then(
     const exactMatchExists = await exactMatch.isVisible().catch(() => false);
     
     if (exactMatchExists) {
-      await expect(exactMatch).toBeVisible({ timeout: 10000 });
+      await expect(exactMatch).toBeVisible({ timeout: 3000 });
     } else {
       // If exact match doesn't exist, try to find any tab containing the name (for unique worker names)
       const anyMatch = worldContextTablist.getByRole("tab").filter({ hasText: worldName }).first();
-      await expect(anyMatch).toBeVisible({ timeout: 10000 });
+      await expect(anyMatch).toBeVisible({ timeout: 3000 });
     }
   }
 );

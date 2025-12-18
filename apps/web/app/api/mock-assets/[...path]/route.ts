@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile } from "fs/promises";
+import { readFile, access } from "fs/promises";
 import { join } from "path";
+import { constants } from "fs";
 
 /**
  * API route to serve mock assets from test-assets/images directory.
@@ -21,12 +22,43 @@ export async function GET(
       return new NextResponse("Invalid path", { status: 400 });
     }
     
-    // Path to test-assets/images directory (relative to project root)
-    const projectRoot = process.cwd();
-    const imagesDir = join(projectRoot, "test-assets", "images");
-    const filePath = join(imagesDir, fileName);
+    // Path to seeds/assets/images directory (relative to project root)
+    // process.cwd() might be apps/web, so we need to go up to project root
+    const currentDir = process.cwd();
+    // Check if we're in apps/web and adjust path accordingly
+    const projectRoot = currentDir.endsWith("apps/web") 
+      ? join(currentDir, "..", "..")
+      : currentDir;
+    // Assets are stored in seeds/assets/images or seeds/assets/audio
+    // Try images first, then audio
+    const imagesDir = join(projectRoot, "seeds", "assets", "images");
+    const audioDir = join(projectRoot, "seeds", "assets", "audio");
     
-    // Check if file exists and read it
+    // Check if file exists in images or audio directory
+    let filePath = join(imagesDir, fileName);
+    let fileExists = false;
+    
+    try {
+      await access(filePath, constants.F_OK);
+      fileExists = true;
+    } catch {
+      // Not in images, try audio
+      filePath = join(audioDir, fileName);
+      try {
+        await access(filePath, constants.F_OK);
+        fileExists = true;
+      } catch {
+        // File doesn't exist in either directory
+        fileExists = false;
+      }
+    }
+    
+    if (!fileExists) {
+      // File doesn't exist - return 404 without logging error
+      return new NextResponse("Asset not found", { status: 404 });
+    }
+    
+    // File exists, read it
     const fileBuffer = await readFile(filePath);
     
     // Determine content type from file extension
@@ -36,6 +68,10 @@ export async function GET(
       ext === "png" ? "image/png" :
       ext === "gif" ? "image/gif" :
       ext === "webp" ? "image/webp" :
+      ext === "mp3" ? "audio/mpeg" :
+      ext === "wav" ? "audio/wav" :
+      ext === "ogg" ? "audio/ogg" :
+      ext === "m4a" ? "audio/mp4" :
       "application/octet-stream";
     
     return new NextResponse(fileBuffer, {

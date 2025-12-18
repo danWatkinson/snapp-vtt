@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useHomePage } from "../../../lib/contexts/HomePageContext";
 import {
   OPEN_USER_MANAGEMENT_EVENT,
@@ -35,7 +35,17 @@ function dispatchOpenManageAssets() {
 
 export default function SnappMenu() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { selectedIds, setSelectionField, setActiveMode, setActiveTab, setPlanningSubTab } = useHomePage();
+  const { selectedIds, setSelectionField, setActiveMode, setActiveTab, setPlanningSubTab, currentUser } = useHomePage();
+  const lastUserIdRef = useRef<string | null>(null);
+  
+  // Close menu when user changes to ensure menu items reflect new user's roles
+  useEffect(() => {
+    const currentUserId = currentUser?.user.username || null;
+    if (lastUserIdRef.current !== null && lastUserIdRef.current !== currentUserId) {
+      setMenuOpen(false);
+    }
+    lastUserIdRef.current = currentUserId;
+  }, [currentUser]);
 
   const handleLeaveWorld = () => {
     setSelectionField("worldId", null);
@@ -77,56 +87,69 @@ export default function SnappMenu() {
               backgroundColor: "#faf8f3"
             }}
           >
-            <button
-              type="button"
-              className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors"
-              style={{ color: "#3d2817" }}
-              onClick={() => {
-                dispatchOpenUserManagement();
-                setMenuOpen(false);
-              }}
-            >
-              User Management
-            </button>
-            <button
-              type="button"
-              className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors"
-              style={{ color: "#3d2817" }}
-              onClick={() => {
-                dispatchOpenManageAssets();
-                setMenuOpen(false);
-              }}
-            >
-              Manage Assets
-            </button>
-            <button
-              type="button"
-              className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors"
-              style={{ color: "#3d2817" }}
-              onClick={() => {
-                dispatchOpenCreateWorld();
-                setMenuOpen(false);
-              }}
-            >
-              Create world
-            </button>
-            {selectedIds.worldId && (
+            {currentUser?.user.roles.includes("admin") && (
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors"
+                style={{ color: "#3d2817" }}
+                onClick={() => {
+                  dispatchOpenUserManagement();
+                  setMenuOpen(false);
+                }}
+              >
+                User Management
+              </button>
+            )}
+            {/* Show Manage Assets to users with admin or gm role (World Builders) */}
+            {currentUser && (currentUser.user.roles.includes("admin") || currentUser.user.roles.includes("gm")) && (
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors"
+                style={{ color: "#3d2817" }}
+                onClick={() => {
+                  dispatchOpenManageAssets();
+                  setMenuOpen(false);
+                }}
+              >
+                Manage Assets
+              </button>
+            )}
+            {/* Show Create world to users with admin or gm role (World Builders) */}
+            {currentUser && (currentUser.user.roles.includes("admin") || currentUser.user.roles.includes("gm")) && (
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors"
+                style={{ color: "#3d2817" }}
+                onClick={() => {
+                  dispatchOpenCreateWorld();
+                  setMenuOpen(false);
+                }}
+              >
+                Create world
+              </button>
+            )}
+            {/* World-specific menu items - only show when a world is selected */}
+            {selectedIds.worldId && currentUser && (
               <>
-                <button
-                  type="button"
-                  className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors border-t"
-                  style={{ 
-                    color: "#3d2817",
-                    borderColor: "#6b5438"
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent overlay from closing menu before event fires
-                    dispatchOpenCreateCampaign();
-                    setMenuOpen(false);
-                  }}
-                >
-                  New Campaign
-                </button>
+                {/* Show New Campaign to users with admin or gm role, and only when a world is selected */}
+                {(currentUser.user.roles.includes("admin") || currentUser.user.roles.includes("gm")) && (
+                  <button
+                    type="button"
+                    className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors border-t"
+                    style={{ 
+                      color: "#3d2817",
+                      borderColor: "#6b5438"
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent overlay from closing menu before event fires
+                      dispatchOpenCreateCampaign();
+                      setMenuOpen(false);
+                    }}
+                  >
+                    New Campaign
+                  </button>
+                )}
+                {/* Show Leave Campaign only when a campaign is selected */}
                 {selectedIds.campaignId && (
                   <button
                     type="button"
@@ -143,6 +166,7 @@ export default function SnappMenu() {
                     Leave Campaign
                   </button>
                 )}
+                {/* Show Leave World when a world is selected (available to all authenticated users) */}
                 <button
                   type="button"
                   className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors border-t"

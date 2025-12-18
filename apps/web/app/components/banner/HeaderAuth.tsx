@@ -1,21 +1,20 @@
 "use client";
 
-import { AUTH_EVENT, OPEN_LOGIN_EVENT } from "../../../lib/auth/authEvents";
-import { AUTH_USERNAME_KEY } from "../../../lib/auth/authStorage";
+import { OPEN_LOGIN_EVENT } from "../../../lib/auth/authEvents";
 import { useAuthUser } from "../../../lib/auth/useAuthUser";
+import { useHomePage } from "../../../lib/contexts/HomePageContext";
 
 export default function HeaderAuth() {
-  const username = useAuthUser();
+  const usernameFromStorage = useAuthUser();
+  const { currentUser, handlers } = useHomePage();
+
+  // Use actual currentUser state as source of truth, not just localStorage
+  // If currentUser is null, user is not authenticated regardless of localStorage
+  const isAuthenticated = currentUser !== null;
+  const displayUsername = isAuthenticated ? (currentUser?.user.username ?? usernameFromStorage) : null;
 
   const handleLogout = () => {
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(AUTH_USERNAME_KEY);
-      window.dispatchEvent(
-        new CustomEvent(AUTH_EVENT, { detail: { username: null } })
-      );
-      // No page reload needed - the AUTH_EVENT will trigger state updates
-      // and the app will automatically show the guest view
-    }
+    handlers.handleLogout();
   };
 
   return (
@@ -32,13 +31,18 @@ export default function HeaderAuth() {
         />
 
         <div className="relative z-10 flex items-center gap-2">
-          {username ? (
+          {isAuthenticated && displayUsername ? (
             <>
-              <span className="hidden sm:inline">
+              <span className="hidden sm:inline" data-testid="user-roles-display">
                 Logged in as{" "}
                 <span className="font-semibold snapp-heading">
-                  {username}
+                  {displayUsername}
                 </span>
+                {currentUser?.user.roles && currentUser.user.roles.length > 0 && (
+                  <span className="text-snapp-muted">
+                    {" "}({currentUser.user.roles.join(", ")})
+                  </span>
+                )}
               </span>
               <button
                 type="button"

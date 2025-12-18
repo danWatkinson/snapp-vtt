@@ -39,9 +39,9 @@ When('the admin ensures story arc "The Ancient Prophecy" exists', async ({ page 
     await Promise.race([
       page
         .getByRole("dialog", { name: /create story arc/i })
-        .waitFor({ state: "hidden", timeout: 5000 })
+        .waitFor({ state: "hidden", timeout: 3000 })
         .catch(() => null),
-      page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null)
+      page.getByTestId("error-message").waitFor({ timeout: 3000 }).catch(() => null)
     ]);
 
     const errorMessage = await page.getByTestId("error-message").isVisible().catch(() => false);
@@ -55,5 +55,5 @@ When('the admin ensures story arc "The Ancient Prophecy" exists', async ({ page 
 Then('story arc "The Ancient Prophecy" appears in the story arcs list', async ({ page }) => {
   await expect(
     page.getByRole("listitem").filter({ hasText: "The Ancient Prophecy" }).first()
-  ).toBeVisible({ timeout: 10000 });
+  ).toBeVisible({ timeout: 3000 });
 });

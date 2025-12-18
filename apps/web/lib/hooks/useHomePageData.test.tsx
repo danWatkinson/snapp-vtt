@@ -87,7 +87,7 @@ describe("useHomePageData", () => {
 
     const baseProps = {
       activeTab: "World" as const,
-      currentUser: { token: "token" } as any,
+      currentUser: { user: { username: "testuser" }, token: "token" } as any,
       selectedIds: {
         worldId: null,
         campaignId: null,
@@ -156,14 +156,14 @@ describe("useHomePageData", () => {
     fetchAssetsMock.mockRestore();
   });
 
-  it("sets error message when loading assets fails with an Error", async () => {
+  it("handles asset loading errors gracefully without setting error state", async () => {
     const setAssets = vi.fn();
     const setAssetsLoaded = vi.fn();
     const setError = vi.fn();
 
     const baseProps = {
       activeTab: "World" as const,
-      currentUser: { token: "token" } as any,
+      currentUser: { user: { username: "testuser" }, token: "token" } as any,
       selectedIds: {
         worldId: null,
         campaignId: null,
@@ -227,24 +227,23 @@ describe("useHomePageData", () => {
       expect(fetchAssetsMock).toHaveBeenCalledWith("token");
     });
 
-    await waitFor(() => {
-      expect(setError).toHaveBeenCalledWith("boom");
-    });
-
+    // Assets are optional - errors are handled gracefully without setting error state
+    // This prevents UI interference when assets service is unavailable
+    expect(setError).not.toHaveBeenCalled();
     expect(setAssets).not.toHaveBeenCalled();
     expect(setAssetsLoaded).not.toHaveBeenCalledWith(true);
 
     fetchAssetsMock.mockRestore();
   });
 
-  it("sets generic error when loading assets fails with non-Error", async () => {
+  it("handles non-Error asset loading failures gracefully", async () => {
     const setAssets = vi.fn();
     const setAssetsLoaded = vi.fn();
     const setError = vi.fn();
 
     const baseProps = {
       activeTab: "World" as const,
-      currentUser: { token: "token" } as any,
+      currentUser: { user: { username: "testuser" }, token: "token" } as any,
       selectedIds: {
         worldId: null,
         campaignId: null,
@@ -307,10 +306,8 @@ describe("useHomePageData", () => {
       expect(fetchAssetsMock).toHaveBeenCalledWith("token");
     });
 
-    await waitFor(() => {
-      expect(setError).toHaveBeenCalledWith("Failed to load assets");
-    });
-
+    // Assets are optional - errors are handled gracefully without setting error state
+    expect(setError).not.toHaveBeenCalled();
     expect(setAssets).not.toHaveBeenCalled();
     expect(setAssetsLoaded).not.toHaveBeenCalledWith(true);
 

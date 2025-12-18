@@ -39,5 +39,5 @@ When('the admin ensures event "The Great War" exists with timestamps', async ({ 
 Then('event "The Great War" appears in the events list', async ({ page }) => {
   await expect(
     page.getByRole("listitem").filter({ hasText: "The Great War" }).first()
-  ).toBeVisible({ timeout: 10000 });
+  ).toBeVisible({ timeout: 3000 });
 });

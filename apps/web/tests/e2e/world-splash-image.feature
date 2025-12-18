@@ -34,7 +34,7 @@ Feature: World builder sets a splash image for a world
   Scenario: World without a splash image shows a clear placeholder
     When the admin signs in to the system as "admin"
     And the admin navigates to the "World Entities" planning screen
-    And world "Untitled World" exists
-    And the admin selects world "Untitled World"
-    Then the world "Untitled World" shows a "no splash image" placeholder in the world header
-    And the world selector shows a "no splash image" placeholder for "Untitled World"
+    And world "NoSplashWorld" exists
+    And the admin selects world "NoSplashWorld"
+    Then the world "NoSplashWorld" shows a "no splash image" placeholder in the world header
+    And the world selector shows a "no splash image" placeholder for "NoSplashWorld"

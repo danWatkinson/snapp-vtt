@@ -23,6 +23,8 @@ export interface WorldLocation extends WorldEntity {
   type: "location";
 }
 
+import { AuthenticationError, isAuthenticationError } from "../auth/authErrors";
+
 const WORLD_SERVICE_URL =
   process.env.NEXT_PUBLIC_WORLD_SERVICE_URL ?? "https://localhost:4501";
 
@@ -52,6 +54,9 @@ export async function createWorld(
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     throw new Error(body.error ?? "Failed to create world");
   }
   return body.world as World;
@@ -74,6 +79,9 @@ export async function updateWorldSplashImage(
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     throw new Error(body.error ?? "Failed to update world");
   }
   return body.world as World;
@@ -134,6 +142,9 @@ export async function createWorldEntity(
 
   const responseBody = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     throw new Error(responseBody.error ?? `Failed to create ${type}`);
   }
   return responseBody.entity as WorldEntity;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, useState } from "react";
 import { useHomePage } from "../../../lib/contexts/HomePageContext";
 import Heading from "../ui/Heading";
 import TabButton from "../ui/TabButton";
@@ -9,6 +9,31 @@ import EmptyState from "../ui/EmptyState";
 import TabList from "../ui/TabList";
 import Section from "../ui/Section";
 import { getNameById } from "../../../lib/helpers/entityHelpers";
+
+function WorldSplashThumbnail({ 
+  splashAsset 
+}: { 
+  splashAsset: { storageUrl: string; name?: string; originalFileName?: string };
+}) {
+  const [imageError, setImageError] = useState(false);
+
+  if (imageError) {
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded border border-dashed snapp-border text-[10px] leading-none text-slate-500 bg-slate-50/60">
+        —
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={splashAsset.storageUrl}
+      alt={splashAsset.name || splashAsset.originalFileName}
+      className="h-6 w-6 rounded border snapp-border object-cover"
+      onError={() => setImageError(true)}
+    />
+  );
+}
 
 export default function ModeSelector() {
   const {
@@ -73,16 +98,7 @@ export default function ModeSelector() {
                 >
                   <span className="flex items-center gap-2">
                     {splashAsset ? (
-                      <img
-                        src={splashAsset.storageUrl}
-                        alt={splashAsset.name || splashAsset.originalFileName}
-                        className="h-6 w-6 rounded border snapp-border object-cover"
-                        onError={(e) => {
-                          // Hide broken images gracefully
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = "none";
-                        }}
-                      />
+                      <WorldSplashThumbnail splashAsset={splashAsset} />
                     ) : (
                       <span className="flex h-6 w-6 items-center justify-center rounded border border-dashed snapp-border text-[10px] leading-none text-slate-500 bg-slate-50/60">
                         —

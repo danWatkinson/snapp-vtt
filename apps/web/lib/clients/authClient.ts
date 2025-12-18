@@ -37,6 +37,8 @@ export interface User {
   roles: string[];
 }
 
+import { AuthenticationError, isAuthenticationError } from "../auth/authErrors";
+
 export async function listUsers(token: string): Promise<User[]> {
   const res = await fetch(`${AUTH_SERVICE_URL}/users`, {
     method: "GET",
@@ -46,6 +48,9 @@ export async function listUsers(token: string): Promise<User[]> {
   });
 
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? "Failed to list users");
   }
@@ -66,6 +71,9 @@ export async function getUser(
   });
 
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? "Failed to get user");
   }
@@ -90,6 +98,9 @@ export async function createUser(
   });
 
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? "Failed to create user");
   }
@@ -110,6 +121,9 @@ export async function deleteUser(
   });
 
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? "Failed to delete user");
   }
@@ -130,6 +144,9 @@ export async function assignRoles(
   });
 
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? "Role assignment failed");
   }
@@ -153,6 +170,9 @@ export async function revokeRole(
   );
 
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? "Failed to revoke role");
   }
@@ -176,6 +196,9 @@ export async function setRoles(
   });
 
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? "Failed to set roles");
   }

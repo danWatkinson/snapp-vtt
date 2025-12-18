@@ -10,6 +10,7 @@ const testDir = defineBddConfig({
 
 export default defineConfig({
   testDir,
+  workers: 11, // Run tests in parallel with 11 workers for faster execution
   reporter: "list",
   timeout: 30000, // 30 second timeout for tests (increased for concurrent execution)
   expect: {

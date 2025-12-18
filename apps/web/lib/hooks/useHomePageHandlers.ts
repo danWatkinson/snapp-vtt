@@ -25,6 +25,7 @@ import {
   createScene
 } from "../clients/campaignClient";
 import { withAsyncAction } from "./useAsyncAction";
+import { isAuthError } from "../auth/authErrors";
 import type { useFormState } from "./useFormState";
 import type { useSelection } from "./useSelection";
 
@@ -61,13 +62,20 @@ interface UseHomePageHandlersProps {
   setStoryArcEvents: React.Dispatch<React.SetStateAction<string[]>>;
   setScenes: React.Dispatch<React.SetStateAction<any[]>>;
   setTimeline: (timeline: any) => void;
+  setUsers: React.Dispatch<React.SetStateAction<any[]>>;
+  setAssets: React.Dispatch<React.SetStateAction<any[]>>;
+  setAllEvents: React.Dispatch<React.SetStateAction<any[]>>;
   setUsersLoaded: (loaded: boolean) => void;
+  setWorldsLoaded: (loaded: boolean) => void;
+  setCampaignsLoaded: (loaded: boolean) => void;
+  setAssetsLoaded: (loaded: boolean) => void;
   setEntitiesLoadedFor: (key: string | null) => void;
   setSessionsLoadedFor: (key: string | null) => void;
   setPlayersLoadedFor: (key: string | null) => void;
   setStoryArcsLoadedFor: (key: string | null) => void;
   setStoryArcEventsLoadedFor: (key: string | null) => void;
   setScenesLoadedFor: (key: string | null) => void;
+  setTimelineLoadedFor: (key: string | null) => void;
   
   // Selection
   selectedIds: {
@@ -117,13 +125,20 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     setStoryArcEvents,
     setScenes,
     setTimeline,
+    setUsers,
+    setAssets,
+    setAllEvents,
     setUsersLoaded,
+    setWorldsLoaded,
+    setCampaignsLoaded,
+    setAssetsLoaded,
     setEntitiesLoadedFor,
     setSessionsLoadedFor,
     setPlayersLoadedFor,
     setStoryArcsLoadedFor,
     setStoryArcEventsLoadedFor,
     setScenesLoadedFor,
+    setTimelineLoadedFor,
     selectedIds,
     setSelectionField,
     resetSelection,
@@ -131,6 +146,80 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     selectedEntityType,
     closeModal
   } = props;
+
+  // Define handleLogout early so it can be used in onAuthError callbacks
+  function handleLogout() {
+    // Close all modals first (they might be blocking the UI update)
+    closeModal("login");
+    closeModal("world");
+    closeModal("campaign");
+    closeModal("session");
+    closeModal("scene");
+    closeModal("entity");
+    closeModal("userManagement");
+    closeModal("createUser");
+    
+    // Clear user state - this should trigger the UI to switch to guest view
+    setCurrentUser(null);
+    
+    // Reset all forms
+    loginForm.resetForm({ name: "admin", password: "" });
+    userManagementForm.resetForm({ username: "alice", role: "gm" });
+    createUserForm.resetForm({ username: "", password: "", roles: [] });
+    worldForm.resetForm({ name: "", description: "" });
+    entityForm.resetForm({ name: "", summary: "", beginningTimestamp: "", endingTimestamp: "" });
+    campaignForm.resetForm({ name: "", summary: "" });
+    sessionForm.resetForm({ name: "" });
+    playerForm.resetForm({ username: "" });
+    storyArcForm.resetForm({ name: "", summary: "" });
+    sceneForm.resetForm({ name: "", summary: "", worldId: "" });
+    
+    // Reset navigation state
+    setActiveTab(null);
+    setActiveMode(null);
+    setPlanningSubTab("World Entities");
+    resetSelection();
+    setSelectedEntityType("all");
+    setError(null);
+    setAuthServiceUnavailable(false);
+    
+    // Clear all data arrays
+    setWorlds([]);
+    setCampaigns([]);
+    setEntities([]);
+    setSessions([]);
+    setPlayers([]);
+    setStoryArcs([]);
+    setStoryArcEvents([]);
+    setScenes([]);
+    setTimeline(null);
+    setUsers([]);
+    setAssets([]);
+    setAllEvents([]);
+    
+    // Reset all loaded flags
+    setUsersLoaded(false);
+    setWorldsLoaded(false);
+    setCampaignsLoaded(false);
+    setAssetsLoaded(false);
+    setEntitiesLoadedFor(null);
+    setSessionsLoadedFor(null);
+    setPlayersLoadedFor(null);
+    setStoryArcsLoadedFor(null);
+    setStoryArcEventsLoadedFor(null);
+    setScenesLoadedFor(null);
+    setTimelineLoadedFor(null);
+    
+    /* c8 ignore next */ // SSR guard; window is only available in browser/JS DOM
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(AUTH_USERNAME_KEY);
+      // Dispatch AUTH_EVENT to notify other components (like AuthContext)
+      // This will trigger the HomePageContext listener we added to ensure everything is cleared
+      window.dispatchEvent(
+        new CustomEvent(AUTH_EVENT, { detail: { username: null } })
+      );
+    }
+  }
 
   async function handleLogin(e: FormEvent) {
     e.preventDefault();
@@ -189,6 +278,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
+          onAuthError: handleLogout,
           onSuccess: () => {
             setUsersLoaded(false);
           }
@@ -232,6 +322,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
+          onAuthError: handleLogout,
           onSuccess: () => {
             setUsersLoaded(false);
           }
@@ -275,6 +366,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
+          onAuthError: handleLogout,
           onSuccess: (world) => {
             setWorlds((prev) => [...prev, world]);
             worldForm.resetForm();
@@ -312,6 +404,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
+          onAuthError: handleLogout,
           onSuccess: (updatedWorld) => {
             setWorlds((prev) =>
               prev.map((w) => (w.id === updatedWorld.id ? updatedWorld : w))
@@ -350,6 +443,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
+          onAuthError: handleLogout,
           onSuccess: (entity) => {
             setEntities((prev) => [...prev, entity]);
             entityForm.resetForm();
@@ -373,6 +467,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
+          onAuthError: handleLogout,
           onSuccess: (camp) => {
             setCampaigns((prev) => [...prev, camp]);
             campaignForm.resetForm();
@@ -396,6 +491,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
+          onAuthError: handleLogout,
           onSuccess: (session) => {
             setSessions((prev) => [...prev, session]);
             sessionForm.resetForm();
@@ -420,6 +516,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
+          onAuthError: handleLogout,
           onSuccess: () => {
             setPlayers((prev) => [...prev, playerForm.form.username]);
             playerForm.resetForm();
@@ -445,6 +542,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
+          onAuthError: handleLogout,
           onSuccess: (storyArc) => {
             setStoryArcs((prev) => [...prev, storyArc]);
             storyArcForm.resetForm();
@@ -469,6 +567,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
+          onAuthError: handleLogout,
           onSuccess: () => {
             setStoryArcEvents((prev) => [...prev, selectedIds.eventId]);
             setSelectionField("eventId", "");
@@ -495,6 +594,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
+          onAuthError: handleLogout,
           onSuccess: (updated) => {
             setTimeline(updated);
           }
@@ -519,6 +619,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         {
           setIsLoading,
           setError,
+          onAuthError: handleLogout,
           onSuccess: (scene) => {
             setScenes((prev) => [...prev, scene]);
             sceneForm.resetForm();
@@ -530,24 +631,6 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     } catch (err) {
       /* c8 ignore next */ // Error already handled by withAsyncAction; catch is defensive
       // Error already handled by withAsyncAction
-    }
-  }
-
-  function handleLogout() {
-    setCurrentUser(null);
-    loginForm.resetForm({ name: "admin", password: "" });
-    setActiveTab(null);
-    setActiveMode(null);
-    setPlanningSubTab("World Entities");
-    resetSelection();
-    setSelectedEntityType("all");
-    setError(null);
-    /* c8 ignore next */ // SSR guard; window is only available in browser/JS DOM
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(AUTH_USERNAME_KEY);
-      window.dispatchEvent(
-        new CustomEvent(AUTH_EVENT, { detail: { username: null } })
-      );
     }
   }
 

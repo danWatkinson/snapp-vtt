@@ -9,6 +9,25 @@ import Modal from "../ui/Modal";
 import { useHomePage } from "../../../lib/contexts/HomePageContext";
 import { createAsset, type DigitalAsset } from "../../../lib/clients/assetsClient";
 
+function ImageViewer({ asset }: { asset: DigitalAsset }) {
+  const [imageError, setImageError] = useState(false);
+
+  if (imageError) {
+    return (
+      <p className="text-snapp-muted">Failed to load image</p>
+    );
+  }
+
+  return (
+    <img
+      src={asset.storageUrl}
+      alt={asset.name || asset.originalFileName}
+      className="max-w-full max-h-[80vh] object-contain rounded"
+      onError={() => setImageError(true)}
+    />
+  );
+}
+
 export default function AssetsTab() {
   const { assets, currentUser, setAssets, setError } = useHomePage();
   const [viewingAsset, setViewingAsset] = useState<DigitalAsset | null>(null);
@@ -34,11 +53,24 @@ export default function AssetsTab() {
                 if (!file || !currentUser) return;
 
                 try {
-                  const asset = await createAsset(currentUser.token, {
-                    originalFileName: file.name,
-                    mimeType: file.type || "application/octet-stream",
-                    sizeBytes: file.size
+                  // Upload the file to our API route which saves it and creates the asset record
+                  const formData = new FormData();
+                  formData.append("file", file);
+                  
+                  const res = await fetch("/api/upload-asset", {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${currentUser.token}`
+                    },
+                    body: formData
                   });
+
+                  if (!res.ok) {
+                    const errorText = await res.text();
+                    throw new Error(errorText || "Failed to upload asset");
+                  }
+
+                  const asset = await res.json();
                   setAssets([...assets, asset]);
                 } catch (err) {
                   const message =
@@ -147,20 +179,7 @@ export default function AssetsTab() {
               </button>
             </div>
             <div className="flex justify-center">
-              <img
-                src={viewingAsset.storageUrl}
-                alt={viewingAsset.name || viewingAsset.originalFileName}
-                className="max-w-full max-h-[80vh] object-contain rounded"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = "none";
-                  const container = target.parentElement;
-                  if (container) {
-                    container.innerHTML =
-                      '<p className="text-snapp-muted">Failed to load image</p>';
-                  }
-                }}
-              />
+              <ImageViewer asset={viewingAsset} />
             </div>
           </div>
         </div>

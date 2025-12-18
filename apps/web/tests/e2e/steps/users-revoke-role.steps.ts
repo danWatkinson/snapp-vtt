@@ -52,5 +52,5 @@ When('the admin revokes the "gm" role from user "alice"', async ({ page }) => {
 Then('user "alice" no longer has the "gm" role in the users list', async ({ page }) => {
   const aliceItem = page.getByTestId("user-alice");
   const gmRoleBadge = aliceItem.locator("span").filter({ hasText: "gm" });
-  await expect(gmRoleBadge).not.toBeVisible({ timeout: 5000 });
+  await expect(gmRoleBadge).not.toBeVisible({ timeout: 3000 });
 });

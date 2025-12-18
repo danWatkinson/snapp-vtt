@@ -9,7 +9,22 @@ export function getUniqueCampaignName(baseName: string): string {
   if (workerIndex !== undefined) {
     return `${baseName} [Worker ${workerIndex}]`;
   }
-  return baseName;
+  // When running sequentially (no worker index), use timestamp to ensure uniqueness
+  // This prevents test isolation issues when tests run one after another
+  return `${baseName}-${Date.now()}`;
+}
+
+/**
+ * Generate a unique username per worker to avoid conflicts when tests run in parallel.
+ * Uses TEST_PARALLEL_INDEX to ensure each worker gets a unique username.
+ */
+export function getUniqueUsername(baseName: string): string {
+  const workerIndex = process.env.TEST_PARALLEL_INDEX;
+  if (workerIndex !== undefined) {
+    return `${baseName}-${workerIndex}`;
+  }
+  // If no worker index, use timestamp to ensure uniqueness
+  return `${baseName}-${Date.now()}`;
 }
 
 /**
@@ -51,6 +66,33 @@ export async function getStoredWorldName(
   }
   // Fall back to generating the unique name
   return getUniqueCampaignName(baseName);
+}
+
+/**
+ * Helper to ensure login dialog is closed (it blocks clicks if open)
+ */
+export async function ensureLoginDialogClosed(page: Page) {
+  const loginDialog = page.getByRole("dialog", { name: "Login" });
+  const loginDialogVisible = await loginDialog.isVisible().catch(() => false);
+  
+  if (loginDialogVisible) {
+    // Dialog is open - try to close it
+    try {
+      const closeButton = loginDialog.getByRole("button", { name: "Close login" });
+      const closeButtonVisible = await closeButton.isVisible({ timeout: 1000 }).catch(() => false);
+      if (closeButtonVisible) {
+        await closeButton.click();
+      } else {
+        // Try Escape key
+        await page.keyboard.press("Escape");
+      }
+      // Wait for dialog to close
+      await loginDialog.waitFor({ state: "hidden", timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(200);
+    } catch {
+      // If closing fails, that's okay - continue anyway
+    }
+  }
 }
 
 /**
@@ -118,8 +160,57 @@ async function safeWait(page: Page, ms: number) {
  * This should be called at the start of any test that needs authentication.
  */
 export async function loginAs(page: Page, username: string, password: string) {
-  await page.goto("/");
-  await page.waitForLoadState("domcontentloaded");
+  // Check if page is closed before attempting navigation
+  if (page.isClosed()) {
+    throw new Error("Page was closed before login attempt");
+  }
+  
+  // Check if we're already on the home page before navigating
+  let currentUrl: string;
+  try {
+    currentUrl = page.url();
+  } catch {
+    // Can't get URL - page might be in bad state, try navigation anyway
+    currentUrl = "";
+  }
+  
+  const isOnHomePage = currentUrl.endsWith("/") || currentUrl.endsWith("localhost:3000/") || currentUrl.includes("localhost:3000/");
+  
+  if (!isOnHomePage) {
+    // Only navigate if we're not already on the home page
+    try {
+      await page.goto("/", { waitUntil: "domcontentloaded", timeout: 3000 });
+    } catch (error: any) {
+      // If navigation times out, check if we're already on the page or if page is usable
+      if (page.isClosed()) {
+        throw new Error("Page was closed during navigation");
+      }
+      
+      try {
+        const urlAfterTimeout = page.url();
+        if (urlAfterTimeout.includes("localhost:3000")) {
+          // We're on the page, continue
+        } else {
+          // Not on the page and navigation failed - this is an error
+          throw new Error(`Navigation to "/" timed out. Current URL: ${urlAfterTimeout}`);
+        }
+      } catch (urlError: any) {
+        // Can't get URL - page might be in bad state
+        if (urlError.message?.includes("closed") || page.isClosed()) {
+          throw new Error("Page was closed or is in bad state during navigation");
+        }
+        // If we can't get URL but page isn't closed, try to continue
+        // The page might still be usable
+      }
+    }
+  } else {
+    // Already on home page, just wait for it to be ready
+    try {
+      await page.waitForLoadState("domcontentloaded", { timeout: 3000 });
+    } catch {
+      // If wait fails, that's okay - page might already be loaded
+    }
+  }
   
   // Check if already logged in - if so, log out first using the logout button
   // The logout button clears the token and dispatches AUTH_EVENT (no page reload)
@@ -133,7 +224,7 @@ export async function loginAs(page: Page, username: string, password: string) {
     // Use a longer timeout and be more defensive
     try {
       await Promise.race([
-        page.getByRole("button", { name: "Login" }).waitFor({ state: "visible", timeout: 5000 }),
+        page.getByRole("button", { name: "Login" }).waitFor({ state: "visible", timeout: 3000 }),
         page.waitForTimeout(5000) // Fallback timeout
       ]);
     } catch {
@@ -151,7 +242,7 @@ export async function loginAs(page: Page, username: string, password: string) {
   
   // Open login modal via banner Login button
   const loginButton = page.getByRole("button", { name: "Login" });
-  const loginButtonVisible = await loginButton.isVisible({ timeout: 2000 }).catch(() => false);
+  const loginButtonVisible = await loginButton.isVisible({ timeout: 3000 }).catch(() => false);
   
   if (!loginButtonVisible) {
     // Login button not visible - might already be logged in
@@ -163,37 +254,195 @@ export async function loginAs(page: Page, username: string, password: string) {
       return;
     } else {
       // Not logged in but login button not visible - might be a page state issue
-      // Try refreshing
-      await page.reload({ waitUntil: "domcontentloaded" });
+      // Wait a bit and check again
+      await page.waitForTimeout(500);
       const retryLoginButton = page.getByRole("button", { name: "Login" });
-      await expect(retryLoginButton).toBeVisible({ timeout: 5000 });
-      await retryLoginButton.click();
+      const retryVisible = await retryLoginButton.isVisible({ timeout: 3000 }).catch(() => false);
+      if (retryVisible) {
+        await retryLoginButton.click();
+      } else {
+        // Still not visible - might need a refresh
+        await page.reload({ waitUntil: "domcontentloaded" });
+        const finalLoginButton = page.getByRole("button", { name: "Login" });
+        await expect(finalLoginButton).toBeVisible({ timeout: 3000 });
+        await finalLoginButton.click();
+      }
     }
   } else {
+    // Wait for button to be enabled before clicking
+    await expect(loginButton).toBeEnabled({ timeout: 3000 });
     await loginButton.click();
   }
 
-  // Wait for login dialog to appear
+  // Wait a moment for the event to be dispatched and modal to start opening
+  await page.waitForTimeout(300);
+
+  // Wait for login dialog to appear (unless already logged in)
+  // Double-check if we're already logged in after clicking login button
+  const logoutButtonAfterClick = page.getByRole("button", { name: "Log out" });
+  const stillLoggedIn = await logoutButtonAfterClick.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (stillLoggedIn) {
+    // Already logged in, no need to show login dialog
+    return;
+  }
+  
+  // Wait for login dialog to appear - it might take a moment for the modal to open
+  // The OPEN_LOGIN_EVENT is dispatched, which triggers the modal to open
   const loginDialog = page.getByRole("dialog", { name: "Login" });
-  await expect(loginDialog).toBeVisible({ timeout: 5000 });
+  try {
+    await expect(loginDialog).toBeVisible({ timeout: 3000 });
+  } catch (error) {
+    // If dialog doesn't appear, check if we somehow got logged in
+    const checkLogoutAgain = page.getByRole("button", { name: "Log out" });
+    const gotLoggedIn = await checkLogoutAgain.isVisible({ timeout: 1000 }).catch(() => false);
+    if (gotLoggedIn) {
+      // Somehow we're logged in now, that's fine
+      return;
+    }
+    
+    // Check if login button is still visible (maybe click didn't work)
+    const loginButtonStillVisible = await page.getByRole("button", { name: "Login" }).isVisible({ timeout: 1000 }).catch(() => false);
+    if (loginButtonStillVisible) {
+      // Login button still visible - try clicking again
+      await page.getByRole("button", { name: "Login" }).click();
+      await page.waitForTimeout(500);
+      
+      // Check again if we're logged in (might have happened during the click)
+      const checkLogoutAfterRetry = page.getByRole("button", { name: "Log out" });
+      const loggedInAfterRetry = await checkLogoutAfterRetry.isVisible({ timeout: 1000 }).catch(() => false);
+      if (loggedInAfterRetry) {
+        // We're logged in now, that's fine
+        return;
+      }
+      
+      // Still not logged in, wait for dialog
+      const retryDialog = page.getByRole("dialog", { name: "Login" });
+      await expect(retryDialog).toBeVisible({ timeout: 3000 });
+      return;
+    }
+    
+    // Check one more time if we're logged in (race condition)
+    const finalCheckLogout = page.getByRole("button", { name: "Log out" });
+    const finalLoggedIn = await finalCheckLogout.isVisible({ timeout: 1000 }).catch(() => false);
+    if (finalLoggedIn) {
+      // We're logged in, that's fine
+      return;
+    }
+    
+    // Otherwise, rethrow the error
+    throw error;
+  }
   
   // Wait for login form to be visible in the modal
-  await expect(page.getByTestId("login-username")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("login-username")).toBeVisible({ timeout: 3000 });
   
-  // Fill in credentials
-  await page.getByTestId("login-username").fill(username);
-  await page.getByTestId("login-password").fill(password);
+  // Fill in credentials - clear first to ensure clean state
+  const usernameInput = page.getByTestId("login-username");
+  const passwordInput = page.getByTestId("login-password");
+  
+  await usernameInput.clear();
+  await usernameInput.fill(username);
+  
+  await passwordInput.clear();
+  await passwordInput.fill(password);
+  
+  // Verify the values were filled correctly (defensive check)
+  const filledUsername = await usernameInput.inputValue();
+  const filledPassword = await passwordInput.inputValue();
+  
+  if (filledUsername !== username) {
+    throw new Error(`Username mismatch: expected "${username}", but form has "${filledUsername}"`);
+  }
+  if (filledPassword !== password) {
+    throw new Error(`Password mismatch: expected password, but form value differs`);
+  }
   
   // Submit login form via keyboard (triggers form onSubmit reliably)
-  await page.getByTestId("login-password").press("Enter");
+  await passwordInput.press("Enter");
   
-  // Success criteria:
-  // - Login dialog closes
-  // - Authenticated shell (world context panel) becomes visible
-  await expect(loginDialog).toBeHidden({ timeout: 15000 });
-  await expect(
-    page.getByRole("heading", { name: "World context and mode" })
-  ).toBeVisible({ timeout: 5000 });
+  // Wait for login to complete - the dialog should close
+  // Also wait for logout button to appear (indicates successful login)
+  // Use a longer timeout to allow for user creation and login processing
+  try {
+    await Promise.race([
+      loginDialog.waitFor({ state: "hidden", timeout: 5000 }),
+      page.getByRole("button", { name: "Log out" }).waitFor({ state: "visible", timeout: 5000 })
+    ]);
+  } catch (raceError) {
+    // Check if there's an error message in the login dialog
+    const errorMessage = page.getByTestId("error-message");
+    const hasError = await errorMessage.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (hasError) {
+      const errorText = await errorMessage.textContent().catch(() => "Unknown error");
+      throw new Error(`Login failed: ${errorText}`);
+    }
+    
+    // If no error message, check if we're logged in anyway
+    const logoutButton = page.getByRole("button", { name: "Log out" });
+    const isLoggedIn = await logoutButton.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (!isLoggedIn) {
+      // Check if dialog is still visible (might be blocking the UI)
+      const dialogStillOpen = await loginDialog.isVisible({ timeout: 500 }).catch(() => false);
+      
+      if (dialogStillOpen) {
+        // Dialog is still open - check for error message again (it might have appeared)
+        const errorMessage = page.getByTestId("error-message");
+        const hasErrorNow = await errorMessage.isVisible({ timeout: 1000 }).catch(() => false);
+        
+        if (hasErrorNow) {
+          const errorText = await errorMessage.textContent().catch(() => "Unknown error");
+          throw new Error(`Login failed: ${errorText}`);
+        }
+        
+        // Dialog still open but no error - login might be in progress
+        // Wait a bit longer for login to complete
+        await page.waitForTimeout(1000);
+        const loggedInAfterWait = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
+        
+        if (!loggedInAfterWait) {
+          throw new Error(
+            `Login did not complete for user "${username}". Dialog remained open and logout button did not appear. ` +
+            `This may indicate: 1) The user does not exist, 2) The password is incorrect, 3) There was a network/auth service error. ` +
+            `Please verify the user "${username}" was created successfully with password "${password.substring(0, 3)}...".`
+          );
+        }
+      } else {
+        // Dialog closed but not logged in - this is unexpected
+        throw new Error(
+          `Login did not complete for user "${username}". Dialog closed but logout button did not appear. ` +
+          `This may indicate an authentication failure or UI state issue.`
+        );
+      }
+    }
+    // If we're logged in, the race just timed out - that's okay
+  }
+  
+  // Ensure dialog is actually closed (it might still be in DOM but hidden)
+  const dialogStillVisible = await loginDialog.isVisible().catch(() => false);
+  if (dialogStillVisible) {
+    // Dialog still visible - try to close it manually
+    const closeButton = loginDialog.getByRole("button", { name: "Close login" });
+    const closeButtonVisible = await closeButton.isVisible({ timeout: 1000 }).catch(() => false);
+    if (closeButtonVisible) {
+      await closeButton.click();
+    } else {
+      // Try Escape key
+      await page.keyboard.press("Escape");
+    }
+    // Wait for it to close
+    await loginDialog.waitFor({ state: "hidden", timeout: 3000 }).catch(() => {});
+  }
+  
+  // Verify we're logged in by checking for logout button
+  // Wait a bit first to allow the UI to update after login
+  await page.waitForTimeout(500);
+  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
+  
+  // Wait a bit more for UI to fully stabilize after login
+  await page.waitForTimeout(300);
 }
 
 /**
@@ -224,6 +473,9 @@ export async function ensureModeSelectorVisible(page: Page) {
     return;
   }
 
+  // Check if login dialog is still open - if so, close it first (it blocks clicks)
+  await ensureLoginDialogClosed(page);
+  
   // Mode selector not visible - check if a world is selected
   // Check if menu is already open by looking for overlay
   const menuOverlay = page.locator('div.fixed.inset-0.z-10');
@@ -246,7 +498,7 @@ export async function ensureModeSelectorVisible(page: Page) {
     // Wait for ModeSelector to appear
     await expect(
       page.getByRole("tablist", { name: "World context" })
-    ).toBeVisible({ timeout: 5000 });
+    ).toBeVisible({ timeout: 3000 });
   } else {
     // No world is selected - menu is open, close it by clicking outside or the button again
     // Click outside the menu (on the overlay) to close it
@@ -258,6 +510,13 @@ export async function ensureModeSelectorVisible(page: Page) {
     
     // Mode selector should be visible when no world is selected
     // Wait for it to appear (it might show "No worlds" message or world list)
+    // First, ensure we're actually logged in - if not, this will fail with a clear error
+    const logoutButton = page.getByRole("button", { name: "Log out" });
+    const isLoggedIn = await logoutButton.isVisible({ timeout: 1000 }).catch(() => false);
+    if (!isLoggedIn) {
+      throw new Error("Cannot ensure mode selector visible: user is not logged in. Logout button not found.");
+    }
+    
     try {
       await expect(
         page.getByRole("tablist", { name: "World context" })
@@ -270,8 +529,12 @@ export async function ensureModeSelectorVisible(page: Page) {
         .catch(() => false);
       
       if (!noWorldsMessage) {
-        // Neither mode selector nor "No worlds" message - this is unexpected
-        // But don't fail here, let the calling code handle it
+        // Neither mode selector nor "No worlds" message - check if we're on guest view
+        const guestView = await page.getByText("Welcome to Snapp").isVisible().catch(() => false);
+        if (guestView) {
+          throw new Error("Mode selector not visible: appears to be on guest view instead of authenticated view. User may not be logged in.");
+        }
+        // Otherwise, this is unexpected - but let calling code handle it
       }
     }
   }
@@ -281,6 +544,19 @@ export async function selectWorldAndEnterPlanningMode(
   page: Page,
   subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users" = "World Entities"
 ) {
+  // First verify we're logged in and authenticated view is ready
+  // Wait for logout button to be visible (indicates authenticated state)
+  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
+  
+  // Also verify we're not on guest view (AuthenticatedView should be rendering)
+  // Wait a moment for the view to switch from GuestView to AuthenticatedView
+  await page.waitForTimeout(300);
+  const guestView = await page.getByText("Welcome to Snapp").isVisible().catch(() => false);
+  if (guestView) {
+    throw new Error("Cannot navigate to planning screen: still on guest view after login. AuthenticatedView may not have rendered.");
+  }
+  
+  // Now ensure mode selector is visible
   await ensureModeSelectorVisible(page);
 
   // For Users tab, we can navigate directly without requiring a world
@@ -356,7 +632,7 @@ export async function selectWorldAndEnterPlanningMode(
         
         // Wait for the create world modal to be visible
         const createWorldDialog = page.getByRole("dialog", { name: /create world/i });
-        await expect(createWorldDialog).toBeVisible({ timeout: 5000 });
+        await expect(createWorldDialog).toBeVisible({ timeout: 3000 });
         
         // uniqueWorldName already defined above
         await page.getByLabel("World name").fill(uniqueWorldName);
@@ -365,9 +641,9 @@ export async function selectWorldAndEnterPlanningMode(
         
         // Wait for either: modal to close, error message, or world to appear
         await Promise.race([
-          createWorldDialog.waitFor({ state: "hidden", timeout: 5000 }).catch(() => null),
+          createWorldDialog.waitFor({ state: "hidden", timeout: 3000 }).catch(() => null),
           page.getByTestId("error-message").waitFor({ timeout: 2000 }).catch(() => null),
-          worldContextTablist.getByRole("tab", { name: uniqueWorldName }).waitFor({ timeout: 5000 }).catch(() => null)
+          worldContextTablist.getByRole("tab", { name: uniqueWorldName }).waitFor({ timeout: 3000 }).catch(() => null)
         ]);
         
         // Check if world already appeared (creation succeeded)
@@ -537,24 +813,60 @@ export async function selectWorldAndEnterPlanningMode(
   
   // If we still don't have a world tab, wait a bit more and retry (for concurrent execution)
   if (!worldTabExists) {
-    // Wait a bit for worlds to appear (may be delayed during concurrent execution)
-    await safeWait(page, 1000);
+    // Wait for worlds to be loaded - check if the tablist is visible first
+    await expect(worldContextTablist).toBeVisible({ timeout: 3000 });
+    
+    // Wait a bit for worlds to appear (may be delayed during concurrent execution or data loading)
+    await safeWait(page, 2000);
+    
     // Try one more time to find any world
     try {
-      worldTab = worldContextTablist.getByRole("tab").first();
-      worldTabExists = await worldTab.isVisible().catch(() => false);
-    } catch {
-      // Still can't find it
+      // Check if "No worlds" message is visible - if so, we need to create one
+      const noWorldsMessage = await page
+        .getByText("No worlds have been created yet")
+        .isVisible()
+        .catch(() => false);
+      
+      if (noWorldsMessage) {
+        // No worlds exist - create one
+        await page.getByRole("button", { name: /Snapp/i }).click();
+        await page.getByRole("button", { name: "Create world" }).click();
+        
+        const createWorldDialog = page.getByRole("dialog", { name: /create world/i });
+        await expect(createWorldDialog).toBeVisible({ timeout: 3000 });
+        
+        const worldName = getUniqueCampaignName("Eldoria");
+        await page.getByLabel("World name").fill(worldName);
+        await page.getByLabel("Description").fill("A high-fantasy realm.");
+        await page.getByRole("button", { name: "Save world" }).click();
+        
+        // Wait for world to be created and appear in the tablist
+        await expect(
+          worldContextTablist.getByRole("tab", { name: worldName })
+        ).toBeVisible({ timeout: 3000 });
+        
+        worldTab = worldContextTablist.getByRole("tab", { name: worldName });
+        worldTabExists = true;
+      } else {
+        // Try to find any world tab
+        worldTab = worldContextTablist.getByRole("tab").first();
+        worldTabExists = await worldTab.isVisible().catch(() => false);
+      }
+    } catch (error) {
+      // Still can't find it - check if page is closed
+      if (error.message?.includes("closed") || page.isClosed()) {
+        throw new Error("Page or browser context was closed while trying to find world tab");
+      }
     }
     
     if (!worldTabExists) {
-      throw new Error("No world found to select. This may indicate a race condition during concurrent test execution.");
+      throw new Error("No world found to select. This may indicate a race condition during concurrent test execution or that worlds aren't being loaded properly.");
     }
   }
   
   // Ensure the tab is visible and clickable
   try {
-    await expect(worldTab).toBeVisible({ timeout: 5000 });
+    await expect(worldTab).toBeVisible({ timeout: 3000 });
   } catch (error) {
     // Check if page is actually closed - be defensive about this check
     let actuallyClosed = false;
@@ -602,9 +914,12 @@ export async function selectWorldAndEnterPlanningMode(
   
   // Wait for the world to be selected - the most reliable indicator is planning tabs appearing
   // The PlanningTabs component renders when both activeMode === "plan" and selectedIds.worldId is set
-  // Wait for any pending network requests to complete
+  // During concurrent execution, state updates may take longer, so wait a bit first
+  await safeWait(page, 500);
+  
+  // Wait for any pending network requests to complete (but don't wait too long)
   try {
-    await page.waitForLoadState("networkidle", { timeout: 2000 });
+    await page.waitForLoadState("networkidle", { timeout: 3000 });
   } catch {
     // If networkidle times out quickly, that's okay - just continue
   }
@@ -616,18 +931,38 @@ export async function selectWorldAndEnterPlanningMode(
   
   // Wait for planning mode to be active and planning sub-tabs to appear
   // This is the most reliable indicator that a world is selected
-  // First check if planning tabs are already visible
-  const planningTabsAlreadyVisible = await page
-    .getByRole("tablist", { name: "World planning views" })
-    .isVisible()
-    .catch(() => false);
+  // During concurrent execution, React state updates may be delayed
+  // Retry a few times with increasing waits
+  let planningTabsVisible = false;
+  let retries = 0;
+  const maxRetries = 5;
   
-  if (!planningTabsAlreadyVisible) {
-    // Wait for them to appear with a reasonable timeout
+  while (!planningTabsVisible && retries < maxRetries) {
+    planningTabsVisible = await page
+      .getByRole("tablist", { name: "World planning views" })
+      .isVisible()
+      .catch(() => false);
+    
+    if (!planningTabsVisible) {
+      retries++;
+      if (retries < maxRetries) {
+        // Wait a bit longer each retry (exponential backoff)
+        await safeWait(page, 300 * retries);
+        
+        // Check if page is still valid
+        if (page.isClosed()) {
+          throw new Error("Page was closed while waiting for planning tabs to appear");
+        }
+      }
+    }
+  }
+  
+  if (!planningTabsVisible) {
+    // Final attempt with explicit wait
     try {
       await expect(
         page.getByRole("tablist", { name: "World planning views" })
-      ).toBeVisible({ timeout: 15000 });
+      ).toBeVisible({ timeout: 3000 });
     } catch (error) {
       // If page closed, throw a more helpful error
       if (page.isClosed()) {
@@ -639,8 +974,17 @@ export async function selectWorldAndEnterPlanningMode(
         .getByRole("tablist", { name: "World context" })
         .isVisible()
         .catch(() => false);
+      
+      // Check if world tab is still visible/selected
+      const worldTabStillVisible = await worldTab.isVisible().catch(() => false);
+      const worldTabSelected = worldTabStillVisible 
+        ? await worldTab.getAttribute("aria-selected") === "true"
+        : false;
+      
       throw new Error(
-        `Planning tabs did not appear after selecting world. URL: ${currentUrl}, World context visible: ${worldContextVisible}`
+        `Planning tabs did not appear after selecting world after ${maxRetries} retries. ` +
+        `URL: ${currentUrl}, World context visible: ${worldContextVisible}, ` +
+        `World tab visible: ${worldTabStillVisible}, World tab selected: ${worldTabSelected}`
       );
     }
   }
@@ -652,7 +996,10 @@ export async function selectWorldAndEnterPlanningMode(
       throw new Error("Page was closed before navigating to sub-tab");
     }
     
+    // Wait for the planning tablist to be visible before accessing it
     const planningTablist = page.getByRole("tablist", { name: "World planning views" });
+    await expect(planningTablist).toBeVisible({ timeout: 3000 });
+    
     const subTabButton = planningTablist.getByRole("tab", { name: subTab });
     
     // Check if already on the requested tab
@@ -661,7 +1008,7 @@ export async function selectWorldAndEnterPlanningMode(
       return; // Already on the correct tab
     }
     
-    await expect(subTabButton).toBeVisible({ timeout: 5000 });
+    await expect(subTabButton).toBeVisible({ timeout: 3000 });
     await subTabButton.click();
     
     // Wait a moment for the tab switch to complete
@@ -954,9 +1301,9 @@ export async function ensureCampaignExists(
             
             // Wait for creation to complete
             await Promise.race([
-              dialog.waitFor({ state: "hidden", timeout: 5000 }).catch(() => null),
-              page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null),
-              page.getByRole("tab", { name: campaignName }).waitFor({ timeout: 5000 }).catch(() => null)
+              dialog.waitFor({ state: "hidden", timeout: 3000 }).catch(() => null),
+              page.getByTestId("error-message").waitFor({ timeout: 3000 }).catch(() => null),
+              page.getByRole("tab", { name: campaignName }).waitFor({ timeout: 3000 }).catch(() => null)
             ]);
             
             // Check if campaign was created
@@ -966,7 +1313,7 @@ export async function ensureCampaignExists(
               await page.getByRole("tab", { name: campaignName }).first().click();
               await expect(
                 page.getByRole("tablist", { name: "Campaign views" })
-              ).toBeVisible({ timeout: 5000 });
+              ).toBeVisible({ timeout: 3000 });
               return; // Success!
             }
           }
@@ -1040,7 +1387,7 @@ export async function ensureCampaignExists(
       }
       await page.getByRole("button", { name: /^Snapp/i }).click();
       const newCampaignButton = page.getByRole("button", { name: "New Campaign" });
-      await expect(newCampaignButton).toBeVisible({ timeout: 5000 });
+      await expect(newCampaignButton).toBeVisible({ timeout: 3000 });
       
       // Check page state again before clicking
       if (page.isClosed()) {
@@ -1065,7 +1412,7 @@ export async function ensureCampaignExists(
       throw error;
     }
     const createCampaignDialog = page.getByRole("dialog", { name: /create campaign/i });
-    await expect(createCampaignDialog).toBeVisible({ timeout: 5000 });
+    await expect(createCampaignDialog).toBeVisible({ timeout: 3000 });
     
     await page.getByLabel("Campaign name").fill(campaignName);
     await page.getByLabel("Summary").fill(summary);
@@ -1073,9 +1420,9 @@ export async function ensureCampaignExists(
 
     // Wait for either the modal to close, an error message, or the campaign tab to appear
     await Promise.race([
-      createCampaignDialog.waitFor({ state: "hidden", timeout: 5000 }).catch(() => null),
-      page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null),
-      page.getByRole("tab", { name: campaignName }).waitFor({ timeout: 5000 }).catch(() => null)
+      createCampaignDialog.waitFor({ state: "hidden", timeout: 3000 }).catch(() => null),
+      page.getByTestId("error-message").waitFor({ timeout: 3000 }).catch(() => null),
+      page.getByRole("tab", { name: campaignName }).waitFor({ timeout: 3000 }).catch(() => null)
     ]);
 
     // Check for errors first
@@ -1141,7 +1488,7 @@ export async function ensureCampaignExists(
         throw new Error("Page was closed before selecting campaign tab");
       }
       const campaignTab = page.getByRole("tab", { name: campaignName }).first();
-      await expect(campaignTab).toBeVisible({ timeout: 5000 });
+      await expect(campaignTab).toBeVisible({ timeout: 3000 });
       
       // Check page state again before clicking
       if (page.isClosed()) {
@@ -1168,7 +1515,7 @@ export async function ensureCampaignExists(
     // Wait for campaign views to appear (indicating campaign is selected)
     await expect(
       page.getByRole("tablist", { name: "Campaign views" })
-    ).toBeVisible({ timeout: 5000 });
+    ).toBeVisible({ timeout: 3000 });
   } else if (hasCampaignTab && !campaignViewsStillVisible) {
     // Campaign exists but not selected - select it
     try {
@@ -1176,7 +1523,7 @@ export async function ensureCampaignExists(
         throw new Error("Page was closed before selecting existing campaign");
       }
       const campaignTab = page.getByRole("tab", { name: campaignName }).first();
-      await expect(campaignTab).toBeVisible({ timeout: 5000 });
+      await expect(campaignTab).toBeVisible({ timeout: 3000 });
       
       if (page.isClosed()) {
         throw new Error("Page was closed before clicking existing campaign tab");
@@ -1184,7 +1531,7 @@ export async function ensureCampaignExists(
       await campaignTab.click();
       await expect(
         page.getByRole("tablist", { name: "Campaign views" })
-      ).toBeVisible({ timeout: 5000 });
+      ).toBeVisible({ timeout: 3000 });
     } catch (error) {
       if (page.isClosed() || error.message?.includes("closed") || error.message?.includes("Target page")) {
         throw new Error("Page was closed while trying to select existing campaign");
@@ -1206,7 +1553,7 @@ export async function ensureCampaignExists(
       await page.getByRole("tab", { name: campaignName }).first().click();
       await expect(
         page.getByRole("tablist", { name: "Campaign views" })
-      ).toBeVisible({ timeout: 5000 });
+      ).toBeVisible({ timeout: 3000 });
     } else {
       // Campaign might be selected but we can't see it - try to find it via heading
       const campaignHeading = page

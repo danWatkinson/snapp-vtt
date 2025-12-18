@@ -67,8 +67,70 @@ When('the admin ensures scene "The Throne Room" exists in the session', async ({
     await addSceneDialog.getByLabel("Summary", { exact: true }).fill("A tense negotiation with the king.");
 
     // Get the unique world name (stored from earlier steps)
-    const worldName = await getStoredWorldName(page, "Eldoria");
-    await addSceneDialog.getByLabel("World").selectOption(worldName);
+    const uniqueWorldName = await getStoredWorldName(page, "Eldoria");
+    const worldSelect = addSceneDialog.getByLabel("World");
+    
+    // Wait for the dropdown to be populated with options
+    await expect(worldSelect).toBeVisible({ timeout: 3000 });
+    await page.waitForTimeout(300); // Small wait for options to load
+    
+    // Get all available world options
+    const options = await worldSelect.locator("option").all();
+    const optionTexts = await Promise.all(
+      options.map(opt => opt.textContent().catch(() => ""))
+    );
+    
+    // Try to find a matching world option
+    // First try unique name, then base name, then any world containing "Eldoria"
+    let selectedOption: string | null = null;
+    
+    // Try exact match with unique name
+    const uniqueIndex = optionTexts.findIndex(text => text === uniqueWorldName);
+    if (uniqueIndex >= 0) {
+      const optionValue = await options[uniqueIndex].getAttribute("value");
+      if (optionValue) {
+        selectedOption = optionValue;
+      }
+    }
+    
+    // If no unique match, try base name
+    if (!selectedOption) {
+      const baseIndex = optionTexts.findIndex(text => text === "Eldoria");
+      if (baseIndex >= 0) {
+        const optionValue = await options[baseIndex].getAttribute("value");
+        if (optionValue) {
+          selectedOption = optionValue;
+        }
+      }
+    }
+    
+    // If still no match, try any world containing "Eldoria"
+    if (!selectedOption) {
+      const eldoriaIndex = optionTexts.findIndex(text => text?.includes("Eldoria"));
+      if (eldoriaIndex >= 0) {
+        const optionValue = await options[eldoriaIndex].getAttribute("value");
+        if (optionValue) {
+          selectedOption = optionValue;
+        }
+      }
+    }
+    
+    // If we found an option, select it by value
+    if (selectedOption) {
+      await worldSelect.selectOption(selectedOption);
+    } else {
+      // Last resort: select the first available option
+      if (options.length > 0) {
+        const firstValue = await options[0].getAttribute("value");
+        if (firstValue) {
+          await worldSelect.selectOption(firstValue);
+        } else {
+          throw new Error(`Could not select world: no options available or no matching world found. Available options: ${optionTexts.join(", ")}`);
+        }
+      } else {
+        throw new Error(`Could not select world: dropdown has no options`);
+      }
+    }
 
     await page.getByRole("button", { name: "Save scene" }).click();
   }

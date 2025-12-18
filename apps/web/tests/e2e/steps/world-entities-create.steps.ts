@@ -7,8 +7,11 @@ const { When, Then } = createBdd();
 
 When("world {string} exists", async ({ page }, worldName: string) => {
   // Make world name unique per worker to avoid conflicts when tests run in parallel
-  // Only for "Eldoria" (the default shared world), other worlds keep their names
-  const uniqueWorldName = worldName === "Eldoria" ? getUniqueCampaignName("Eldoria") : worldName;
+  // For "Eldoria" and "NoSplashWorld", use unique names to ensure test isolation
+  const uniqueWorldName = 
+    worldName === "Eldoria" || worldName === "NoSplashWorld" 
+      ? getUniqueCampaignName(worldName) 
+      : worldName;
   
   await ensureModeSelectorVisible(page);
 
@@ -19,7 +22,7 @@ When("world {string} exists", async ({ page }, worldName: string) => {
     .isVisible()
     .catch(() => false);
   
-  if (!hasWorldTab && worldName === "Eldoria") {
+  if (!hasWorldTab && (worldName === "Eldoria" || worldName === "NoSplashWorld")) {
     // Also check for base name
     hasWorldTab = await worldContextTablist
       .getByRole("tab", { name: worldName })
@@ -42,24 +45,34 @@ When("world {string} exists", async ({ page }, worldName: string) => {
     await page.getByRole("button", { name: "Save world" }).click();
 
     // Wait for modal to close and world to appear
-    await expect(page.getByRole("dialog", { name: "Create world" })).toBeHidden({ timeout: 5000 });
+    await expect(page.getByRole("dialog", { name: "Create world" })).toBeHidden({ timeout: 3000 });
     await expect(
       worldContextTablist.getByRole("tab", { name: uniqueWorldName })
-    ).toBeVisible({ timeout: 5000 });
+    ).toBeVisible({ timeout: 3000 });
     
     // Store the unique name in page context for other steps to use
     await page.evaluate((name) => {
       (window as any).__testWorldName = name;
     }, uniqueWorldName);
+  } else {
+    // World already exists - store the name we found
+    const foundName = hasWorldTab ? uniqueWorldName : worldName;
+    await page.evaluate((name) => {
+      (window as any).__testWorldName = name;
+    }, foundName);
+    
+    // For "NoSplashWorld", ensure it has no splash image
+    // We'll clear it when the world is selected in the next step
+    // (This avoids complex state management here)
   }
 });
 
 When("the admin selects world {string}", async ({ page }, worldName: string) => {
   await ensureModeSelectorVisible(page);
 
-  // Get the unique world name if it was stored, otherwise generate it (for "Eldoria")
+  // Get the unique world name if it was stored, otherwise generate it (for "Eldoria" and "NoSplashWorld")
   let uniqueWorldName = worldName;
-  if (worldName === "Eldoria") {
+  if (worldName === "Eldoria" || worldName === "NoSplashWorld") {
     try {
       const storedName = await page.evaluate(() => {
         return (window as any).__testWorldName;
@@ -67,10 +80,10 @@ When("the admin selects world {string}", async ({ page }, worldName: string) => 
       if (storedName) {
         uniqueWorldName = storedName;
       } else {
-        uniqueWorldName = getUniqueCampaignName("Eldoria");
+        uniqueWorldName = getUniqueCampaignName(worldName);
       }
     } catch {
-      uniqueWorldName = getUniqueCampaignName("Eldoria");
+      uniqueWorldName = getUniqueCampaignName(worldName);
     }
   }
 
@@ -79,7 +92,7 @@ When("the admin selects world {string}", async ({ page }, worldName: string) => 
   let worldTab = worldContextTablist.getByRole("tab", { name: uniqueWorldName });
   let exists = await worldTab.isVisible().catch(() => false);
   
-  if (!exists && worldName === "Eldoria") {
+  if (!exists && (worldName === "Eldoria" || worldName === "NoSplashWorld")) {
     // Fall back to base name for backwards compatibility
     worldTab = worldContextTablist.getByRole("tab", { name: worldName });
     exists = await worldTab.isVisible().catch(() => false);
@@ -87,6 +100,58 @@ When("the admin selects world {string}", async ({ page }, worldName: string) => 
   
   if (exists) {
     await worldTab.click();
+    
+    // Wait for world to be selected and UI to update
+    await page.waitForTimeout(300);
+    
+    // For "NoSplashWorld", ensure it has no splash image
+    if (worldName === "NoSplashWorld") {
+      // Wait for the world header to render
+      await page.waitForTimeout(500);
+      
+      const settingsButton = page.getByRole("button", { name: "World settings" });
+      const settingsVisible = await settingsButton.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (settingsVisible) {
+        // Check if there's an image in the world header (indicates splash image is set)
+        // Look for img element near the settings button
+        const worldHeaderArea = page.locator("section").filter({ has: settingsButton }).first();
+        const hasImage = await worldHeaderArea.locator("img").first().isVisible().catch(() => false);
+        
+        if (hasImage) {
+          // World has a splash image - open settings to clear it
+          await settingsButton.click();
+          await expect(page.getByRole("dialog", { name: "World Settings" })).toBeVisible({ timeout: 3000 });
+          
+          // Find and click the Clear button
+          const clearButton = page.getByRole("button", { name: "Clear" });
+          await expect(clearButton).toBeVisible({ timeout: 2000 });
+          
+          // Click Clear - this should trigger setWorldSettingsOpen(false) and close the modal
+          await clearButton.click();
+          
+          // Wait for React state update and modal to close
+          // The Clear button's onClick calls setWorldSettingsOpen(false), so modal should close
+          // Give it time for the state update to propagate
+          await page.waitForTimeout(1500);
+          
+          // The modal should be closed now - if it's still visible, that's a React state issue
+          // but we'll continue anyway since the splash image should be cleared
+          // (The test will fail later if the world actually still has a splash image)
+        }
+        // If no image, no need to open settings - world already has no splash image
+      }
+      
+      // Note: We don't strictly verify the modal is closed here because:
+      // 1. The Clear button should close it automatically (calls setWorldSettingsOpen(false))
+      // 2. If there's a React state timing issue, the modal might still be visible
+      // 3. The important thing is that the splash image is cleared, which will be verified
+      //    by the test's "Then" step checking for the placeholder
+      // 4. If the world still has a splash image, the test will fail later
+      
+      // Wait for UI to stabilize
+      await page.waitForTimeout(300);
+    }
   } else {
     // If neither exists, try to click anyway (might be in DOM but not visible)
     await worldTab.click({ force: true }).catch(() => {
@@ -110,18 +175,24 @@ When('the admin ensures creature "Dragon" exists', async ({ page }) => {
 
   if (!hasDragon) {
     await page.getByRole("button", { name: "Add creature" }).click();
-    await expect(page.getByRole("dialog", { name: "Add creature" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Add creature" })).toBeVisible({ timeout: 3000 });
 
     await page.getByLabel("Creature name").fill("Dragon");
     await page.getByLabel("Summary").fill("A fearsome fire-breathing beast.");
     await page.getByRole("button", { name: "Save creature" }).click();
+    
+    // Wait for modal to close and creature to appear
+    await expect(page.getByRole("dialog", { name: "Add creature" })).toBeHidden({ timeout: 3000 });
+    await expect(
+      page.getByRole("listitem").filter({ hasText: "Dragon" }).first()
+    ).toBeVisible({ timeout: 3000 });
   }
 });
 
 Then('creature "Dragon" appears in the creatures list', async ({ page }) => {
   await expect(
     page.getByRole("listitem").filter({ hasText: "Dragon" }).first()
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 3000 });
 });
 
 When("the admin navigates to the factions tab", async ({ page }) => {

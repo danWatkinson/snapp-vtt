@@ -12,6 +12,7 @@
     "dev:assets": "ts-node --compiler-options '{\"module\":\"commonjs\"}' apps/services/assets/server.ts",
     "test": "npm run test:unit && npm run test:e2e",
     "test:e2e": "npm run test:e2e:generate && playwright test",
+    "test:e2e:debug": "npm run test:e2e:generate && playwright test --workers=1",
     "test:e2e:generate": "npx playwright-bdd test",
     "test:unit": "vitest run --config vitest.config.mts",
     "build": "next build apps/web",

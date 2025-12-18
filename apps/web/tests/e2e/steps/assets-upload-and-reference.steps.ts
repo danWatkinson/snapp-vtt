@@ -1,12 +1,12 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName } from "../helpers";
+import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName, ensureLoginDialogClosed, loginAs, selectWorldAndEnterPlanningMode } from "../helpers";
 import { Buffer } from "buffer";
 import path from "path";
 
 const { When, Then } = createBdd();
 
-When('the admin navigates to the "Assets" library screen', async ({ page }) => {
+When('the world builder navigates to the "Assets" library screen', async ({ page }) => {
   // Intercept image requests and return a valid 1x1 PNG
   // This ensures images load even though the storageUrl is a mock path
   await page.route("**/mock-assets/**", async (route) => {
@@ -22,22 +22,83 @@ When('the admin navigates to the "Assets" library screen', async ({ page }) => {
     });
   });
 
+  // Ensure login dialog is closed (it blocks clicks if open)
+  await ensureLoginDialogClosed(page);
+  
+  // Verify we're logged in by checking for the logout button
+  // If not logged in, this step will fail with a clear error
+  // The login step should have run before this, but we verify here to catch issues early
+  const logoutButton = page.getByRole("button", { name: "Log out" });
+  const isLoggedIn = await logoutButton.isVisible({ timeout: 3000 }).catch(() => false);
+  
+  if (!isLoggedIn) {
+    // Check if login button is visible (user is definitely not logged in)
+    const loginButton = page.getByRole("button", { name: "Login" });
+    const loginButtonVisible = await loginButton.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (loginButtonVisible) {
+      throw new Error(
+        "User is not logged in. The 'When the world builder signs in to the system as \"worldbuilder\"' step must run before this step."
+      );
+    } else {
+      // Neither button visible - might be a page state issue
+      throw new Error(
+        "Cannot determine login state. Logout button not visible and Login button not found. " +
+        "The page may be in an unexpected state. Ensure the login step completed successfully."
+      );
+    }
+  }
+  
   // Navigate via the Snapp menu entry "Manage Assets"
   await page.getByRole("button", { name: "Snapp" }).click();
+  
+  // Wait for the menu to be visible - check for "Manage Assets" button
+  // World builders (gm role) should see "Manage Assets" but not "User Management"
+  await expect(page.getByRole("button", { name: "Manage Assets" })).toBeVisible({ timeout: 3000 });
+  
+  // Wait for the "Manage Assets" button to be visible
+  // This ensures the menu is fully rendered and the role check has passed
+  await expect(page.getByRole("button", { name: "Manage Assets" })).toBeVisible({ timeout: 3000 });
+  
+  // Click "Manage Assets" and wait for the click to complete
   await page.getByRole("button", { name: "Manage Assets" }).click();
-  await expect(page.getByRole("heading", { name: "Assets" })).toBeVisible();
+  
+  // Wait a moment for the state update and navigation to complete
+  // The OPEN_MANAGE_ASSETS_EVENT needs to be processed and activeTab needs to update
+  await page.waitForTimeout(200);
+  
+  // Wait for the Assets heading to be visible
+  // This is the most reliable indicator that the AssetsTab component has rendered
+  // The component returns null if currentUser is missing, so if we see the heading,
+  // we know both the navigation completed AND the user is authenticated
+  await expect(page.getByRole("heading", { name: "Assets" })).toBeVisible({ timeout: 5000 });
 });
 
-When("the admin uploads an image asset {string}", async ({ page }, fileName: string) => {
+When("the world builder uploads an image asset {string}", async ({ page }, fileName: string) => {
   const fileInput = page.getByLabel("Upload asset");
   const filePath = path.join(process.cwd(), "seeds", "assets", "images", fileName);
+  
+  // Wait for the upload to complete by waiting for the file input to be ready
+  // and then setting the file, which triggers the async upload
   await fileInput.setInputFiles(filePath);
+  
+  // Wait for the upload to complete - the onChange handler makes a fetch request
+  // and updates the assets state. We can wait for the network request to complete
+  // by waiting for the response, or wait for the UI to update.
+  // For now, we'll wait a moment for the async operation to complete
+  await page.waitForTimeout(500);
 });
 
 Then("the image asset {string} appears in the assets list", async ({ page }, fileName: string) => {
+  // Wait longer for the asset to appear - upload involves:
+  // 1. File upload to API route
+  // 2. API route saves file and calls assets service
+  // 3. Response returned to client
+  // 4. State update triggers React re-render
+  // This can take a few seconds, especially with network latency
   await expect(
     page.getByRole("row").filter({ hasText: fileName }).first()
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 10000 });
 });
 
 Then(
@@ -53,7 +114,7 @@ Then(
 );
 
 When(
-  "the admin clicks the thumbnail for image asset {string}",
+  "the world builder clicks the thumbnail for image asset {string}",
   async ({ page }, fileName: string) => {
     const row = page.getByRole("row").filter({ hasText: fileName }).first();
     await expect(row).toBeVisible();
@@ -83,7 +144,7 @@ Then(
   }
 );
 
-When("the admin closes the image modal", async ({ page }) => {
+When("the world builder closes the image modal", async ({ page }) => {
   const modal = page.getByRole("dialog");
   await expect(modal).toBeVisible();
   // Try to close via the close button (✕) using aria-label
@@ -96,23 +157,27 @@ Then("the modal is no longer visible", async ({ page }) => {
   await expect(modal).not.toBeVisible();
 });
 
-When("the admin uploads an audio asset {string}", async ({ page }, fileName: string) => {
+When("the world builder uploads an audio asset {string}", async ({ page }, fileName: string) => {
   const fileInput = page.getByLabel("Upload asset");
   await fileInput.setInputFiles({
     name: fileName,
     mimeType: "audio/mpeg",
     buffer: Buffer.from("fake audio content")
   });
+  
+  // Wait for the upload to complete - same as image upload
+  await page.waitForTimeout(500);
 });
 
 Then("the audio asset {string} appears in the assets list", async ({ page }, fileName: string) => {
+  // Wait longer for the asset to appear - same timeout as image assets
   await expect(
     page.getByRole("row").filter({ hasText: fileName }).first()
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 10000 });
 });
 
 When(
-  "the admin sets the image asset for location {string} to {string}",
+  "the world builder sets the image asset for location {string} to {string}",
   async ({ page }, locationName: string, assetName: string) => {
     // TODO: Wire this up once the location-image UI exists.
     // For now this step is a no-op to document intent.
@@ -132,7 +197,7 @@ Then(
 );
 
 When(
-  "the admin sets the ambience audio asset for scene {string} to {string}",
+  "the world builder sets the ambience audio asset for scene {string} to {string}",
   async ({ page }, sceneName: string, assetName: string) => {
     // TODO: Wire this up once the scene-audio UI exists.
     // For now this step is a no-op to document intent.
@@ -167,7 +232,80 @@ When("campaign {string} exists", async ({ page }, campaignName: string) => {
   }, uniqueCampaignName);
 });
 
-When("the admin selects campaign {string}", async ({ page }, campaignName: string) => {
+// Navigation steps for world builder
+When('the world builder navigates to the "World Entities" planning screen', async ({ page }) => {
+  await selectWorldAndEnterPlanningMode(page, "World Entities");
+});
+
+When('the world builder navigates to the "Campaigns" planning screen', async ({ page }) => {
+  await selectWorldAndEnterPlanningMode(page, "Campaigns");
+});
+
+When("the world builder navigates to the locations tab", async ({ page }) => {
+  await page.getByRole("tab", { name: "Locations" }).click();
+  await expect(page.getByRole("button", { name: "Add location" })).toBeVisible();
+});
+
+When("the world builder selects world {string}", async ({ page }, worldName: string) => {
+  // Try to get the stored world name first
+  let uniqueWorldName = await getStoredWorldName(page, worldName).catch(() => null);
+  
+  // If no stored name, generate it (for "Eldoria" this will use worker index or timestamp)
+  if (!uniqueWorldName) {
+    if (worldName === "Eldoria") {
+      uniqueWorldName = getUniqueCampaignName("Eldoria");
+    } else {
+      uniqueWorldName = worldName;
+    }
+  }
+  
+  const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+  
+  // Try to find the world tab by unique name first
+  let worldTab = worldContextTablist.getByRole("tab", { name: uniqueWorldName, exact: true }).first();
+  let exists = await worldTab.isVisible().catch(() => false);
+  
+  // If not found and it's "Eldoria", try without exact match (might have placeholder dash)
+  if (!exists && worldName === "Eldoria") {
+    worldTab = worldContextTablist.getByRole("tab").filter({ hasText: uniqueWorldName }).first();
+    exists = await worldTab.isVisible().catch(() => false);
+  }
+  
+  // If still not found, try base name
+  if (!exists) {
+    worldTab = worldContextTablist.getByRole("tab", { name: worldName, exact: true }).first();
+    exists = await worldTab.isVisible().catch(() => false);
+  }
+  
+  if (!exists) {
+    throw new Error(`World "${worldName}" (or "${uniqueWorldName}") not found in world selector`);
+  }
+  
+  await worldTab.click();
+});
+
+When("the world builder ensures location {string} exists", async ({ page }, locationName: string) => {
+  const addLocationButton = page.getByRole("button", { name: "Add location" });
+  const hasLocation = await page
+    .getByRole("listitem")
+    .filter({ hasText: locationName })
+    .first()
+    .isVisible()
+    .catch(() => false);
+
+  if (!hasLocation) {
+    await expect(addLocationButton).toBeVisible({ timeout: 3000 });
+    await addLocationButton.click();
+    const dialog = page.getByRole("dialog", { name: "Add location" });
+    await expect(dialog).toBeVisible({ timeout: 3000 });
+    await dialog.getByLabel("Name").fill(locationName);
+    await dialog.getByLabel("Summary").fill(`Autogenerated location: ${locationName}`);
+    await page.getByRole("button", { name: "Save location" }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 3000 });
+  }
+});
+
+When("the world builder selects campaign {string}", async ({ page }, campaignName: string) => {
   // Get the unique campaign name if it was stored, otherwise generate it
   const uniqueCampaignName = await getStoredCampaignName(page, campaignName).catch(() => 
     getUniqueCampaignName(campaignName)
@@ -249,7 +387,7 @@ When("the admin selects campaign {string}", async ({ page }, campaignName: strin
 });
 
 When(
-  "the admin ensures session {string} exists for campaign {string}",
+  "the world builder ensures session {string} exists for campaign {string}",
   async ({ page }, sessionName: string) => {
     // Check page state before interacting
     if (page.isClosed()) {
@@ -288,7 +426,7 @@ When(
 );
 
 When(
-  "the admin ensures scene {string} exists in session {string}",
+  "the world builder ensures scene {string} exists in session {string}",
   async ({ page }, sceneName: string, sessionName: string) => {
     // Navigate to Sessions view and open the given session's scenes
     await page

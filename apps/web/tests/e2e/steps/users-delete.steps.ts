@@ -31,9 +31,9 @@ When("the admin creates a new user via the Users UI", async ({ page }) => {
   await Promise.race([
     page
       .getByRole("dialog", { name: /create user/i })
-      .waitFor({ state: "hidden", timeout: 5000 })
+      .waitFor({ state: "hidden", timeout: 3000 })
       .catch(() => null),
-    page.getByTestId("error-message").waitFor({ timeout: 5000 }).catch(() => null)
+    page.getByTestId("error-message").waitFor({ timeout: 3000 }).catch(() => null)
   ]);
 
   const errorVisible = await page
@@ -74,7 +74,7 @@ When("the admin deletes that user from the users list", async ({ page }) => {
   });
 
   const deleteButton = page.getByTestId(`delete-${testUsername}`);
-  await expect(deleteButton).toBeVisible({ timeout: 5000 });
+  await expect(deleteButton).toBeVisible({ timeout: 3000 });
   await deleteButton.click();
   
   // Wait for the confirmation dialog to be handled and deletion to process
@@ -103,7 +103,7 @@ Then("the deleted user no longer appears in the users list", async ({ page }) =>
 
   const userItem = page.getByTestId(`user-${lastCreatedUsername}`);
   try {
-    await expect(userItem).not.toBeVisible({ timeout: 5000 });
+    await expect(userItem).not.toBeVisible({ timeout: 3000 });
   } catch (error) {
     if (error.message?.includes("closed") || page.isClosed()) {
       throw new Error("Page was closed while verifying user deletion");

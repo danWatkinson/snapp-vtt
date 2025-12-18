@@ -1,3 +1,5 @@
+import { AuthenticationError, isAuthenticationError } from "../auth/authErrors";
+
 const CAMPAIGN_SERVICE_URL =
   process.env.NEXT_PUBLIC_CAMPAIGN_SERVICE_URL ?? "https://localhost:4600";
 
@@ -35,6 +37,9 @@ export async function createCampaign(
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     throw new Error(body.error ?? "Failed to create campaign");
   }
   return body.campaign as Campaign;
@@ -129,6 +134,9 @@ export async function createScene(
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     throw new Error(body.error ?? "Failed to create scene");
   }
   return body.scene as Scene;
@@ -167,6 +175,9 @@ export async function addPlayerToCampaign(
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     throw new Error(body.error ?? "Failed to add player to campaign");
   }
 }
@@ -213,6 +224,9 @@ export async function createStoryArc(
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     throw new Error(body.error ?? "Failed to create story arc");
   }
   return body.storyArc as StoryArc;
@@ -253,6 +267,9 @@ export async function advanceTimeline(
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     throw new Error(body.error ?? "Failed to advance timeline");
   }
   return body as Timeline;
@@ -291,6 +308,9 @@ export async function addEventToStoryArc(
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
     throw new Error(body.error ?? "Failed to add event to story arc");
   }
 }

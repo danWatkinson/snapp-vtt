@@ -23,12 +23,12 @@ When('the admin ensures player "bob" is added to the campaign', async ({ page })
 
     await expect(
       page.getByRole("listitem").filter({ hasText: "bob" }).first()
-    ).toBeVisible({ timeout: 10000 });
+    ).toBeVisible({ timeout: 3000 });
   }
 });
 
 Then('a story arc named "bob\'s Arc" is automatically created', async ({ page }) => {
   await expect(
     page.getByRole("listitem").filter({ hasText: "bob's Arc" }).first()
-  ).toBeVisible({ timeout: 10000 });
+  ).toBeVisible({ timeout: 3000 });
 });

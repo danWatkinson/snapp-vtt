@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { isAuthError } from "../auth/authErrors";
 
 /**
  * Hook to fetch campaigns when the Campaigns tab is active.
@@ -249,6 +250,8 @@ export function useUsers(
         setUsers(loaded);
         setUsersLoaded(true);
       } catch (err) {
+        // Don't logout on users fetch errors - might be service unavailable
+        // Only user-initiated actions should trigger logout on auth errors
         setError((err as Error).message);
         setUsersLoaded(false);
       }

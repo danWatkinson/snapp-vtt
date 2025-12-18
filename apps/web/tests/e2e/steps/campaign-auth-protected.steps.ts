@@ -20,56 +20,18 @@ When('the admin creates a campaign named "Authenticated Test Campaign"', async (
 });
 
 Then('the campaign "Authenticated Test Campaign" appears in the campaigns list', async ({ page }) => {
-  // Small wait to let any async operations complete
-  // Check if page is usable first before waiting
-  try {
-    await page.url();
-    // Page is usable, wait a bit
-    await page.waitForTimeout(200).catch(() => {});
-  } catch {
-    // Page is not usable - check if it's closed
-    let actuallyClosed = false;
-    try {
-      actuallyClosed = page.isClosed();
-    } catch {
-      // Can't check - page is in bad state
-      throw new Error("Page is not accessible - cannot verify campaign appears in list");
-    }
-    if (actuallyClosed) {
-      throw new Error("Page was closed before verifying campaign appears in list");
-    }
-    // Page is not usable but not closed - still an error
-    throw new Error("Page is not accessible - cannot verify campaign appears in list");
-  }
+  // Campaigns appear in a TabList with aria-label="Campaigns"
+  // Each campaign is a TabButton with the campaign name
+  // The campaigns tablist is only visible when a world is selected
+  // Wait a bit for the campaign to be created and appear in the list
+  await page.waitForTimeout(500);
   
-  // Check page state one more time right before the assertion
-  // The page might have closed asynchronously
-  let actuallyClosed = false;
-  try {
-    actuallyClosed = page.isClosed();
-  } catch {
-    // Can't check - might be in transition, try to continue
-  }
-  if (actuallyClosed) {
-    throw new Error("Page was closed before verifying campaign appears in list");
-  }
+  const campaignsTabList = page.getByRole("tablist", { name: "Campaigns" });
   
-  // If we got here, page should be usable - verify the campaign appears
-  try {
-    await expect(page.getByText("Authenticated Test Campaign").first()).toBeVisible({ timeout: 5000 });
-  } catch (error) {
-    // Check if page closed during the assertion
-    let closedDuringAssertion = false;
-    try {
-      closedDuringAssertion = page.isClosed();
-    } catch {
-      // Can't check - rethrow original error
-      throw error;
-    }
-    if (closedDuringAssertion || error.message?.includes("closed") || error.message?.includes("Target page")) {
-      throw new Error("Page was closed while verifying campaign appears in list");
-    }
-    // Otherwise, rethrow the original error
-    throw error;
-  }
+  // Wait for the tablist to be visible (campaigns might still be loading)
+  await expect(campaignsTabList).toBeVisible({ timeout: 3000 });
+  
+  // Look for the campaign tab by name
+  const campaignTab = campaignsTabList.getByRole("tab", { name: "Authenticated Test Campaign" });
+  await expect(campaignTab).toBeVisible({ timeout: 3000 });
 });

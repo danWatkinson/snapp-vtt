@@ -146,6 +146,8 @@ export function createAssetApp(deps: AssetAppDependencies = {}) {
   });
 
   // POST /assets – create a new digital asset (metadata only MVP)
+  // Requires "gm" role (Game Master / World Builder role)
+  // Admin users also have access (admin bypasses role requirements)
   app.post("/assets", authenticate("gm"), (req: Request, res: Response) => {
     const auth = (req as any).auth as { userId: string } | undefined;
     if (!auth?.userId) {
@@ -207,7 +209,8 @@ export function createAssetApp(deps: AssetAppDependencies = {}) {
   });
 
   // GET /assets – list assets for the current user
-  app.get("/assets", authenticate("gm"), (req: Request, res: Response) => {
+  // No role restriction - all authenticated users can view assets
+  app.get("/assets", authenticate(), (req: Request, res: Response) => {
     const auth = (req as any).auth as { userId: string } | undefined;
     if (!auth?.userId) {
       return res.status(401).json({ error: "Unauthenticated" });
@@ -227,7 +230,8 @@ export function createAssetApp(deps: AssetAppDependencies = {}) {
   });
 
   // GET /assets/:assetId – get a single asset
-  app.get("/assets/:assetId", authenticate("gm"), (req: Request, res: Response) => {
+  // No role restriction - all authenticated users can view assets
+  app.get("/assets/:assetId", authenticate(), (req: Request, res: Response) => {
     const auth = (req as any).auth as { userId: string } | undefined;
     if (!auth?.userId) {
       return res.status(401).json({ error: "Unauthenticated" });
