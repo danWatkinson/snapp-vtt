@@ -1,29 +1,27 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { loginAsAdmin } from "../helpers";
 
 const { When, Then } = createBdd();
 
-When("I sign in as admin via the login dialog", async ({ page }) => {
-  // Ensure we start with a clean page state
-  await page.goto("/", { waitUntil: "domcontentloaded", timeout: 5000 });
+When("an unidentified user visits the site", async ({ page }) => {
+  // Navigate to the home page
+  await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
   await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+});
+
+Then("they see the guest view", async ({ page }) => {
+  // Verify the world planning UI is not visible (authenticated content)
+  await expect(
+    page.getByRole("heading", { name: "World context and mode" })
+  ).not.toBeVisible({ timeout: 3000 });
   
-  // Clear any existing auth state
-  try {
-    await page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-    });
-  } catch {
-    // If we can't clear storage, that's okay - continue
-  }
+  // Verify logout button is not visible (indicates not authenticated)
+  await expect(page.getByRole("button", { name: "Log out" })).not.toBeVisible({
+    timeout: 2000
+  });
   
-  // Now login
-  await loginAsAdmin(page);
-  
-  // Verify login completed
-  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 5000 });
+  // Verify login entry point is visible in the banner
+  await expect(page.getByRole("button", { name: "Login" })).toBeVisible({ timeout: 3000 });
 });
 
 Then("I see a login entry point in the banner", async ({ page }) => {

@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, ensureModeSelectorVisible, waitForModalOpen, waitForWorldCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, getUniqueCampaignName, getStoredWorldName } from "../helpers";
+import { selectWorldAndEnterPlanningMode, ensureModeSelectorVisible, waitForModalOpen, waitForWorldCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, getUniqueCampaignName, getStoredWorldName, safeWait, STABILITY_WAIT_MEDIUM } from "../helpers";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
 
 const { When, Then } = createBdd();
@@ -17,17 +17,36 @@ When(
     const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
     
     if (!isInPlanningMode) {
-      try {
-        await selectWorldAndEnterPlanningMode(page, "World Entities");
-      } catch (error) {
-        // If planning mode activation failed, check if we're actually in planning mode anyway
-        const planningTabsCheck = page.getByRole("tablist", { name: "World planning views" });
-        const isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
-        if (!isActuallyInPlanningMode) {
-          // Not in planning mode - rethrow the error
-          throw error;
+      // Retry logic for planning mode activation
+      let planningModeActivated = false;
+      let lastError: Error | null = null;
+      
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await selectWorldAndEnterPlanningMode(page, "World Entities");
+          planningModeActivated = true;
+          break;
+        } catch (error) {
+          lastError = error as Error;
+          
+          // Check if we're actually in planning mode (maybe the event didn't fire)
+          const planningTabsCheck = page.getByRole("tablist", { name: "World planning views" });
+          const isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
+          if (isActuallyInPlanningMode) {
+            // We're in planning mode despite the error - that's okay
+            planningModeActivated = true;
+            break;
+          }
+          
+          // If this isn't the last attempt, wait a bit and try again
+          if (attempt < 2) {
+            await safeWait(page, STABILITY_WAIT_MEDIUM);
+          }
         }
-        // We're in planning mode despite the error - continue
+      }
+      
+      if (!planningModeActivated && lastError) {
+        throw lastError;
       }
     }
     

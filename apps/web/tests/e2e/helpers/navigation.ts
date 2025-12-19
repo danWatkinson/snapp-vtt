@@ -1225,10 +1225,27 @@ export async function ensureCampaignExists(
           throw new Error("Page was closed before opening Snapp menu");
         }
       await page.getByRole("button", { name: /^Snapp/i }).click();
-      // Small wait for menu to open - use safeWait instead of waitForTimeout
-      await safeWait(page, STABILITY_WAIT_LONG);
-      const newCampaignButton = page.getByRole("button", { name: "New Campaign" });
-      await expect(newCampaignButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
+      // Wait for menu to open - use longer wait for menu to fully render
+      await safeWait(page, STABILITY_WAIT_MAX);
+      
+      // Retry finding the New Campaign button (menu might need more time to render)
+      let newCampaignButton = page.getByRole("button", { name: "New Campaign" });
+      let buttonVisible = false;
+      for (let retry = 0; retry < 3; retry++) {
+        buttonVisible = await newCampaignButton.isVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM }).catch(() => false);
+        if (buttonVisible) {
+          break;
+        }
+        if (retry < 2) {
+          await safeWait(page, STABILITY_WAIT_MEDIUM);
+        }
+      }
+      
+      if (!buttonVisible) {
+        throw new Error("New Campaign button not found in Snapp menu after multiple retries");
+      }
+      
+      await expect(newCampaignButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_SHORT });
       
       // Check page state again before clicking
       if (await isPageClosedSafely(page)) {

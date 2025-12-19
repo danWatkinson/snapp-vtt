@@ -1,0 +1,18 @@
+npm run test:e2e                 
+
+> snapp-vtt@0.1.0 test:e2e
+> npm run test:e2e:generate && playwright test
+
+
+> snapp-vtt@0.1.0 test:e2e:generate
+> npx playwright-bdd test
+
+Some steps are without definition!
+
+// 1. Missing step definition for "apps/web/tests/e2e/campaign-auth-protected.feature:12:5"
+Then('I see a login entry point in the banner', async ({}) => {
+  // ...
+});
+
+Missing step definitions: 1.
+Use snippets above to create them.

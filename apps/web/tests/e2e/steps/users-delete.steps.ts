@@ -31,8 +31,18 @@ When("the admin creates a new user via the Users UI", async ({ page }) => {
   await waitForModalOpen(page, "createUser", 5000);
 
   const createUserDialog = page.getByRole("dialog", { name: /create user/i });
+  
+  // Wait for dialog to be fully ready and fields to be accessible
+  await expect(createUserDialog).toBeVisible({ timeout: 3000 });
+  
   const usernameField = createUserDialog.getByTestId("create-user-username");
   const passwordField = createUserDialog.getByTestId("create-user-password");
+  
+  // Wait for fields to be visible and enabled before filling
+  await expect(usernameField).toBeVisible({ timeout: 5000 });
+  await expect(usernameField).toBeEnabled({ timeout: 3000 });
+  await expect(passwordField).toBeVisible({ timeout: 5000 });
+  await expect(passwordField).toBeEnabled({ timeout: 3000 });
 
   await usernameField.fill(testUsername);
   await passwordField.clear();
