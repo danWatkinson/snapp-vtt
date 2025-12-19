@@ -37,7 +37,7 @@ Then('the user "admin" appears in the users list', async ({ page }) => {
   });
 });
 
-Then('the user "alice" appears in the users list', async ({ page }) => {
+Then('the test user appears in the users list', async ({ page }) => {
   const uniqueAliceName = await getStoredAliceUsername(page);
   await expect(page.getByTestId(`username-${uniqueAliceName}`)).toBeVisible({
     timeout: 3000

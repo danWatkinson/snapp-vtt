@@ -22,7 +22,7 @@ async function getStoredAliceUsername(page: any): Promise<string> {
   return getUniqueUsername("alice");
 }
 
-When('the admin ensures player "alice" is added to the campaign', async ({ page }) => {
+When('the admin ensures the test user is added to the campaign', async ({ page }) => {
   const uniqueAliceName = await getStoredAliceUsername(page);
   
   const hasAlice = await page
@@ -41,7 +41,7 @@ When('the admin ensures player "alice" is added to the campaign', async ({ page 
   }
 });
 
-Then('player "alice" appears in the players list', async ({ page }) => {
+Then('the test user appears in the players list', async ({ page }) => {
   const uniqueAliceName = await getStoredAliceUsername(page);
   await expect(
     page.getByRole("listitem").filter({ hasText: uniqueAliceName }).first()

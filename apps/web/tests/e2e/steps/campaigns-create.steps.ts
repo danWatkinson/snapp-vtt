@@ -1,18 +1,157 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView, safeWait } from "../helpers";
+import type { APIRequestContext } from "@playwright/test";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
 
 const { When, Then } = createBdd();
+
+const AUTH_SERVICE_URL =
+  process.env.AUTH_SERVICE_URL ??
+  process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ??
+  "https://localhost:4400";
+
+const CAMPAIGN_SERVICE_URL =
+  process.env.CAMPAIGN_SERVICE_URL ??
+  process.env.NEXT_PUBLIC_CAMPAIGN_SERVICE_URL ??
+  "https://localhost:4600";
+
+// Helper to get admin token for API calls
+async function getAdminTokenForCampaign(request: APIRequestContext): Promise<string> {
+  const url = `${AUTH_SERVICE_URL}/auth/login`;
+  const response = await request.fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    data: { username: "admin", password: "admin123" },
+    ignoreHTTPSErrors: true
+  });
+
+  if (!response.ok()) {
+    const status = response.status();
+    const errorBody = await response.json().catch(() => ({}));
+    const errorMessage = errorBody.error ?? `HTTP ${status}`;
+    throw new Error(
+      `Login failed: ${errorMessage} (status ${status}). Check that auth service is running.`
+    );
+  }
+
+  const body = await response.json();
+  if (!body.token) {
+    throw new Error("Login response missing token");
+  }
+  return body.token;
+}
+
+// Helper to make API calls to campaign service
+async function campaignApiCall(
+  request: APIRequestContext,
+  method: string,
+  path: string,
+  options: { body?: any; token?: string } = {}
+) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json"
+  };
+  if (options.token) {
+    headers.Authorization = `Bearer ${options.token}`;
+  }
+
+  const url = `${CAMPAIGN_SERVICE_URL}${path}`;
+  const response = await request.fetch(url, {
+    method,
+    headers,
+    data: options.body,
+    ignoreHTTPSErrors: true
+  });
+
+  if (!response.ok()) {
+    const status = response.status();
+    const errorBody = await response.json().catch(() => ({}));
+    const errorMessage = errorBody.error ?? `API call failed with status ${status}`;
+    throw new Error(`${errorMessage} (${method} ${url})`);
+  }
+
+  return response.json();
+}
 
 When('the admin navigates to the "Campaigns" planning screen', async ({ page }) => {
   await selectWorldAndEnterPlanningMode(page, "Campaigns");
 });
 
-When('the campaign "Rise of the Dragon King" exists', async ({ page }) => {
+When('the test campaign exists', async ({ page, request }) => {
   // Make campaign name unique per worker to avoid conflicts when tests run in parallel
   const uniqueCampaignName = getUniqueCampaignName("Rise of the Dragon King");
   
+  // Detect if we should use API (Background) or UI (scenario)
+  // If page hasn't been navigated yet (URL is about:blank or empty), we're likely in Background
+  // Also check if page is closed or not ready - if so, use API
+  let useApi = false;
+  try {
+    const currentUrl = page.url();
+    useApi = (currentUrl === "about:blank" || currentUrl === "") && !!request;
+  } catch {
+    // If we can't get the URL (page might be closed), use API if request is available
+    useApi = !!request;
+  }
+  
+  if (useApi) {
+    // API-based creation (for Background - no UI interaction)
+    try {
+      // Get admin token for API calls
+      const adminToken = await getAdminTokenForCampaign(request);
+      
+      // Check if campaign already exists
+      try {
+        const campaignsResponse = await campaignApiCall(request, "GET", "/campaigns", { token: adminToken });
+        const campaigns = campaignsResponse.campaigns || [];
+        const existingCampaign = campaigns.find((c: any) => c.name === uniqueCampaignName);
+        if (existingCampaign) {
+          // Campaign exists - store the name and return
+          await page.evaluate((name) => {
+            (window as any).__testCampaignName = name;
+          }, uniqueCampaignName);
+          return;
+        }
+      } catch {
+        // If GET fails, try to create anyway
+      }
+      
+      // Create campaign via API
+      const createResponse = await campaignApiCall(request, "POST", "/campaigns", {
+        token: adminToken,
+        body: { name: uniqueCampaignName, summary: "A long-running campaign about ancient draconic power returning." }
+      });
+      
+      // Response format: { campaign: Campaign }
+      const createdCampaign = createResponse.campaign;
+      if (!createdCampaign) {
+        throw new Error("Campaign creation response missing campaign data");
+      }
+      
+      // Store the unique name in page context for other steps to use
+      await page.evaluate((name) => {
+        (window as any).__testCampaignName = name;
+      }, uniqueCampaignName);
+    } catch (err) {
+      const error = err as Error;
+      if (error.message.includes("Cannot connect") || error.message.includes("ECONNREFUSED")) {
+        throw new Error(
+          `Cannot connect to campaign service at ${CAMPAIGN_SERVICE_URL}. Ensure the campaign service is running.`
+        );
+      }
+      // If campaign already exists (409), that's fine - just store the name
+      if (error.message.includes("409") || error.message.includes("already exists")) {
+        await page.evaluate((name) => {
+          (window as any).__testCampaignName = name;
+        }, uniqueCampaignName);
+        return;
+      }
+      throw err;
+    }
+    return;
+  }
+  
+  // UI-based creation (for scenarios)
   await ensureCampaignExists(
     page,
     uniqueCampaignName,
@@ -26,7 +165,7 @@ When('the campaign "Rise of the Dragon King" exists', async ({ page }) => {
 });
 
 // Combined steps for campaign exists + view navigation
-When('the campaign "Rise of the Dragon King" exists with sessions view', async ({ page }) => {
+When('the test campaign exists with sessions view', async ({ page }) => {
   const uniqueCampaignName = getUniqueCampaignName("Rise of the Dragon King");
   
   await ensureCampaignExists(
@@ -46,7 +185,7 @@ When('the campaign "Rise of the Dragon King" exists with sessions view', async (
   await sessionsTab.click();
 });
 
-When('the campaign "Rise of the Dragon King" exists with players view', async ({ page }) => {
+When('the test campaign exists with players view', async ({ page }) => {
   const uniqueCampaignName = getUniqueCampaignName("Rise of the Dragon King");
   
   await ensureCampaignExists(
@@ -66,7 +205,7 @@ When('the campaign "Rise of the Dragon King" exists with players view', async ({
   await playersTab.click();
 });
 
-When('the campaign "Rise of the Dragon King" exists with story arcs view', async ({ page }) => {
+When('the test campaign exists with story arcs view', async ({ page }) => {
   const uniqueCampaignName = getUniqueCampaignName("Rise of the Dragon King");
   
   await ensureCampaignExists(
@@ -87,7 +226,7 @@ When('the campaign "Rise of the Dragon King" exists with story arcs view', async
   await expect(page.getByRole("button", { name: "Add story arc" })).toBeVisible();
 });
 
-When('the campaign "Rise of the Dragon King" exists with timeline view', async ({ page }) => {
+When('the test campaign exists with timeline view', async ({ page }) => {
   const uniqueCampaignName = getUniqueCampaignName("Rise of the Dragon King");
   
   await ensureCampaignExists(

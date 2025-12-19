@@ -6,6 +6,7 @@ Feature: World builder uploads and references digital assets
 
   Background:
     Given there is an admin user
+    And there is a world builder
 
   Scenario: World builder uploads an image asset for use in a world
     When the world builder signs in to the system

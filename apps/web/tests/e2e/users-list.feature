@@ -6,11 +6,11 @@ Feature: Admin views the list of users
 
   Background:
     Given there is an admin user
-    And there is a user "alice" with no roles
+    And there is a test user
 
   Scenario: Admin can view list of all users
     When the admin signs in to the system
     And the admin navigates to the "Users" management screen
     Then the users list is visible
     And the user "admin" appears in the users list
-    And the user "alice" appears in the users list
+    And the test user appears in the users list

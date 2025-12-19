@@ -6,11 +6,11 @@ Feature: Admin revokes a role from a user
 
   Background:
     Given there is an admin user
-    And there is a user "alice" with no roles
+    And there is a test user
 
   Scenario: Admin can revoke a role from a user
     When the admin signs in to the system
     And the admin navigates to the "Users" management screen
-    And the admin assigns the "gm" role to user "alice"
-    And the admin revokes the "gm" role from user "alice"
-    Then user "alice" no longer has the "gm" role in the users list
+    And the admin assigns the "gm" role to the test user
+    And the admin revokes the "gm" role from the test user
+    Then the test user no longer has the "gm" role in the users list

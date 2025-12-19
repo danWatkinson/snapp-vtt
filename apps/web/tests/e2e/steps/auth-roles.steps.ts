@@ -152,7 +152,7 @@ async function getAdminToken(request: APIRequestContext): Promise<string> {
   return body.token;
 }
 
-Given('there is a user "alice" with no roles', async ({ page, request }) => {
+Given('there is a test user', async ({ page, request }) => {
   // Generate unique username per worker to avoid concurrency issues
   const uniqueAliceName = getUniqueUsername("alice");
   
@@ -206,7 +206,7 @@ When('the admin navigates to the "Users" management screen', async ({ page }) =>
 });
 
 When(
-  'the admin assigns the "gm" role to user "alice"',
+  'the admin assigns the "gm" role to the test user',
   async ({ page }) => {
     // Get the unique alice username
     const uniqueAliceName = await getStoredAliceUsername(page);
@@ -232,7 +232,7 @@ When(
 );
 
 Then(
-  'the UI shows that user "alice" has role "gm"',
+  'the UI shows that the test user has role "gm"',
   async ({ page }) => {
     // Get the unique alice username
     const uniqueAliceName = await getStoredAliceUsername(page);
@@ -258,7 +258,7 @@ Then(
   }
 );
 
-When('user "alice" signs in to the system', async ({ page }) => {
+When('the test user signs in to the system', async ({ page }) => {
   // Get the unique alice username
   const uniqueAliceName = await getStoredAliceUsername(page);
   
@@ -272,7 +272,7 @@ When('user "alice" signs in to the system', async ({ page }) => {
 });
 
 Then(
-  'the issued access token for "alice" contains role "gm"',
+  'the issued access token for the test user contains role "gm"',
   async ({ page, request }) => {
     // Ensure request context is still valid (may be disposed during concurrent execution)
     if (!request) {
@@ -339,7 +339,7 @@ Then(
 );
 
 Then(
-  'an API request made as "alice" to a GM-only endpoint succeeds',
+  'an API request made as the test user to a GM-only endpoint succeeds',
   async ({ page, request }) => {
     // Get the unique alice username
     const uniqueAliceName = await getStoredAliceUsername(page);
@@ -362,7 +362,7 @@ Then(
 );
 
 Then(
-  'an API request made as "alice" to an admin-only endpoint is forbidden',
+  'an API request made as the test user to an admin-only endpoint is forbidden',
   async ({ page, request }) => {
     // Get the unique alice username
     const uniqueAliceName = await getStoredAliceUsername(page);

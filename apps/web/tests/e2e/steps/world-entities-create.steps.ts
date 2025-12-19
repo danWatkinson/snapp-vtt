@@ -1,9 +1,77 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { ensureModeSelectorVisible, getUniqueCampaignName, waitForModalOpen, waitForModalClose, loginAs, waitForWorldUpdated, waitForPlanningMode } from "../helpers";
-import type { Page } from "@playwright/test";
+import { ensureModeSelectorVisible, getUniqueCampaignName, waitForModalOpen, waitForModalClose, loginAs, loginAsAdmin, waitForWorldUpdated, waitForPlanningMode } from "../helpers";
+import type { Page, APIRequestContext } from "@playwright/test";
 
 const { When, Then } = createBdd();
+
+const AUTH_SERVICE_URL =
+  process.env.AUTH_SERVICE_URL ??
+  process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ??
+  "https://localhost:4400";
+
+const WORLD_SERVICE_URL =
+  process.env.WORLD_SERVICE_URL ??
+  process.env.NEXT_PUBLIC_WORLD_SERVICE_URL ??
+  "https://localhost:4501";
+
+// Helper to make API calls to world service
+async function worldApiCall(
+  request: APIRequestContext,
+  method: string,
+  path: string,
+  options: { body?: any; token?: string } = {}
+) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json"
+  };
+  if (options.token) {
+    headers.Authorization = `Bearer ${options.token}`;
+  }
+
+  const url = `${WORLD_SERVICE_URL}${path}`;
+  const response = await request.fetch(url, {
+    method,
+    headers,
+    data: options.body,
+    ignoreHTTPSErrors: true
+  });
+
+  if (!response.ok()) {
+    const status = response.status();
+    const errorBody = await response.json().catch(() => ({}));
+    const errorMessage = errorBody.error ?? `API call failed with status ${status}`;
+    throw new Error(`${errorMessage} (${method} ${url})`);
+  }
+
+  return response.json();
+}
+
+// Helper to get admin token (reuse from common.steps pattern)
+async function getAdminTokenForWorld(request: APIRequestContext): Promise<string> {
+  const url = `${AUTH_SERVICE_URL}/auth/login`;
+  const response = await request.fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    data: { username: "admin", password: "admin123" },
+    ignoreHTTPSErrors: true
+  });
+
+  if (!response.ok()) {
+    const status = response.status();
+    const errorBody = await response.json().catch(() => ({}));
+    const errorMessage = errorBody.error ?? `HTTP ${status}`;
+    throw new Error(
+      `Login failed: ${errorMessage} (status ${status}). Check that auth service is running.`
+    );
+  }
+
+  const body = await response.json();
+  if (!body.token) {
+    throw new Error("Login response missing token");
+  }
+  return body.token;
+}
 
 // Helper function to ensure world exists and is selected (extracted for reuse)
 export async function ensureWorldExistsAndSelected(page: Page, worldName: string): Promise<void> {
@@ -13,10 +81,14 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
       : worldName;
   
   // Ensure user is logged in first
+  // If called from Background, ensure page is ready first
+  await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+  
   const logoutButton = page.getByRole("button", { name: "Log out" });
-  const isLoggedIn = await logoutButton.isVisible({ timeout: 1000 }).catch(() => false);
+  const isLoggedIn = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
   if (!isLoggedIn) {
-    await loginAs(page, "admin", "admin");
+    await loginAsAdmin(page);
   }
   
   await ensureModeSelectorVisible(page);
@@ -170,19 +242,96 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
 }
 // Note: "the admin navigates to the World Entities planning screen" is defined in world-create.steps.ts
 
-When("world {string} exists", async ({ page }, worldName: string) => {
+When("world {string} exists", async ({ page, request }, worldName: string) => {
   // Make world name unique per worker to avoid conflicts when tests run in parallel
-  // For "Eldoria" and "NoSplashWorld", use unique names to ensure test isolation
   const uniqueWorldName = 
     worldName === "Eldoria" || worldName === "NoSplashWorld" 
       ? getUniqueCampaignName(worldName) 
       : worldName;
   
+  if (!uniqueWorldName || uniqueWorldName.trim() === "") {
+    throw new Error(`Invalid world name: "${worldName}" resulted in empty unique name`);
+  }
+  
+  // Detect if we should use API (Background) or UI (scenario)
+  // If page hasn't been navigated yet (URL is about:blank or empty), we're likely in Background
+  // Also check if page is closed or not ready - if so, use API
+  let useApi = false;
+  try {
+    const currentUrl = page.url();
+    useApi = (currentUrl === "about:blank" || currentUrl === "") && !!request;
+  } catch {
+    // If we can't get the URL (page might be closed), use API if request is available
+    useApi = !!request;
+  }
+  
+  if (useApi) {
+    // API-based creation (for Background - no UI interaction)
+    try {
+      // Get admin token for API calls
+      const adminToken = await getAdminTokenForWorld(request!);
+      
+      // Check if world already exists
+      try {
+        const worldsResponse = await worldApiCall(request!, "GET", "/worlds", { token: adminToken });
+        const worlds = worldsResponse.worlds || [];
+        const existingWorld = worlds.find((w: any) => w.name === uniqueWorldName);
+        if (existingWorld) {
+          // World exists - store the name and return
+          await page.evaluate((name) => {
+            (window as any).__testWorldName = name;
+          }, uniqueWorldName);
+          return;
+        }
+      } catch {
+        // If GET fails, try to create anyway
+      }
+      
+      // Create world via API
+      const createResponse = await worldApiCall(request!, "POST", "/worlds", {
+        token: adminToken,
+        body: { name: uniqueWorldName, description: "Autogenerated world for tests." }
+      });
+      
+      // Response format: { world: World }
+      const createdWorld = createResponse.world;
+      if (!createdWorld) {
+        throw new Error("World creation response missing world data");
+      }
+      
+      // Store the unique name in page context for other steps to use
+      await page.evaluate((name) => {
+        (window as any).__testWorldName = name;
+      }, uniqueWorldName);
+    } catch (err) {
+      const error = err as Error;
+      if (error.message.includes("Cannot connect") || error.message.includes("ECONNREFUSED")) {
+        throw new Error(
+          `Cannot connect to world service at ${WORLD_SERVICE_URL}. Ensure the world service is running.`
+        );
+      }
+      // If world already exists (409), that's fine - just store the name
+      if (error.message.includes("409") || error.message.includes("already exists")) {
+        await page.evaluate((name) => {
+          (window as any).__testWorldName = name;
+        }, uniqueWorldName);
+        return;
+      }
+      throw err;
+    }
+    return;
+  }
+  
+  // UI-based creation (for scenarios)
   // Ensure user is logged in first
+  // If called from Background, ensure page is ready first
+  await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+  
   const logoutButton = page.getByRole("button", { name: "Log out" });
-  const isLoggedIn = await logoutButton.isVisible({ timeout: 1000 }).catch(() => false);
+  const isLoggedIn = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
   if (!isLoggedIn) {
-    await loginAs(page, "admin", "admin");
+    await loginAsAdmin(page);
   }
   
   await ensureModeSelectorVisible(page);
@@ -262,10 +411,14 @@ When("world {string} exists and is selected", async ({ page }, worldName: string
 
 When("the admin selects world {string}", async ({ page }, worldName: string) => {
   // Ensure user is logged in first
+  // If called from Background, ensure page is ready first
+  await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+  
   const logoutButton = page.getByRole("button", { name: "Log out" });
-  const isLoggedIn = await logoutButton.isVisible({ timeout: 1000 }).catch(() => false);
+  const isLoggedIn = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
   if (!isLoggedIn) {
-    await loginAs(page, "admin", "admin");
+    await loginAsAdmin(page);
   }
   
   await ensureModeSelectorVisible(page);

@@ -13,17 +13,17 @@ Feature: Admin manages user roles with token-based auth
   So that I can update user permissions in realtime
 
   Background:
-    Given there is a user "alice" with no roles
+    Given there is a test user
     And there is an admin user
 
   Scenario: Admin assigns a GM role to a user and the token reflects new permissions
     When the admin signs in to the system
     And the admin navigates to the "Users" management screen
-    And the admin assigns the "gm" role to user "alice"
-    Then the UI shows that user "alice" has role "gm"
-    When user "alice" signs in to the system
-    Then the issued access token for "alice" contains role "gm"
-    And an API request made as "alice" to a GM-only endpoint succeeds
-    And an API request made as "alice" to an admin-only endpoint is forbidden
+    And the admin assigns the "gm" role to the test user
+    Then the UI shows that the test user has role "gm"
+    When the test user signs in to the system
+    Then the issued access token for the test user contains role "gm"
+    And an API request made as the test user to a GM-only endpoint succeeds
+    And an API request made as the test user to an admin-only endpoint is forbidden
 
 

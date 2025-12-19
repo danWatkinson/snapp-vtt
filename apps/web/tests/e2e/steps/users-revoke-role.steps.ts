@@ -20,7 +20,7 @@ async function getStoredAliceUsername(page: any): Promise<string> {
   return getUniqueUsername("alice");
 }
 
-When('the admin revokes the "gm" role from user "alice"', async ({ page }) => {
+When('the admin revokes the "gm" role from the test user', async ({ page }) => {
   const uniqueAliceName = await getStoredAliceUsername(page);
   const aliceItem = page.getByTestId(`user-${uniqueAliceName}`);
   await expect(aliceItem).toBeVisible();
@@ -52,7 +52,7 @@ When('the admin revokes the "gm" role from user "alice"', async ({ page }) => {
   }
 });
 
-Then('user "alice" no longer has the "gm" role in the users list', async ({ page }) => {
+Then('the test user no longer has the "gm" role in the users list', async ({ page }) => {
   const uniqueAliceName = await getStoredAliceUsername(page);
   const aliceItem = page.getByTestId(`user-${uniqueAliceName}`);
   const gmRoleBadge = aliceItem.locator("span").filter({ hasText: "gm" });
