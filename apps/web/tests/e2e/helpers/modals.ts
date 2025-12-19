@@ -1,6 +1,6 @@
 import { Page, expect } from "@playwright/test";
 import { MODAL_OPENED_EVENT, MODAL_CLOSED_EVENT } from "../../../lib/auth/authEvents";
-import { MODAL_DIALOG_NAMES, DEFAULT_EVENT_TIMEOUT, STABILITY_WAIT_MEDIUM } from "./constants";
+import { MODAL_DIALOG_NAMES, DEFAULT_EVENT_TIMEOUT, STABILITY_WAIT_MEDIUM, VISIBILITY_TIMEOUT_SHORT, VISIBILITY_TIMEOUT_MEDIUM, VISIBILITY_TIMEOUT_LONG, VISIBILITY_TIMEOUT_EXTRA } from "./constants";
 import { isVisibleSafely, isHiddenSafely, awaitSafely } from "./utils";
 
 /**
@@ -120,10 +120,10 @@ export async function waitForModalOpen(
     
     try {
       // Wait for both form fields to be visible and enabled
-      await expect(usernameInput).toBeVisible({ timeout: 5000 });
-      await expect(passwordInput).toBeVisible({ timeout: 5000 });
-      await expect(usernameInput).toBeEnabled({ timeout: 2000 });
-      await expect(passwordInput).toBeEnabled({ timeout: 2000 });
+      await expect(usernameInput).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
+      await expect(passwordInput).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
+      await expect(usernameInput).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_SHORT });
+      await expect(passwordInput).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_SHORT });
       
       // Small stability wait to ensure form is fully ready
       await page.waitForTimeout(STABILITY_WAIT_MEDIUM);
@@ -138,10 +138,10 @@ export async function waitForModalOpen(
       // Dialog is visible but form field isn't - wait for it to appear with retry
       // Use longer timeout for retry since form might be slow to render
       try {
-        await expect(usernameInput).toBeVisible({ timeout: 8000 });
-        await expect(passwordInput).toBeVisible({ timeout: 8000 });
-        await expect(usernameInput).toBeEnabled({ timeout: 3000 });
-        await expect(passwordInput).toBeEnabled({ timeout: 3000 });
+        await expect(usernameInput).toBeVisible({ timeout: VISIBILITY_TIMEOUT_EXTRA });
+        await expect(passwordInput).toBeVisible({ timeout: VISIBILITY_TIMEOUT_EXTRA });
+        await expect(usernameInput).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
+        await expect(passwordInput).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
       } catch (retryError) {
         // Form fields still didn't appear - this is a real error
         throw new Error(
@@ -195,7 +195,7 @@ export async function waitForModalClose(
     const dialogName = MODAL_DIALOG_NAMES[modalType] || "dialog";
     const dialog = page.getByRole("dialog", { name: new RegExp(dialogName, "i") });
     // Use a shorter timeout for the dialog check since we're racing with the event
-    await dialog.waitFor({ state: "hidden", timeout: Math.min(timeout, 3000) });
+    await dialog.waitFor({ state: "hidden", timeout: Math.min(timeout, VISIBILITY_TIMEOUT_MEDIUM) });
   })();
 
   // Wait for EITHER the event OR the dialog to be hidden

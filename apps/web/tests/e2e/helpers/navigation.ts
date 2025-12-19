@@ -75,7 +75,7 @@ export async function ensureModeSelectorVisible(page: Page) {
   if (!isMenuOpen) {
     await page.getByRole("button", { name: /^Snapp/i }).click();
     // Wait a bit for menu to open
-    await safeWait(page, 200);
+    await safeWait(page, STABILITY_WAIT_LONG);
   }
   
   // Check if a world is actually selected by looking for "Leave World" button
@@ -86,15 +86,15 @@ export async function ensureModeSelectorVisible(page: Page) {
     // A world is currently selected, so we need to leave it first
     await leaveWorldButton.click();
     // Wait for menu to close and state to update
-    await safeWait(page, 500);
+    await safeWait(page, STABILITY_WAIT_MAX);
     // Wait for page state to settle after leaving world
-    await waitForLoadStateSafely(page, "domcontentloaded", 2000);
-    await safeWait(page, 200);
+    await waitForLoadStateSafely(page, "domcontentloaded", VISIBILITY_TIMEOUT_SHORT);
+    await safeWait(page, STABILITY_WAIT_LONG);
     // Wait for ModeSelector to appear
     try {
       await expect(
         page.getByRole("tablist", { name: "World context" })
-      ).toBeVisible({ timeout: 5000 });
+      ).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
     } catch {
       // Tablist didn't appear - check if we're still logged in
       const logoutButtonAfterLeave = page.getByRole("button", { name: "Log out" });
@@ -110,14 +110,14 @@ export async function ensureModeSelectorVisible(page: Page) {
     if (isMenuOpen || await isVisibleSafely(menuOverlay)) {
       // Click on the overlay to close the menu
       await menuOverlay.click({ position: { x: 10, y: 10 } });
-      await safeWait(page, 200);
+      await safeWait(page, STABILITY_WAIT_LONG);
     }
     
     // Mode selector should be visible when no world is selected
     // Wait for it to appear (it might show "No worlds" message or world list)
     // First, ensure we're actually logged in - if not, this will fail with a clear error
     // After clicking menu overlay, wait a bit for UI to settle
-    await safeWait(page, 200);
+    await safeWait(page, STABILITY_WAIT_LONG);
     const logoutButton = page.getByRole("button", { name: "Log out" });
     const isLoggedIn = await isVisibleSafely(logoutButton, 3000);
     if (!isLoggedIn) {
@@ -132,7 +132,7 @@ export async function ensureModeSelectorVisible(page: Page) {
     try {
       await expect(
         page.getByRole("tablist", { name: "World context" })
-      ).toBeVisible({ timeout: 3000 });
+      ).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
     } catch {
       // If not visible, check for "No worlds" message instead
       const noWorldsMessage = await isVisibleSafely(
@@ -157,16 +157,16 @@ export async function selectWorldAndEnterPlanningMode(
 ) {
   // First verify we're logged in and authenticated view is ready
   // Wait for logout button to be visible (indicates authenticated state)
-  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
+  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
   
   // Also verify we're not on guest view (AuthenticatedView should be rendering)
   // Wait for page to be in a ready state after login - use domcontentloaded instead of networkidle
   // networkidle can be too strict and timeout unnecessarily
-  await waitForLoadStateSafely(page, "domcontentloaded", 5000);
+  await waitForLoadStateSafely(page, "domcontentloaded", VISIBILITY_TIMEOUT_LONG);
   
   // Wait for authenticated view to be ready - check for logout button or mode selector
   const logoutButton = page.getByRole("button", { name: "Log out" });
-  await expect(logoutButton).toBeVisible({ timeout: 5000 });
+  await expect(logoutButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
   
   const guestView = await isVisibleSafely(page.getByText("Welcome to Snapp"));
   if (guestView) {
@@ -188,7 +188,7 @@ export async function selectWorldAndEnterPlanningMode(
       break;
     }
     // Wait a bit and check again
-    await safeWait(page, 200);
+    await safeWait(page, STABILITY_WAIT_LONG);
   }
   
   if (planningTabsAlreadyVisible) {
@@ -205,7 +205,7 @@ export async function selectWorldAndEnterPlanningMode(
     // Set up event listener BEFORE clicking
     const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
     
-    await expect(subTabButton).toBeVisible({ timeout: 3000 });
+    await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
     await subTabButton.click();
     
     // Wait for sub-tab to be activated (event-based)
@@ -230,7 +230,7 @@ export async function selectWorldAndEnterPlanningMode(
         const leaveWorldVisible = await isVisibleSafely(leaveWorldButton);
         if (leaveWorldVisible) {
           await leaveWorldButton.click();
-          await safeWait(page, 300);
+          await safeWait(page, STABILITY_WAIT_EXTRA);
         } else {
           // Close menu if leave world button not found
           await snappMenu.click();
@@ -247,7 +247,7 @@ export async function selectWorldAndEnterPlanningMode(
   
   // Wait for page to be fully ready after ensureModeSelectorVisible
   // Use domcontentloaded instead of networkidle - networkidle can be too strict
-  await waitForLoadStateSafely(page, "domcontentloaded", 3000);
+  await waitForLoadStateSafely(page, "domcontentloaded", VISIBILITY_TIMEOUT_MEDIUM);
   
   // Small stability wait to ensure React has rendered
   await page.waitForTimeout(STABILITY_WAIT_EXTRA);
@@ -279,13 +279,15 @@ export async function selectWorldAndEnterPlanningMode(
   // Retry a few times - the tablist might need a moment to appear after ensureModeSelectorVisible
   for (let retry = 0; retry < 3; retry++) {
     try {
-      await expect(worldContextTablistAfterEnsure).toBeVisible({ timeout: 2000 });
+      // Use longer timeout for first attempt, shorter for retries
+      const timeout = retry === 0 ? VISIBILITY_TIMEOUT_MEDIUM : VISIBILITY_TIMEOUT_SHORT;
+      await expect(worldContextTablistAfterEnsure).toBeVisible({ timeout });
       tablistVisible = true;
       break;
     } catch {
       // Not visible yet - wait a bit and try again, or check if we're in planning mode
       if (retry < 2) {
-        await safeWait(page, 300);
+        await safeWait(page, STABILITY_WAIT_EXTRA);
         continue;
       }
       
@@ -302,7 +304,7 @@ export async function selectWorldAndEnterPlanningMode(
         // Set up event listener BEFORE clicking
         const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
         
-        await expect(subTabButton).toBeVisible({ timeout: 3000 });
+        await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
         await subTabButton.click();
         
         // Wait for sub-tab to be activated (event-based)
@@ -311,8 +313,8 @@ export async function selectWorldAndEnterPlanningMode(
       }
       
       // Not in planning mode and tablist not visible - check one more time with a longer wait
-      await safeWait(page, 500);
-      const finalCheck = await isVisibleSafely(worldContextTablistAfterEnsure, 2000);
+      await safeWait(page, STABILITY_WAIT_MAX);
+      const finalCheck = await isVisibleSafely(worldContextTablistAfterEnsure, VISIBILITY_TIMEOUT_SHORT);
       if (finalCheck) {
         tablistVisible = true;
         break;
@@ -336,7 +338,7 @@ export async function selectWorldAndEnterPlanningMode(
     // Set up event listener BEFORE clicking
     const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
     
-    await expect(subTabButton).toBeVisible({ timeout: 3000 });
+    await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
     await subTabButton.click();
     
     // Wait for sub-tab to be activated (event-based)
@@ -357,7 +359,7 @@ export async function selectWorldAndEnterPlanningMode(
       // Select the first available world
       const firstWorldTab = worldContextTablist.getByRole("tab").first();
       await firstWorldTab.click();
-      await safeWait(page, 300);
+      await safeWait(page, STABILITY_WAIT_EXTRA);
     }
     // Navigate to Users tab directly
     const usersTab = page.getByRole("tab", { name: "Users" });
@@ -372,7 +374,7 @@ export async function selectWorldAndEnterPlanningMode(
         window.dispatchEvent(new CustomEvent("setActiveTab", { detail: { tab: "Users" } }));
       });
       // Wait a bit and check if Users tab content appeared
-      await safeWait(page, 500);
+      await safeWait(page, STABILITY_WAIT_MAX);
     }
     return;
   }
@@ -386,11 +388,11 @@ export async function selectWorldAndEnterPlanningMode(
   // Try to wait for it to be visible, but don't fail immediately if it's not
   // It might not be visible if we're already in planning mode (which we should have caught above)
   // Wait for page to be ready first
-  await waitForLoadStateSafely(page, "domcontentloaded", 3000);
+  await waitForLoadStateSafely(page, "domcontentloaded", VISIBILITY_TIMEOUT_MEDIUM);
   
   let worldContextVisible = false;
   try {
-    await expect(worldContextTablist).toBeVisible({ timeout: 5000 });
+    await expect(worldContextTablist).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
     worldContextVisible = true;
   } catch {
     // Tablist not visible - check if we're already in planning mode (double-check)
@@ -406,7 +408,7 @@ export async function selectWorldAndEnterPlanningMode(
       // Set up event listener BEFORE clicking
       const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
       
-      await expect(subTabButton).toBeVisible({ timeout: 3000 });
+      await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
       await subTabButton.click();
       
       // Wait for sub-tab to be activated (event-based)
@@ -415,7 +417,7 @@ export async function selectWorldAndEnterPlanningMode(
     }
     
     // Not in planning mode and tablist not visible - wait a bit more and try again
-    await waitForLoadStateSafely(page, "networkidle", 2000);
+    await waitForLoadStateSafely(page, "networkidle", VISIBILITY_TIMEOUT_SHORT);
     worldContextVisible = await isVisibleSafely(worldContextTablist, 5000);
     
     if (!worldContextVisible) {
@@ -481,7 +483,7 @@ export async function selectWorldAndEnterPlanningMode(
               // World should already exist, wait for it
               await expect(
                 worldContextTablist.getByRole("tab", { name: uniqueWorldName })
-              ).toBeVisible({ timeout: 3000 });
+              ).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
               await page.evaluate((name) => {
                 (window as any).__testWorldName = name;
               }, uniqueWorldName);
@@ -500,7 +502,7 @@ export async function selectWorldAndEnterPlanningMode(
         
         // If not visible yet, wait a bit more and check again
         if (!worldExists) {
-          await safeWait(page, 500);
+          await safeWait(page, STABILITY_WAIT_MAX);
           worldExists = await isVisibleSafely(
             worldContextTablist.getByRole("tab", { name: uniqueWorldName })
           );
@@ -523,7 +525,7 @@ export async function selectWorldAndEnterPlanningMode(
           // Mark that we now have the unique world
           hasUniqueWorld = true;
           // Wait a bit for the world tab to be fully ready
-          await safeWait(page, 200);
+          await safeWait(page, STABILITY_WAIT_LONG);
         } else {
           // Check if there's an error message
           const errorVisible = await isVisibleSafely(page.getByTestId("error-message"));
@@ -537,12 +539,12 @@ export async function selectWorldAndEnterPlanningMode(
                 await cancelButton.click();
               }
               // Wait a bit for the world to appear
-              await safeWait(page, 500);
+              await safeWait(page, STABILITY_WAIT_MAX);
               // World should already exist, wait for it (try unique name first, then fall back to base name)
               const worldTab = worldContextTablist.getByRole("tab", { name: uniqueWorldName });
               const worldTabExists = await isVisibleSafely(worldTab);
               if (worldTabExists) {
-                await expect(worldTab).toBeVisible({ timeout: 3000 });
+                await expect(worldTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
                 // Store the unique world name in page context
                 await page.evaluate((name) => {
                   (window as any).__testWorldName = name;
@@ -552,7 +554,7 @@ export async function selectWorldAndEnterPlanningMode(
                 // Fall back to base name for backwards compatibility
                 await expect(
                   worldContextTablist.getByRole("tab", { name: "Eldoria" })
-                ).toBeVisible({ timeout: 3000 });
+                ).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
               }
             } else {
               // Some other error - close modal and throw
@@ -574,7 +576,7 @@ export async function selectWorldAndEnterPlanningMode(
               }
             }
             // Wait a bit more and check again
-            await safeWait(page, 500);
+            await safeWait(page, STABILITY_WAIT_MAX);
             const worldTab = worldContextTablist.getByRole("tab", { name: uniqueWorldName });
             const worldTabExists = await isVisibleSafely(worldTab);
             if (worldTabExists) {
@@ -589,7 +591,7 @@ export async function selectWorldAndEnterPlanningMode(
               const baseWorldTab = worldContextTablist.getByRole("tab", { name: "Eldoria" });
               const baseWorldExists = await isVisibleSafely(baseWorldTab);
               if (baseWorldExists) {
-                await expect(baseWorldTab).toBeVisible({ timeout: 3000 });
+                await expect(baseWorldTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
               } else {
                 throw new Error(`World "${uniqueWorldName}" was not created and no fallback world found`);
               }
@@ -662,7 +664,7 @@ export async function selectWorldAndEnterPlanningMode(
     await expect(worldContextTablist).toBeVisible({ timeout: 3000 });
     
     // Wait a bit for worlds to appear (may be delayed during concurrent execution or data loading)
-    await safeWait(page, 2000);
+    await safeWait(page, VISIBILITY_TIMEOUT_SHORT);
     
     // Try one more time to find any world
     try {
@@ -690,7 +692,7 @@ export async function selectWorldAndEnterPlanningMode(
         // Wait for world to be created and appear in the tablist
         await expect(
           worldContextTablist.getByRole("tab", { name: worldName })
-        ).toBeVisible({ timeout: 3000 });
+        ).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
         
         worldTab = worldContextTablist.getByRole("tab", { name: worldName });
         worldTabExists = true;
@@ -753,8 +755,8 @@ export async function selectWorldAndEnterPlanningMode(
   
   // Click the tab - it's a button element, so clicking should work
   // Ensure the tab is visible and enabled before clicking
-  await expect(worldTab).toBeVisible({ timeout: 3000 });
-  await expect(worldTab).toBeEnabled({ timeout: 2000 });
+  await expect(worldTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
+  await expect(worldTab).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_SHORT });
   
   // Try clicking at a specific position (center) to avoid nested elements
   // Also verify the click worked by checking if tab becomes selected
@@ -768,7 +770,7 @@ export async function selectWorldAndEnterPlanningMode(
     }
     
     // Wait a moment for the click to register and state to update
-    await safeWait(page, 300);
+    await safeWait(page, STABILITY_WAIT_EXTRA);
     
     // Verify the click worked by checking if tab is selected
     // Give it a bit more time since React state updates might be delayed
@@ -785,16 +787,16 @@ export async function selectWorldAndEnterPlanningMode(
         break;
       }
       // Wait a bit more before next check
-      await safeWait(page, 200);
+      await safeWait(page, STABILITY_WAIT_LONG);
     }
     
     if (!clickedSelected) {
       // Click didn't register - try again with a different approach
       // First, ensure the tab is still visible and clickable
-      await expect(worldTab).toBeVisible({ timeout: 2000 });
-      await expect(worldTab).toBeEnabled({ timeout: 2000 });
-      await worldTab.click({ force: true, timeout: 2000 });
-      await safeWait(page, 400);
+      await expect(worldTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_SHORT });
+      await expect(worldTab).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_SHORT });
+      await worldTab.click({ force: true, timeout: VISIBILITY_TIMEOUT_SHORT });
+      await safeWait(page, STABILITY_WAIT_LONG * 2);
       
       // Check again with multiple attempts
       for (let i = 0; i < 3; i++) {
@@ -808,7 +810,7 @@ export async function selectWorldAndEnterPlanningMode(
         if (clickedSelected) {
           break;
         }
-        await safeWait(page, 200);
+        await safeWait(page, STABILITY_WAIT_LONG);
       }
       
       if (!clickedSelected) {
@@ -816,7 +818,7 @@ export async function selectWorldAndEnterPlanningMode(
         const retryBox = await getBoundingBoxSafely(worldTab);
         if (retryBox) {
           await page.mouse.click(retryBox.x + retryBox.width / 2, retryBox.y + retryBox.height / 2);
-          await safeWait(page, 400);
+          await safeWait(page, STABILITY_WAIT_LONG * 2);
           // Final check
           clickedSelected = await awaitSafelyBoolean(
             Promise.race([
@@ -856,14 +858,14 @@ export async function selectWorldAndEnterPlanningMode(
     if (!planningTabsVisible) {
       // Planning mode not active - wait a bit more and check again
       // Sometimes the UI takes a moment to update even after events fire
-      await safeWait(page, 500);
+      await safeWait(page, STABILITY_WAIT_MAX);
       planningTabsVisible = await isVisibleSafely(
         page.getByRole("tablist", { name: "World planning views" })
       );
       
       if (!planningTabsVisible) {
         // Wait one more time with a longer delay
-        await safeWait(page, 1000);
+        await safeWait(page, VISIBILITY_TIMEOUT_SHORT / 2);
         planningTabsVisible = await isVisibleSafely(
           page.getByRole("tablist", { name: "World planning views" })
         );
@@ -922,7 +924,7 @@ export async function selectWorldAndEnterPlanningMode(
     
     // Wait for the planning tablist to be visible before accessing it
     const planningTablist = page.getByRole("tablist", { name: "World planning views" });
-    await expect(planningTablist).toBeVisible({ timeout: 3000 });
+    await expect(planningTablist).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
     
     const subTabButton = planningTablist.getByRole("tab", { name: subTab });
     
@@ -932,7 +934,7 @@ export async function selectWorldAndEnterPlanningMode(
       return; // Already on the correct tab
     }
     
-    await expect(subTabButton).toBeVisible({ timeout: 3000 });
+    await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
     // Set up event listener BEFORE clicking
     const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
     
@@ -1032,7 +1034,7 @@ export async function ensureCampaignExists(
   }
 
   // Wait for UI to settle - check that campaigns tab is active
-  await expect(campaignsTab).toBeVisible({ timeout: 2000 });
+  await expect(campaignsTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_SHORT });
   
   // Re-check campaign views visibility after potential deselection
   const campaignViewsStillVisible = await isVisibleSafely(
@@ -1087,7 +1089,7 @@ export async function ensureCampaignExists(
               // Click to deselect the campaign
               await leaveCampaignButton.click();
               // Wait for state to update
-              await safeWait(page, 300);
+              await safeWait(page, STABILITY_WAIT_EXTRA);
               
               // Check if campaign views disappeared (indicates deselection worked)
               if (!page.isClosed()) {
@@ -1133,7 +1135,7 @@ export async function ensureCampaignExists(
     // If deselection succeeded, continue with normal flow (skip error handling)
     if (deselectionSucceeded) {
       // Wait a bit more for UI to fully settle
-      await safeWait(page, 200);
+      await safeWait(page, STABILITY_WAIT_LONG);
       // Continue to normal campaign creation/selection logic below
     } else {
       // Deselection didn't work - check if campaign is still selected and handle error
@@ -1169,7 +1171,7 @@ export async function ensureCampaignExists(
             const buttonVisible = await isVisibleSafely(leaveCampaignButton, 2000);
             if (buttonVisible && !page.isClosed()) {
               await leaveCampaignButton.click();
-              await safeWait(page, 300);
+              await safeWait(page, STABILITY_WAIT_EXTRA);
             }
           }
         } catch {
@@ -1187,8 +1189,8 @@ export async function ensureCampaignExists(
           // Try to click it even if not visible
           try {
             if (!page.isClosed()) {
-              await hiddenCampaignTab.click({ force: true, timeout: 2000 });
-              await safeWait(page, 300);
+              await hiddenCampaignTab.click({ force: true, timeout: VISIBILITY_TIMEOUT_SHORT });
+              await safeWait(page, STABILITY_WAIT_EXTRA);
               // Check if it worked
               const nowSelected = await isVisibleSafely(selectedCampaignHeading);
               if (nowSelected) {
@@ -1237,7 +1239,7 @@ export async function ensureCampaignExists(
               await page.getByRole("tab", { name: campaignName }).first().click();
               await expect(
                 page.getByRole("tablist", { name: "Campaign views" })
-              ).toBeVisible({ timeout: 3000 });
+              ).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
               return; // Success!
             }
           }
@@ -1275,7 +1277,7 @@ export async function ensureCampaignExists(
     // Campaign doesn't exist and we can create it
     // Use the Snapp menu "New Campaign" button
     // First check if a campaign was auto-selected while we were checking
-    await safeWait(page, 300);
+    await safeWait(page, STABILITY_WAIT_EXTRA);
     const newCampaignViewsVisible = await isVisibleSafely(
       page.getByRole("tablist", { name: "Campaign views" })
     );
@@ -1296,7 +1298,7 @@ export async function ensureCampaignExists(
       const leaveCampaignButton = page.getByRole("button", { name: "Leave Campaign" });
       if (await isVisibleSafely(leaveCampaignButton, 2000)) {
         await leaveCampaignButton.click();
-        await safeWait(page, 300);
+        await safeWait(page, STABILITY_WAIT_EXTRA);
       }
     }
     
@@ -1310,7 +1312,7 @@ export async function ensureCampaignExists(
       // Small wait for menu to open
       await page.waitForTimeout(STABILITY_WAIT_LONG);
       const newCampaignButton = page.getByRole("button", { name: "New Campaign" });
-      await expect(newCampaignButton).toBeVisible({ timeout: 5000 });
+      await expect(newCampaignButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
       
       // Check page state again before clicking
       if (page.isClosed()) {
@@ -1361,7 +1363,7 @@ export async function ensureCampaignExists(
           // Campaign should already exist, wait for it
           await expect(
             page.getByRole("tab", { name: campaignName })
-          ).toBeVisible({ timeout: 3000 });
+          ).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
           return;
         }
         throw new Error(`Campaign creation failed: ${errorText}`);
@@ -1395,7 +1397,7 @@ export async function ensureCampaignExists(
     }
 
     // After creation, wait for UI to update
-    await safeWait(page, 500);
+    await safeWait(page, STABILITY_WAIT_MAX);
     
     // Check if campaign was auto-selected (campaign views visible)
     const campaignViewsVisible = await isVisibleSafely(
@@ -1419,7 +1421,7 @@ export async function ensureCampaignExists(
       const leaveCampaignButton = page.getByRole("button", { name: "Leave Campaign" });
       if (await isVisibleSafely(leaveCampaignButton, 2000)) {
         await leaveCampaignButton.click();
-        await safeWait(page, 300);
+        await safeWait(page, STABILITY_WAIT_EXTRA);
       }
     }
     
@@ -1474,7 +1476,7 @@ export async function ensureCampaignExists(
       await campaignTab.click();
       await expect(
         page.getByRole("tablist", { name: "Campaign views" })
-      ).toBeVisible({ timeout: 3000 });
+      ).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
     } catch (error) {
       if (page.isClosed() || error.message?.includes("closed") || error.message?.includes("Target page")) {
         throw new Error("Page was closed while trying to select existing campaign");
@@ -1485,7 +1487,7 @@ export async function ensureCampaignExists(
     // Campaign exists somewhere but we can't see the tab
     // This might mean it was just created or is in a weird state
     // Try waiting a bit more and checking again
-    await safeWait(page, 500);
+    await safeWait(page, STABILITY_WAIT_MAX);
     const campaignTabAfterWait = await isVisibleSafely(
       page.getByRole("tab", { name: campaignName }).first()
     );
@@ -1494,7 +1496,7 @@ export async function ensureCampaignExists(
       await page.getByRole("tab", { name: campaignName }).first().click();
       await expect(
         page.getByRole("tablist", { name: "Campaign views" })
-      ).toBeVisible({ timeout: 3000 });
+      ).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
     } else {
       // Campaign might be selected but we can't see it - try to find it via heading
       const campaignHeading = page
@@ -1624,7 +1626,7 @@ export async function waitForWorldSelected(
       let tabFound = false;
       
       try {
-        await expect(worldTab).toBeVisible({ timeout: Math.min(timeout, 3000) });
+        await expect(worldTab).toBeVisible({ timeout: Math.min(timeout, VISIBILITY_TIMEOUT_MEDIUM) });
         tabFound = true;
       } catch {
         // Exact match failed - try to find any selected tab
@@ -1763,7 +1765,7 @@ export async function waitForCampaignSelected(
     await expect(campaignTab).toBeVisible({ timeout });
     // Poll for tab to be selected (with timeout)
     const startTime = Date.now();
-    const pollTimeout = Math.min(timeout, 2000); // Max 2s for polling
+    const pollTimeout = Math.min(timeout, VISIBILITY_TIMEOUT_SHORT); // Max 2s for polling
     while (Date.now() - startTime < pollTimeout) {
       const isSelected = await campaignTab.getAttribute("aria-selected");
       if (isSelected === "true") {
@@ -1857,7 +1859,7 @@ export async function waitForPlanningMode(
     } catch {
       // If tabs aren't visible, wait a bit more for UI to update
       await page.waitForTimeout(STABILITY_WAIT_MAX);
-      await expect(planningTabs).toBeVisible({ timeout: 3000 });
+      await expect(planningTabs).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
     }
   })();
 
@@ -1945,7 +1947,7 @@ export async function waitForPlanningSubTab(
     await expect(tab).toBeVisible({ timeout });
     // Poll for tab to be selected (with timeout)
     const startTime = Date.now();
-    const pollTimeout = Math.min(timeout, 2000); // Max 2s for polling
+    const pollTimeout = Math.min(timeout, VISIBILITY_TIMEOUT_SHORT); // Max 2s for polling
     while (Date.now() - startTime < pollTimeout) {
       const isSelected = await tab.getAttribute("aria-selected");
       if (isSelected === "true") {
@@ -2241,7 +2243,7 @@ export async function waitForMainTab(
     await expect(tab).toBeVisible({ timeout });
     // Poll for tab to be selected (with timeout)
     const startTime = Date.now();
-    const pollTimeout = Math.min(timeout, 2000); // Max 2s for polling
+    const pollTimeout = Math.min(timeout, VISIBILITY_TIMEOUT_SHORT); // Max 2s for polling
     while (Date.now() - startTime < pollTimeout) {
       const isSelected = await tab.getAttribute("aria-selected");
       if (isSelected === "true") {

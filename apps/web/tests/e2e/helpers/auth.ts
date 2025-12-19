@@ -1,7 +1,7 @@
 import { Page, expect } from "@playwright/test";
 import { waitForModalOpen, waitForModalClose } from "./modals";
 import { isVisibleSafely, isHiddenSafely, waitForLoadStateSafely, createTimeoutPromise, awaitSafely } from "./utils";
-import { STABILITY_WAIT_MEDIUM, STABILITY_WAIT_LONG } from "./constants";
+import { STABILITY_WAIT_MEDIUM, STABILITY_WAIT_LONG, STABILITY_WAIT_MAX, VISIBILITY_TIMEOUT_MEDIUM, VISIBILITY_TIMEOUT_LONG, VISIBILITY_TIMEOUT_EXTRA } from "./constants";
 
 /**
  * Safely wait for a timeout, checking if page is closed.
@@ -54,7 +54,7 @@ export async function ensureLoginDialogClosed(page: Page) {
       // Wait for dialog to close
       // Wait for dialog to be hidden, but don't fail if it doesn't happen
       try {
-        await loginDialog.waitFor({ state: "hidden", timeout: 3000 });
+        await loginDialog.waitFor({ state: "hidden", timeout: VISIBILITY_TIMEOUT_MEDIUM });
       } catch {
         // Dialog might already be hidden or might not hide - that's okay
       }
@@ -88,7 +88,7 @@ export async function loginAs(page: Page, username: string, password: string) {
   if (!isOnHomePage) {
     // Only navigate if we're not already on the home page
     try {
-      await page.goto("/", { waitUntil: "domcontentloaded", timeout: 3000 });
+      await page.goto("/", { waitUntil: "domcontentloaded", timeout: VISIBILITY_TIMEOUT_MEDIUM });
     } catch (error: any) {
       // If navigation times out, check if we're already on the page or if page is usable
       if (page.isClosed()) {
@@ -118,7 +118,7 @@ export async function loginAs(page: Page, username: string, password: string) {
   // This is especially important after clearing cookies/storage (like in auth-roles test)
   // The page might need time to re-render and make the Login button available
   try {
-    await page.waitForLoadState("domcontentloaded", { timeout: 3000 });
+    await waitForLoadStateSafely(page, "domcontentloaded", VISIBILITY_TIMEOUT_MEDIUM);
     // Small additional wait to ensure React has rendered and buttons are interactive
     await page.waitForTimeout(STABILITY_WAIT_LONG);
   } catch {
@@ -139,7 +139,7 @@ export async function loginAs(page: Page, username: string, password: string) {
     // Use a longer timeout and be more defensive
     try {
       await Promise.race([
-        page.getByRole("button", { name: "Login" }).waitFor({ state: "visible", timeout: 3000 }),
+        page.getByRole("button", { name: "Login" }).waitFor({ state: "visible", timeout: VISIBILITY_TIMEOUT_MEDIUM }),
         createTimeoutPromise(5000) // Fallback timeout
       ]);
     } catch {
@@ -161,8 +161,8 @@ export async function loginAs(page: Page, username: string, password: string) {
   const loginButton = page.getByRole("button", { name: "Login" });
   
   // Wait for button to be visible and enabled - this is critical after page navigation/refresh
-  await expect(loginButton).toBeVisible({ timeout: 5000 });
-  await expect(loginButton).toBeEnabled({ timeout: 3000 });
+  await expect(loginButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
+  await expect(loginButton).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
   
   // Small stability wait to ensure button is fully interactive
   // This is especially important after clearing cookies/storage
@@ -209,7 +209,7 @@ export async function loginAs(page: Page, username: string, password: string) {
     if (loginButtonStillVisible) {
       // Button is still there - click might not have worked, try again
       await page.getByRole("button", { name: "Login" }).click();
-      await safeWait(page, 500);
+      await safeWait(page, STABILITY_WAIT_MAX);
       // Try waiting for modal again
       try {
         await waitForModalOpen(page, "login", 5000);
@@ -253,10 +253,10 @@ export async function loginAs(page: Page, username: string, password: string) {
   
   // Explicitly wait for fields to be visible and enabled before interacting
   // Use longer timeouts since this is after navigation/state clearing
-  await expect(usernameInput).toBeVisible({ timeout: 8000 });
-  await expect(passwordInput).toBeVisible({ timeout: 8000 });
-  await expect(usernameInput).toBeEnabled({ timeout: 5000 });
-  await expect(passwordInput).toBeEnabled({ timeout: 5000 });
+  await expect(usernameInput).toBeVisible({ timeout: VISIBILITY_TIMEOUT_EXTRA });
+  await expect(passwordInput).toBeVisible({ timeout: VISIBILITY_TIMEOUT_EXTRA });
+  await expect(usernameInput).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_LONG });
+  await expect(passwordInput).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_LONG });
   
   // Small stability wait to ensure form is fully ready for interaction
   await page.waitForTimeout(STABILITY_WAIT_MEDIUM);
@@ -310,7 +310,7 @@ export async function loginAs(page: Page, username: string, password: string) {
   }
   
   // Verify we're logged in by checking for logout button
-  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
+  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
 }
 
 /**
