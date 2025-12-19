@@ -233,22 +233,82 @@ export async function loginAs(page: Page, username: string, password: string) {
     }
     
     if (!dialogVisible || !usernameVisible || !passwordVisible) {
-      // Dialog or fields not accessible - check login one more time with a small wait
-      await safeWait(page, STABILITY_WAIT_SHORT);
-      const finalLoginCheck = await isLoggedIn(page);
-      if (finalLoginCheck) {
-        return; // We're logged in, no need to fill form
+      // Dialog or fields not accessible - retry with multiple checks
+      for (let retry = 0; retry < 3; retry++) {
+        await safeWait(page, STABILITY_WAIT_SHORT);
+        const retryLoginCheck = await isLoggedIn(page);
+        if (retryLoginCheck) {
+          return; // We're logged in, no need to fill form
+        }
+        
+        // Try to re-check visibility
+        const retryDialogVisible = await isVisibleSafely(loginDialog, VISIBILITY_TIMEOUT_SHORT);
+        const retryUsernameVisible = await usernameInput.isVisible({ timeout: VISIBILITY_TIMEOUT_SHORT }).catch(() => false);
+        const retryPasswordVisible = await passwordInput.isVisible({ timeout: VISIBILITY_TIMEOUT_SHORT }).catch(() => false);
+        
+        if (retryDialogVisible && retryUsernameVisible && retryPasswordVisible) {
+          // Fields are now accessible - break out of retry loop
+          break;
+        }
+        
+        if (retry === 2) {
+          // Last retry failed - check login one final time
+          const finalLoginCheck = await isLoggedIn(page);
+          if (finalLoginCheck) {
+            return; // We're logged in, no need to fill form
+          }
+          throw new Error("Login modal closed before form fields could be accessed. This may indicate a race condition or login failure.");
+        }
       }
-      throw new Error("Login modal closed before form fields could be accessed. This may indicate a race condition or login failure.");
     }
   } catch (fieldError) {
-    // Fields or modal not accessible - check if we're logged in (with retry)
+    // Fields or modal not accessible - check if we're logged in (with multiple retries)
+    for (let retry = 0; retry < 3; retry++) {
+      await safeWait(page, STABILITY_WAIT_SHORT);
+      const isLoggedInNow = await isLoggedIn(page);
+      if (isLoggedInNow) {
+        return; // We're logged in, no need to fill form
+      }
+      
+      if (retry === 2) {
+        // Last retry - throw the error
+        throw new Error("Login modal closed before form fields could be accessed. This may indicate a race condition or login failure.");
+      }
+    }
+  }
+  
+  // Before filling the form, verify the modal is still open and fields are accessible
+  // This is a final check to catch race conditions where the modal closes between checks
+  const finalModalCheck = await isVisibleSafely(loginDialog, VISIBILITY_TIMEOUT_SHORT);
+  const finalLoginStatusCheck = await isLoggedIn(page);
+  
+  if (finalLoginStatusCheck) {
+    // We're logged in - no need to fill form
+    return;
+  }
+  
+  if (!finalModalCheck) {
+    // Modal closed - check login one more time
     await safeWait(page, STABILITY_WAIT_SHORT);
-    const isLoggedInNow = await isLoggedIn(page);
-    if (isLoggedInNow) {
+    const lastLoginCheck = await isLoggedIn(page);
+    if (lastLoginCheck) {
       return; // We're logged in, no need to fill form
     }
     throw new Error("Login modal closed before form fields could be accessed. This may indicate a race condition or login failure.");
+  }
+  
+  // Verify fields are still accessible before filling
+  const usernameStillVisible = await usernameInput.isVisible({ timeout: VISIBILITY_TIMEOUT_SHORT }).catch(() => false);
+  const passwordStillVisible = await passwordInput.isVisible({ timeout: VISIBILITY_TIMEOUT_SHORT }).catch(() => false);
+  
+  if (!usernameStillVisible || !passwordStillVisible) {
+    // Fields not accessible - check login one more time
+    await safeWait(page, STABILITY_WAIT_SHORT);
+    const fieldsLoginCheck = await isLoggedIn(page);
+    if (fieldsLoginCheck) {
+      return; // We're logged in, no need to fill form
+    }
+    throw new Error("Login form fields became inaccessible. This may indicate a race condition or login failure.");
   }
   
   await usernameInput.clear();

@@ -14,6 +14,5 @@ Feature: World creation requires authentication
 
   Scenario: Authenticated user with gm role can create a world
     When the admin signs in to the system
-    And the admin navigates to the "World Entities" planning screen
     And the admin creates a world named "Authenticated Test World"
     Then the world "Authenticated Test World" appears in the worlds list

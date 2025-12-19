@@ -463,11 +463,32 @@ When("the world builder selects world {string}", async ({ page }, worldName: str
 });
 
 When("the world builder ensures location {string} exists", async ({ page }, locationName: string) => {
-  // Navigate to locations tab first (if not already there)
+  // Check if we're already on the locations tab
   const addLocationButton = page.getByRole("button", { name: "Add location" });
   const isOnLocationsTab = await addLocationButton.isVisible({ timeout: 1000 }).catch(() => false);
   
   if (!isOnLocationsTab) {
+    // Check if we're in planning mode with a world selected
+    const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+    const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (!isInPlanningMode) {
+      // Navigate to World Entities planning screen and select world (defaults to "Eldoria")
+      try {
+        await selectWorldAndEnterPlanningMode(page, "World Entities");
+      } catch (error) {
+        // If planning mode activation failed, check if we're actually in planning mode anyway
+        const planningTabsCheck = page.getByRole("tablist", { name: "World planning views" });
+        const isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
+        if (!isActuallyInPlanningMode) {
+          // Not in planning mode - rethrow the error
+          throw error;
+        }
+        // We're in planning mode despite the error - continue
+      }
+    }
+    
+    // Navigate to locations tab
     await page.getByRole("tab", { name: "Locations" }).click();
     await expect(addLocationButton).toBeVisible();
   }
@@ -580,7 +601,36 @@ When(
       throw new Error("Page was closed before ensuring session exists");
     }
     
-    // Assume the correct campaign is already selected
+    // Check if campaign is already selected
+    const campaignViews = page.getByRole("tablist", { name: "Campaign views" });
+    const isCampaignSelected = await campaignViews.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (!isCampaignSelected) {
+      // Navigate to Campaigns planning screen and select campaign
+      await selectWorldAndEnterPlanningMode(page, "Campaigns");
+      
+      // Get the unique campaign name
+      const uniqueCampaignName = await getStoredCampaignName(page, campaignName).catch(() => 
+        getUniqueCampaignName(campaignName)
+      );
+      
+      // Select the campaign if not already selected
+      const campaignsTablist = page.getByRole("tablist", { name: "Campaigns" });
+      let campaignTab = campaignsTablist.getByRole("tab", { name: uniqueCampaignName });
+      let exists = await campaignTab.isVisible().catch(() => false);
+      
+      if (!exists) {
+        campaignTab = campaignsTablist.getByRole("tab", { name: campaignName });
+        exists = await campaignTab.isVisible().catch(() => false);
+      }
+      
+      if (exists) {
+        await campaignTab.click();
+        await expect(campaignViews).toBeVisible();
+      }
+    }
+    
+    // Navigate to Sessions tab
     try {
       await page
         .getByRole("tablist", { name: "Campaign views" })
@@ -614,6 +664,49 @@ When(
 When(
   "the world builder ensures scene {string} exists in session {string}",
   async ({ page }, sceneName: string, sessionName: string) => {
+    // Check if campaign is already selected
+    const campaignViews = page.getByRole("tablist", { name: "Campaign views" });
+    const isCampaignSelected = await campaignViews.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (!isCampaignSelected) {
+      // Navigate to Campaigns planning screen and select campaign
+      // We need to get the campaign name from context - try to get it from the page
+      // For now, assume we're working with "The Eldorian Saga" or use stored name
+      await selectWorldAndEnterPlanningMode(page, "Campaigns");
+      
+      // Try to get stored campaign name, or use a default
+      let campaignName = "The Eldorian Saga";
+      try {
+        const storedName = await page.evaluate(() => {
+          return (window as any).__testCampaignName;
+        });
+        if (storedName) {
+          campaignName = storedName;
+        }
+      } catch {
+        // Use default
+      }
+      
+      const uniqueCampaignName = await getStoredCampaignName(page, campaignName).catch(() => 
+        getUniqueCampaignName(campaignName)
+      );
+      
+      // Select the campaign
+      const campaignsTablist = page.getByRole("tablist", { name: "Campaigns" });
+      let campaignTab = campaignsTablist.getByRole("tab", { name: uniqueCampaignName });
+      let exists = await campaignTab.isVisible().catch(() => false);
+      
+      if (!exists) {
+        campaignTab = campaignsTablist.getByRole("tab", { name: campaignName });
+        exists = await campaignTab.isVisible().catch(() => false);
+      }
+      
+      if (exists) {
+        await campaignTab.click();
+        await expect(campaignViews).toBeVisible();
+      }
+    }
+    
     // Navigate to Sessions view and open the given session's scenes
     await page
       .getByRole("tablist", { name: "Campaign views" })

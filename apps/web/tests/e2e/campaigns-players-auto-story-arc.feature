@@ -11,5 +11,4 @@ Feature: Game master automatically gets story arcs for players
     When the admin signs in to the system
     And the test campaign exists with players view
     And the admin ensures player "bob" is added to the campaign
-    And the admin navigates to the story arcs view
     Then a story arc named "bob's Arc" is automatically created

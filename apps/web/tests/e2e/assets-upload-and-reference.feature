@@ -30,17 +30,13 @@ Feature: World builder uploads and references digital assets
 
   Scenario: World builder references an uploaded image asset in a world entity
     When the world builder signs in to the system
-    And the world builder navigates to the "World Entities" planning screen
-    And the world builder selects world "Eldoria"
     And the world builder ensures location "Whispering Woods" exists
     And the world builder sets the image asset for location "Whispering Woods" to "approaching-nuln.jpg"
     Then the location "Whispering Woods" shows image asset "approaching-nuln.jpg" in the UI
 
   Scenario: World builder references an uploaded audio asset in a scene
     When the world builder signs in to the system
-    And the world builder navigates to the "Campaigns" planning screen
     And campaign "The Eldorian Saga" exists
-    And the world builder selects campaign "The Eldorian Saga"
     And the world builder ensures session "Session 1" exists for campaign "The Eldorian Saga"
     And the world builder ensures scene "Into the Woods" exists in session "Session 1"
     And the world builder sets the ambience audio asset for scene "Into the Woods" to "forest-ambience.mp3"

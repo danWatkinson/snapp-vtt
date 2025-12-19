@@ -10,7 +10,6 @@ Feature: Admin views the list of users
 
   Scenario: Admin can view list of all users
     When the admin signs in to the system
-    And the admin navigates to the "Users" management screen
     Then the users list is visible
     And the user "admin" appears in the users list
     And the test user appears in the users list

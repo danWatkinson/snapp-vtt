@@ -17,7 +17,18 @@ When(
     const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
     
     if (!isInPlanningMode) {
-      await selectWorldAndEnterPlanningMode(page, "World Entities");
+      try {
+        await selectWorldAndEnterPlanningMode(page, "World Entities");
+      } catch (error) {
+        // If planning mode activation failed, check if we're actually in planning mode anyway
+        const planningTabsCheck = page.getByRole("tablist", { name: "World planning views" });
+        const isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
+        if (!isActuallyInPlanningMode) {
+          // Not in planning mode - rethrow the error
+          throw error;
+        }
+        // We're in planning mode despite the error - continue
+      }
     }
     
     await ensureModeSelectorVisible(page);

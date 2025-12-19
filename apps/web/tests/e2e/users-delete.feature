@@ -9,7 +9,6 @@ Feature: Admin deletes a user
 
   Scenario: Admin can delete a user
     When the admin signs in to the system
-    And the admin navigates to the "Users" management screen
     And the admin creates a new user via the Users UI
     And the admin deletes that user from the users list
     Then the deleted user no longer appears in the users list

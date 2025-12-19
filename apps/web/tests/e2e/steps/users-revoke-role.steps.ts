@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { getUniqueUsername, waitForRoleRevoked, waitForError } from "../helpers";
+import { getUniqueUsername, waitForRoleRevoked, waitForError, ensureLoginDialogClosed } from "../helpers";
 
 const { When, Then } = createBdd();
 
@@ -21,6 +21,19 @@ async function getStoredAliceUsername(page: any): Promise<string> {
 }
 
 When('the admin revokes the "gm" role from the test user', async ({ page }) => {
+  // Navigate to Users screen first (if not already there)
+  const usersTab = page.locator('[data-component="UsersTab"]');
+  const isOnUsersScreen = await usersTab.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnUsersScreen) {
+    await ensureLoginDialogClosed(page);
+    await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
+    await page.getByRole("button", { name: /^Snapp/i }).click();
+    await expect(page.getByRole("button", { name: "User Management" })).toBeVisible({ timeout: 3000 });
+    await page.getByRole("button", { name: "User Management" }).click();
+    await page.waitForSelector('[data-component="UsersTab"]', { timeout: 3000 });
+  }
+  
   const uniqueAliceName = await getStoredAliceUsername(page);
   const aliceItem = page.getByTestId(`user-${uniqueAliceName}`);
   await expect(aliceItem).toBeVisible();

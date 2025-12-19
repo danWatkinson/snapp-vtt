@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { waitForModalOpen, waitForUserCreated, waitForUserDeleted, waitForError } from "../helpers";
+import { waitForModalOpen, waitForUserCreated, waitForUserDeleted, waitForError, ensureLoginDialogClosed } from "../helpers";
 
 const { When, Then } = createBdd();
 
@@ -8,6 +8,21 @@ const { When, Then } = createBdd();
 let lastCreatedUsername: string | undefined;
 
 When("the admin creates a new user via the Users UI", async ({ page }) => {
+  // Navigate to Users screen first (if not already there)
+  const usersTab = page.locator('[data-component="UsersTab"]');
+  const isOnUsersScreen = await usersTab.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnUsersScreen) {
+    await ensureLoginDialogClosed(page);
+    await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
+    await page.getByRole("button", { name: /^Snapp/i }).click();
+    await expect(page.getByRole("button", { name: "User Management" })).toBeVisible({ timeout: 3000 });
+    await page.getByRole("button", { name: "User Management" }).click();
+    await page.waitForSelector('[data-component="UsersTab"]', { timeout: 3000 });
+    // Wait for the Create user button to be visible
+    await expect(page.getByRole("button", { name: "Create user" })).toBeVisible({ timeout: 3000 });
+  }
+  
   const testUsername = `testuser-${Date.now()}`;
   lastCreatedUsername = testUsername;
 
@@ -57,6 +72,19 @@ When("the admin creates a new user via the Users UI", async ({ page }) => {
 When("the admin deletes that user from the users list", async ({ page }) => {
   if (!lastCreatedUsername) {
     throw new Error("lastCreatedUsername was not set; ensure user creation step ran first");
+  }
+
+  // Navigate to Users screen first (if not already there)
+  const usersTab = page.locator('[data-component="UsersTab"]');
+  const isOnUsersScreen = await usersTab.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnUsersScreen) {
+    await ensureLoginDialogClosed(page);
+    await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
+    await page.getByRole("button", { name: /^Snapp/i }).click();
+    await expect(page.getByRole("button", { name: "User Management" })).toBeVisible({ timeout: 3000 });
+    await page.getByRole("button", { name: "User Management" }).click();
+    await page.waitForSelector('[data-component="UsersTab"]', { timeout: 3000 });
   }
 
   const testUsername = lastCreatedUsername;

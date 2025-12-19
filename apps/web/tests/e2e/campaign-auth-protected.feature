@@ -14,6 +14,5 @@ Feature: Campaign creation requires authentication
 
   Scenario: Authenticated user with gm role can create a campaign
     When the admin signs in to the system
-    And the admin navigates to the "Campaigns" planning screen
     And the admin creates a campaign named "Authenticated Test Campaign"
     Then the campaign "Authenticated Test Campaign" appears in the campaigns list

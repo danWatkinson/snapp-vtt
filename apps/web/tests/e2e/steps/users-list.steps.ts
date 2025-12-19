@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { getUniqueUsername } from "../helpers";
+import { getUniqueUsername, ensureLoginDialogClosed } from "../helpers";
 
 const { Then } = createBdd();
 
@@ -21,6 +21,19 @@ async function getStoredAliceUsername(page: any): Promise<string> {
 }
 
 Then("the users list is visible", async ({ page }) => {
+  // Navigate to Users screen first (if not already there)
+  const usersTab = page.locator('[data-component="UsersTab"]');
+  const isOnUsersScreen = await usersTab.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnUsersScreen) {
+    await ensureLoginDialogClosed(page);
+    await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
+    await page.getByRole("button", { name: /^Snapp/i }).click();
+    await expect(page.getByRole("button", { name: "User Management" })).toBeVisible({ timeout: 3000 });
+    await page.getByRole("button", { name: "User Management" }).click();
+    await page.waitForSelector('[data-component="UsersTab"]', { timeout: 3000 });
+  }
+  
   // The UsersTab shows "User Management" as the heading, not "Users"
   await expect(page.getByRole("heading", { name: /User Management/i })).toBeVisible({
     timeout: 3000
