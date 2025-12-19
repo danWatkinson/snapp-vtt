@@ -5,11 +5,11 @@ Feature: Admin revokes a role from a user
   So that I can remove permissions that are no longer needed
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
     And there is a user "alice" with no roles
 
   Scenario: Admin can revoke a role from a user
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And the admin navigates to the "Users" management screen
     And the admin assigns the "gm" role to user "alice"
     And the admin revokes the "gm" role from user "alice"

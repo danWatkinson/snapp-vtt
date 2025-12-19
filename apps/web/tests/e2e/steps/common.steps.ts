@@ -122,9 +122,7 @@ async function getAdminToken(request: APIRequestContext): Promise<string> {
   return body.token;
 }
 
-Given(
-  'there is an admin user "admin" with the "admin" role',
-  async ({ page, request }) => {
+Given('there is an admin user', async ({ page, request }) => {
     // Ensure admin user exists with admin role via API
     // This will bootstrap the admin user if it doesn't exist
     try {
@@ -158,7 +156,7 @@ Given(
   }
 );
 
-When('the admin signs in to the system as "admin"', async ({ page }) => {
+When('the admin signs in to the system', async ({ page }) => {
   // Ensure we start with a clean page state
   // Increase timeout to handle server load when running with multiple workers
   await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
@@ -259,7 +257,7 @@ When('the admin signs in to the system as "admin"', async ({ page }) => {
   }
 });
 
-When('the world builder signs in to the system as "worldbuilder"', async ({ page, request }) => {
+When('the world builder signs in to the system', async ({ page, request }) => {
   // Generate a unique username for this test to avoid conflicts
   const uniqueUsername = getUniqueUsername("worldbuilder");
   const password = "worldbuilder123";
@@ -453,7 +451,7 @@ When('the admin navigates to the {string} library screen', async ({ page }, libr
     
     if (loginButtonVisible) {
       throw new Error(
-        "User is not logged in. The 'When the admin signs in to the system as \"admin\"' step must run before this step."
+        "User is not logged in. The 'When the admin signs in to the system' step must run before this step."
       );
     } else {
       throw new Error(

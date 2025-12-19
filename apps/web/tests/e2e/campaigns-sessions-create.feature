@@ -5,10 +5,10 @@ Feature: Game master creates sessions within a campaign
   So that I can organize gameplay into discrete play sessions
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: Game master can create a Session within a Campaign
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And the campaign "Rise of the Dragon King" exists with sessions view
     And the admin ensures session "Session 1" exists in the campaign
     Then session "Session 1" appears in the sessions list

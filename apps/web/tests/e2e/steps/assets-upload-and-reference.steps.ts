@@ -38,7 +38,7 @@ When('the world builder navigates to the "Assets" library screen', async ({ page
     
     if (loginButtonVisible) {
       throw new Error(
-        "User is not logged in. The 'When the world builder signs in to the system as \"worldbuilder\"' step must run before this step."
+        "User is not logged in. The 'When the world builder signs in to the system' step must run before this step."
       );
     } else {
       // Neither button visible - might be a page state issue

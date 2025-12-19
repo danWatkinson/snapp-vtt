@@ -5,10 +5,10 @@ Feature: Game master creates scenes within a session
   So that I can organize gameplay into discrete narrative moments
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: Game master can create a Scene within a Session
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And the campaign "Rise of the Dragon King" exists with sessions view
     And session "Session 1" exists in the campaign
     And the admin views scenes for session "Session 1"

@@ -5,10 +5,10 @@ Feature: World builder views all entities in a world
   So that I can see everything I've created in one place
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: World builder can view all entities associated with a World
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And the admin navigates to the "World Entities" planning screen
     And world "Eldoria" exists
     And the admin selects world "Eldoria"

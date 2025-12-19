@@ -5,10 +5,10 @@ Feature: World builder creates locations in a world
   So that I can map out important places in the world
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: World builder can add a Location to a World via popup
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And world "Eldoria" exists and is selected with locations tab
     And the admin ensures location "Whispering Woods" exists
     Then location "Whispering Woods" appears in the locations list

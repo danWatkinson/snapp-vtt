@@ -5,10 +5,10 @@ Feature: World builder adds timestamps to events
   So that I can track when events occurred in the world's timeline
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: World builder can add beginning and ending timestamps to Events
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And world "Eldoria" exists and is selected with events tab
     And the admin ensures event "The Great War" exists with timestamps
     Then event "The Great War" appears in the events list

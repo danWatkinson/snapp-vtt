@@ -14,10 +14,10 @@ Feature: Admin manages user roles with token-based auth
 
   Background:
     Given there is a user "alice" with no roles
-    And there is an admin user "admin" with the "admin" role
+    And there is an admin user
 
   Scenario: Admin assigns a GM role to a user and the token reflects new permissions
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And the admin navigates to the "Users" management screen
     And the admin assigns the "gm" role to user "alice"
     Then the UI shows that user "alice" has role "gm"

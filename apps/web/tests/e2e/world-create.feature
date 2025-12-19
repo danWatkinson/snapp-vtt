@@ -5,10 +5,10 @@ Feature: World builder creates worlds
   So that I can organize locations, characters, and events within a consistent setting
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: World builder creates a world via the UI
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And the admin navigates to the "World Entities" planning screen
     And the admin creates a world named "Eldoria" with description "A high-fantasy realm of magic"
     Then the UI shows "Eldoria" in the world context selector

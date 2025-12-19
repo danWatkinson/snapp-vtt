@@ -5,7 +5,7 @@ Feature: Password-based login behaviour
   So that I can access the planning tools securely
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: Login requires a password
     When I open the Snapp home page

@@ -5,17 +5,17 @@ Feature: World builder uploads and references digital assets
   So that I can reference them while constructing worlds
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: World builder uploads an image asset for use in a world
-    When the world builder signs in to the system as "worldbuilder"
+    When the world builder signs in to the system
     And the world builder navigates to the "Assets" library screen
     And the world builder uploads an image asset "approaching-nuln.jpg"
     Then the image asset "approaching-nuln.jpg" appears in the assets list
     And the image asset "approaching-nuln.jpg" displays a thumbnail in the assets list
 
   Scenario: World builder views an image asset in a modal
-    When the world builder signs in to the system as "worldbuilder"
+    When the world builder signs in to the system
     And the world builder navigates to the "Assets" library screen
     And the world builder uploads an image asset "approaching-nuln.jpg"
     And the world builder clicks the thumbnail for image asset "approaching-nuln.jpg"
@@ -24,13 +24,13 @@ Feature: World builder uploads and references digital assets
     Then the modal is no longer visible
 
   Scenario: World builder uploads an audio asset for use in a scene
-    When the world builder signs in to the system as "worldbuilder"
+    When the world builder signs in to the system
     And the world builder navigates to the "Assets" library screen
     And the world builder uploads an audio asset "forest-ambience.mp3"
     Then the audio asset "forest-ambience.mp3" appears in the assets list
 
   Scenario: World builder references an uploaded image asset in a world entity
-    When the world builder signs in to the system as "worldbuilder"
+    When the world builder signs in to the system
     And the world builder navigates to the "World Entities" planning screen
     And world "Eldoria" exists
     And the world builder selects world "Eldoria"
@@ -40,7 +40,7 @@ Feature: World builder uploads and references digital assets
     Then the location "Whispering Woods" shows image asset "approaching-nuln.jpg" in the UI
 
   Scenario: World builder references an uploaded audio asset in a scene
-    When the world builder signs in to the system as "worldbuilder"
+    When the world builder signs in to the system
     And the world builder navigates to the "Campaigns" planning screen
     And campaign "The Eldorian Saga" exists
     And the world builder selects campaign "The Eldorian Saga"

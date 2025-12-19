@@ -5,10 +5,10 @@ Feature: Game master adds events to story arcs
   So that I can track key moments in narrative threads
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: Game master can add Events to a Story Arc
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And the campaign "Rise of the Dragon King" exists
     And the admin navigates to the story arcs view
     And story arc "The Ancient Prophecy" exists

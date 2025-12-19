@@ -5,7 +5,7 @@ Feature: World creation requires authentication
   So that only authorized users can create worlds
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: World creation requires authentication
     When I open the Snapp home page
@@ -13,7 +13,7 @@ Feature: World creation requires authentication
     And the world tab is not visible
 
   Scenario: Authenticated user with gm role can create a world
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And the admin navigates to the "World Entities" planning screen
     And the admin creates a world named "Authenticated Test World"
     Then the world "Authenticated Test World" appears in the worlds list

@@ -5,10 +5,10 @@ Feature: World builder creates creatures and factions
   So that I can populate the world with interesting entities
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: World builder can add Creatures and Factions to a World via popup
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And world "Eldoria" exists and is selected with creatures tab
     And the admin ensures creature "Dragon" exists
     Then creature "Dragon" appears in the creatures list

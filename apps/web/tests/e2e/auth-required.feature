@@ -5,7 +5,7 @@ Feature: Auth-required access to application content
   So that application content is only visible to authenticated users
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: Unauthenticated visitor cannot see application content
     When I open the Snapp home page

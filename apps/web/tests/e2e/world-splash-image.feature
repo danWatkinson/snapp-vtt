@@ -5,10 +5,10 @@ Feature: World builder sets a splash image for a world
   So that I can start to set the tone of my world from the outset
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: World builder sets a splash image for a world from existing assets
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And the admin navigates to the "Assets" library screen
     And the admin uploads an image asset "approaching-nuln.jpg"
     And the image asset "approaching-nuln.jpg" appears in the assets list
@@ -20,7 +20,7 @@ Feature: World builder sets a splash image for a world
     Then the world "Eldoria" shows splash image "approaching-nuln.jpg" in the world header
 
   Scenario: World splash image appears in the world selector
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And the admin navigates to the "Assets" library screen
     And the admin uploads an image asset "approaching-nuln.jpg"
     And the image asset "approaching-nuln.jpg" appears in the assets list
@@ -32,7 +32,7 @@ Feature: World builder sets a splash image for a world
     Then the world selector shows a splash thumbnail for "Eldoria" using "approaching-nuln.jpg"
 
   Scenario: World without a splash image shows a clear placeholder
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And the admin navigates to the "World Entities" planning screen
     And world "NoSplashWorld" exists
     And the admin selects world "NoSplashWorld"

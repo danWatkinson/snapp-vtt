@@ -5,10 +5,10 @@ Feature: World builder creates events in a world
   So that I can track significant happenings in the world's history
 
   Background:
-    Given there is an admin user "admin" with the "admin" role
+    Given there is an admin user
 
   Scenario: World builder can add an Event to a World via popup
-    When the admin signs in to the system as "admin"
+    When the admin signs in to the system
     And world "Eldoria" exists and is selected with events tab
     And the admin ensures event "The Great Awakening" exists
     Then event "The Great Awakening" appears in the events list
