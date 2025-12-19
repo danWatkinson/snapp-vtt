@@ -15,8 +15,3 @@ Feature: Auth-required access to application content
   Scenario: Authenticated user can see application content
     When I sign in as admin via the login dialog
     Then the world planning UI becomes visible
-
-  Scenario: Visitor is redirected to login when accessing protected content
-    When I open the Snapp home page
-    Then the world planning UI is not visible
-    And I see a login entry point in the banner

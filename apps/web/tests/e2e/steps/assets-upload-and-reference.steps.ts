@@ -149,9 +149,34 @@ Then("the image asset {string} appears in the assets list", async ({ page }, fil
   // 3. Response returned to client
   // 4. State update triggers React re-render
   // This can take a few seconds, especially with network latency
-  await expect(
-    page.getByRole("row").filter({ hasText: fileName }).first()
-  ).toBeVisible({ timeout: 5000 }); // Reduced from 10000ms to 5000ms for better performance
+  const row = page.getByRole("row").filter({ hasText: fileName }).first();
+  await expect(row).toBeVisible({ timeout: 5000 }); // Reduced from 10000ms to 5000ms for better performance
+  
+  // Verify the thumbnail is visible and clicking it opens the modal
+  const thumbnail = row.locator("img").first();
+  await expect(thumbnail).toBeVisible();
+  
+  // Click the thumbnail to verify the modal opens
+  await thumbnail.click();
+  
+  // Verify the modal opens with the full image
+  const modal = page.getByRole("dialog");
+  await expect(modal).toBeVisible();
+  // Check that the modal title contains the asset name or filename
+  const baseName = fileName.replace(/\.[^.]+$/, ""); // Remove extension
+  const hasFileName = await modal.getByText(fileName).isVisible().catch(() => false);
+  const hasBaseName = await modal.getByText(baseName).isVisible().catch(() => false);
+  if (!hasFileName && !hasBaseName) {
+    throw new Error(`Modal title does not contain "${fileName}" or "${baseName}"`);
+  }
+  // Check that there's an image in the modal
+  const modalImage = modal.locator("img").first();
+  await expect(modalImage).toBeVisible();
+  
+  // Close the modal and verify it closes
+  const closeButton = modal.getByRole("button", { name: "Close" });
+  await closeButton.click();
+  await expect(modal).not.toBeVisible();
 });
 
 Then(
@@ -197,12 +222,42 @@ Then(
   }
 );
 
+Then(
+  "clicking the thumbnail for image asset {string} opens a modal displaying the full image",
+  async ({ page }, fileName: string) => {
+    // Verify the asset appears in the list with a thumbnail
+    const row = page.getByRole("row").filter({ hasText: fileName }).first();
+    await expect(row).toBeVisible();
+    const thumbnail = row.locator("img").first();
+    await expect(thumbnail).toBeVisible();
+    
+    // Click the thumbnail to open the modal
+    await thumbnail.click();
+    
+    // Verify the modal opens with the full image
+    const modal = page.getByRole("dialog");
+    await expect(modal).toBeVisible();
+    // Check that the modal title contains the asset name or filename
+    const baseName = fileName.replace(/\.[^.]+$/, ""); // Remove extension
+    const hasFileName = await modal.getByText(fileName).isVisible().catch(() => false);
+    const hasBaseName = await modal.getByText(baseName).isVisible().catch(() => false);
+    if (!hasFileName && !hasBaseName) {
+      throw new Error(`Modal title does not contain "${fileName}" or "${baseName}"`);
+    }
+    // Check that there's an image in the modal
+    const modalImage = modal.locator("img").first();
+    await expect(modalImage).toBeVisible();
+  }
+);
+
 When("the world builder closes the image modal", async ({ page }) => {
   const modal = page.getByRole("dialog");
   await expect(modal).toBeVisible();
   // Try to close via the close button (✕) using aria-label
   const closeButton = modal.getByRole("button", { name: "Close" });
   await closeButton.click();
+  // Verify the modal is closed
+  await expect(modal).not.toBeVisible();
 });
 
 Then("the modal is no longer visible", async ({ page }) => {
