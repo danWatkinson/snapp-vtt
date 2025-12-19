@@ -12,43 +12,61 @@ import {
 import { DEFAULT_EVENT_TIMEOUT, STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM, STABILITY_WAIT_LONG, STABILITY_WAIT_EXTRA, STABILITY_WAIT_MAX, VISIBILITY_TIMEOUT_SHORT, VISIBILITY_TIMEOUT_MEDIUM, VISIBILITY_TIMEOUT_LONG, VISIBILITY_TIMEOUT_EXTRA } from "./constants";
 import { ensureLoginDialogClosed } from "./auth";
 import { waitForModalOpen, waitForModalClose } from "./modals";
-import { getUniqueCampaignName, waitForSimpleEvent, isVisibleSafely, isHiddenSafely, getAttributeSafely, waitForLoadStateSafely, getBoundingBoxSafely, createTimeoutPromise, waitForStateSafely, waitForLocatorSafely, awaitSafely, awaitSafelyBoolean } from "./utils";
+import { getUniqueCampaignName, waitForSimpleEvent, isVisibleSafely, isHiddenSafely, getAttributeSafely, waitForLoadStateSafely, getBoundingBoxSafely, createTimeoutPromise, waitForStateSafely, waitForLocatorSafely, awaitSafely, awaitSafelyBoolean, safeWait, isPageClosedSafely } from "./utils";
 
 /**
- * Safely wait for a timeout, checking if page is closed.
- * Simplified version that just checks if page is closed before waiting.
- * 
- * @param page - Playwright page object
- * @param ms - Milliseconds to wait (capped at 2000ms to avoid test timeouts)
+ * Check if planning mode is currently active by checking for planning tabs visibility.
  */
-async function safeWait(page: Page, ms: number) {
-  // Quick check if page is closed - if so, don't wait
-  try {
-    if (page.isClosed()) {
-      return;
-    }
-  } catch {
-    // Can't check if closed - assume it's in a bad state, just return
-    return;
-  }
-  
-  // Cap the wait to avoid test timeout issues
-  const cappedMs = Math.min(ms, 2000);
-  
-  try {
-    await page.waitForTimeout(cappedMs);
-  } catch (error) {
-    // If wait fails (e.g., page closed during wait), just return silently
-    // The calling code will handle any issues that arise
-    return;
-  }
+async function isPlanningModeActive(page: Page): Promise<boolean> {
+  return await isVisibleSafely(
+    page.getByRole("tablist", { name: "World planning views" })
+  );
 }
 
 /**
- * Helper function to select a world and enter planning mode.
- * Ensures a world exists (creates "Eldoria" if needed), selects it,
- * and optionally navigates to a specific planning sub-tab.
+ * Navigate to a planning sub-tab if already in planning mode.
+ * Returns true if navigation succeeded, false if not in planning mode.
  */
+async function navigateToPlanningSubTabIfActive(
+  page: Page,
+  subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users"
+): Promise<boolean> {
+  const planningTabsVisible = await isPlanningModeActive(page);
+  
+  if (!planningTabsVisible) {
+    return false;
+  }
+  
+  // Already in planning mode - just navigate to the requested sub-tab
+  const planningTablist = page.getByRole("tablist", { name: "World planning views" });
+  const subTabButton = planningTablist.getByRole("tab", { name: subTab });
+  
+  // Check if already on the requested tab
+  const isActive = await getAttributeSafely(subTabButton, "aria-selected");
+  if (isActive === "true") {
+    return true; // Already on the correct tab
+  }
+  
+  // Set up event listener BEFORE clicking
+  const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
+  
+  await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
+  await subTabButton.click();
+  
+  // Wait for sub-tab to be activated (event-based)
+  await subTabPromise;
+  return true;
+}
+
+/**
+ * Store a world name in page context for later retrieval.
+ */
+async function storeWorldName(page: Page, worldName: string): Promise<void> {
+  await page.evaluate((name) => {
+    (window as any).__testWorldName = name;
+  }, worldName);
+}
+
 /**
  * Ensures the ModeSelector (world context tablist) is visible.
  * If a world is currently selected, leaves it first.
@@ -180,9 +198,7 @@ export async function selectWorldAndEnterPlanningMode(
   // Use a longer timeout and check multiple times to handle timing issues
   let planningTabsAlreadyVisible = false;
   for (let i = 0; i < 3; i++) {
-    planningTabsAlreadyVisible = await isVisibleSafely(
-      page.getByRole("tablist", { name: "World planning views" })
-    );
+    planningTabsAlreadyVisible = await isPlanningModeActive(page);
     
     if (planningTabsAlreadyVisible) {
       break;
@@ -192,24 +208,8 @@ export async function selectWorldAndEnterPlanningMode(
   }
   
   if (planningTabsAlreadyVisible) {
-    // Already in planning mode - just navigate to the requested sub-tab
-    const planningTablist = page.getByRole("tablist", { name: "World planning views" });
-    const subTabButton = planningTablist.getByRole("tab", { name: subTab });
-    
-    // Check if already on the requested tab
-    const isActive = await getAttributeSafely(subTabButton, "aria-selected");
-    if (isActive === "true") {
-      return; // Already on the correct tab
-    }
-    
-    // Set up event listener BEFORE clicking
-    const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
-    
-    await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
-    await subTabButton.click();
-    
-    // Wait for sub-tab to be activated (event-based)
-    await subTabPromise;
+    // Already in planning mode - navigate to sub-tab and return
+    await navigateToPlanningSubTabIfActive(page, subTab);
     return; // Done - we're already in planning mode
   }
 
@@ -292,23 +292,9 @@ export async function selectWorldAndEnterPlanningMode(
       }
       
       // Last retry failed - check if we're already in planning mode
-      const planningTabsCheck = await isVisibleSafely(
-        page.getByRole("tablist", { name: "World planning views" })
-      );
-      
-      if (planningTabsCheck) {
+      if (await isPlanningModeActive(page)) {
         // We're already in planning mode - navigate to sub-tab directly
-        const planningTablist = page.getByRole("tablist", { name: "World planning views" });
-        const subTabButton = planningTablist.getByRole("tab", { name: subTab });
-        
-        // Set up event listener BEFORE clicking
-        const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
-        
-        await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
-        await subTabButton.click();
-        
-        // Wait for sub-tab to be activated (event-based)
-        await subTabPromise;
+        await navigateToPlanningSubTabIfActive(page, subTab);
         return;
       }
       
@@ -326,23 +312,9 @@ export async function selectWorldAndEnterPlanningMode(
   }
   
   // Double-check that we're not in planning mode (might have changed during ensureModeSelectorVisible)
-  const planningTabsCheckAgain = await isVisibleSafely(
-    page.getByRole("tablist", { name: "World planning views" })
-  );
-  
-  if (planningTabsCheckAgain) {
+  if (await isPlanningModeActive(page)) {
     // We're now in planning mode - just navigate to sub-tab
-    const planningTablist = page.getByRole("tablist", { name: "World planning views" });
-    const subTabButton = planningTablist.getByRole("tab", { name: subTab });
-    
-    // Set up event listener BEFORE clicking
-    const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
-    
-    await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
-    await subTabButton.click();
-    
-    // Wait for sub-tab to be activated (event-based)
-    await subTabPromise;
+    await navigateToPlanningSubTabIfActive(page, subTab);
     return;
   }
 
@@ -396,23 +368,9 @@ export async function selectWorldAndEnterPlanningMode(
     worldContextVisible = true;
   } catch {
     // Tablist not visible - check if we're already in planning mode (double-check)
-    const planningTabsCheck = await isVisibleSafely(
-      page.getByRole("tablist", { name: "World planning views" })
-    );
-    
-    if (planningTabsCheck) {
+    if (await isPlanningModeActive(page)) {
       // We're already in planning mode - just navigate to sub-tab
-      const planningTablist = page.getByRole("tablist", { name: "World planning views" });
-      const subTabButton = planningTablist.getByRole("tab", { name: subTab });
-      
-      // Set up event listener BEFORE clicking
-      const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
-      
-      await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
-      await subTabButton.click();
-      
-      // Wait for sub-tab to be activated (event-based)
-      await subTabPromise;
+      await navigateToPlanningSubTabIfActive(page, subTab);
       return;
     }
     
@@ -484,9 +442,7 @@ export async function selectWorldAndEnterPlanningMode(
               await expect(
                 worldContextTablist.getByRole("tab", { name: uniqueWorldName })
               ).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
-              await page.evaluate((name) => {
-                (window as any).__testWorldName = name;
-              }, uniqueWorldName);
+              await storeWorldName(page, uniqueWorldName);
               hasUniqueWorld = true;
               return;
             }
@@ -495,37 +451,35 @@ export async function selectWorldAndEnterPlanningMode(
           throw error;
         }
         
-        // Check if world already appeared (creation succeeded)
-        let worldExists = await isVisibleSafely(
-          worldContextTablist.getByRole("tab", { name: uniqueWorldName })
-        );
-        
-        // If not visible yet, wait a bit more and check again
-        if (!worldExists) {
-          await safeWait(page, STABILITY_WAIT_MAX);
-          worldExists = await isVisibleSafely(
-            worldContextTablist.getByRole("tab", { name: uniqueWorldName })
-          );
+    // Check if world already appeared (creation succeeded)
+    let worldExists = await isVisibleSafely(
+      worldContextTablist.getByRole("tab", { name: uniqueWorldName })
+    );
+    
+    // If not visible yet, wait a bit more and check again
+    if (!worldExists) {
+      await safeWait(page, STABILITY_WAIT_MAX);
+      worldExists = await isVisibleSafely(
+        worldContextTablist.getByRole("tab", { name: uniqueWorldName })
+      );
+    }
+    
+    if (worldExists) {
+      // World was created successfully, modal should be closed or will close
+      // Force close if still open
+      const stillOpen = await isVisibleSafely(createWorldDialog);
+      if (stillOpen) {
+        const cancelButton = createWorldDialog.getByRole("button", { name: "Cancel" });
+        if (await isVisibleSafely(cancelButton)) {
+          await cancelButton.click();
         }
-        
-        if (worldExists) {
-          // World was created successfully, modal should be closed or will close
-          // Force close if still open
-          const stillOpen = await isVisibleSafely(createWorldDialog);
-          if (stillOpen) {
-            const cancelButton = createWorldDialog.getByRole("button", { name: "Cancel" });
-            if (await isVisibleSafely(cancelButton)) {
-              await cancelButton.click();
-            }
-          }
-          // Store the unique world name in page context for other steps to use
-          await page.evaluate((name) => {
-            (window as any).__testWorldName = name;
-          }, uniqueWorldName);
-          // Mark that we now have the unique world
-          hasUniqueWorld = true;
-          // Wait a bit for the world tab to be fully ready
-          await safeWait(page, STABILITY_WAIT_LONG);
+      }
+      // Store the unique world name in page context for other steps to use
+      await storeWorldName(page, uniqueWorldName);
+      // Mark that we now have the unique world
+      hasUniqueWorld = true;
+      // Wait a bit for the world tab to be fully ready
+      await safeWait(page, STABILITY_WAIT_LONG);
         } else {
           // Check if there's an error message
           const errorVisible = await isVisibleSafely(page.getByTestId("error-message"));
@@ -546,9 +500,7 @@ export async function selectWorldAndEnterPlanningMode(
               if (worldTabExists) {
                 await expect(worldTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
                 // Store the unique world name in page context
-                await page.evaluate((name) => {
-                  (window as any).__testWorldName = name;
-                }, uniqueWorldName);
+                await storeWorldName(page, uniqueWorldName);
                 hasUniqueWorld = true;
               } else {
                 // Fall back to base name for backwards compatibility
@@ -582,9 +534,7 @@ export async function selectWorldAndEnterPlanningMode(
             if (worldTabExists) {
               await expect(worldTab).toBeVisible({ timeout: 3000 });
               // Store the unique world name in page context
-              await page.evaluate((name) => {
-                (window as any).__testWorldName = name;
-              }, uniqueWorldName);
+              await storeWorldName(page, uniqueWorldName);
               hasUniqueWorld = true;
             } else {
               // Fall back to base name for backwards compatibility
@@ -851,24 +801,18 @@ export async function selectWorldAndEnterPlanningMode(
     const planningModeSucceeded = results[1].status === "fulfilled";
     
     // Check if at least planning mode is active (most important indicator)
-    let planningTabsVisible = await isVisibleSafely(
-      page.getByRole("tablist", { name: "World planning views" })
-    );
+    let planningTabsVisible = await isPlanningModeActive(page);
     
     if (!planningTabsVisible) {
       // Planning mode not active - wait a bit more and check again
       // Sometimes the UI takes a moment to update even after events fire
       await safeWait(page, STABILITY_WAIT_MAX);
-      planningTabsVisible = await isVisibleSafely(
-        page.getByRole("tablist", { name: "World planning views" })
-      );
+      planningTabsVisible = await isPlanningModeActive(page);
       
       if (!planningTabsVisible) {
         // Wait one more time with a longer delay
         await safeWait(page, VISIBILITY_TIMEOUT_SHORT / 2);
-        planningTabsVisible = await isVisibleSafely(
-          page.getByRole("tablist", { name: "World planning views" })
-        );
+        planningTabsVisible = await isPlanningModeActive(page);
       }
       
       if (!planningTabsVisible) {
@@ -902,11 +846,7 @@ export async function selectWorldAndEnterPlanningMode(
     }
   } catch (error) {
     // If there's an error, check if planning mode is active anyway
-    const planningTabsVisible = await isVisibleSafely(
-      page.getByRole("tablist", { name: "World planning views" })
-    );
-    
-    if (planningTabsVisible) {
+    if (await isPlanningModeActive(page)) {
       // Planning mode is active - that's what matters, continue
       return;
     }
@@ -961,11 +901,7 @@ export async function ensureCampaignExists(
 
   // Ensure we're in planning mode with a world selected
   // Check if planning tabs are visible (indicates world is selected)
-  const planningTabsVisible = await isVisibleSafely(
-    page.getByRole("tablist", { name: "World planning views" })
-  );
-
-  if (!planningTabsVisible) {
+  if (!(await isPlanningModeActive(page))) {
     // Need to select a world first
     await selectWorldAndEnterPlanningMode(page, "Campaigns");
   }
@@ -1678,11 +1614,7 @@ export async function waitForWorldSelected(
     ]);
   } catch (error) {
     // Both failed - check if planning mode is active anyway (might have happened via event)
-    const planningTabsVisible = await isVisibleSafely(
-      page.getByRole("tablist", { name: "World planning views" })
-    );
-    
-    if (planningTabsVisible) {
+    if (await isPlanningModeActive(page)) {
       // Planning mode is active - world must be selected, even if we didn't catch the event
       return;
     }

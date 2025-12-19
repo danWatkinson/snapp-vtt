@@ -194,25 +194,29 @@ export async function waitForModalClose(
   const dialogPromise = (async () => {
     const dialogName = MODAL_DIALOG_NAMES[modalType] || "dialog";
     const dialog = page.getByRole("dialog", { name: new RegExp(dialogName, "i") });
-    // Use a shorter timeout for the dialog check since we're racing with the event
-    await dialog.waitFor({ state: "hidden", timeout: Math.min(timeout, VISIBILITY_TIMEOUT_MEDIUM) });
+    // Use the full timeout for the dialog check since we're racing with the event
+    // The event might not fire, so we need to give the dialog check enough time
+    await dialog.waitFor({ state: "hidden", timeout });
   })();
 
   // Wait for EITHER the event OR the dialog to be hidden
   // If the event fires, great. If not, check if dialog is hidden anyway
-  await Promise.race([
-    eventPromise,
-    dialogPromise
-  ]).catch(async (error) => {
+  try {
+    await Promise.race([
+      eventPromise,
+      dialogPromise
+    ]);
+  } catch (error) {
     // If both timed out, check if dialog is hidden anyway
+    // This handles cases where the dialog is closing but took longer than expected
     const dialogName = MODAL_DIALOG_NAMES[modalType] || "dialog";
     const dialog = page.getByRole("dialog", { name: new RegExp(dialogName, "i") });
-    const isHidden = await isHiddenSafely(dialog);
+    const isHidden = await isHiddenSafely(dialog, 1000); // Give it a moment to check
     if (isHidden) {
       return; // Dialog is hidden, that's good enough
     }
     throw error; // Neither event nor dialog hidden, rethrow
-  });
+  }
 }
 
 /**

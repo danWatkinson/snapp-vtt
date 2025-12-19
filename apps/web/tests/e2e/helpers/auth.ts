@@ -1,37 +1,7 @@
 import { Page, expect } from "@playwright/test";
 import { waitForModalOpen, waitForModalClose } from "./modals";
-import { isVisibleSafely, isHiddenSafely, waitForLoadStateSafely, createTimeoutPromise, awaitSafely } from "./utils";
+import { isVisibleSafely, isHiddenSafely, waitForLoadStateSafely, createTimeoutPromise, awaitSafely, safeWait, isPageClosedSafely } from "./utils";
 import { STABILITY_WAIT_MEDIUM, STABILITY_WAIT_LONG, STABILITY_WAIT_MAX, VISIBILITY_TIMEOUT_MEDIUM, VISIBILITY_TIMEOUT_LONG, VISIBILITY_TIMEOUT_EXTRA } from "./constants";
-
-/**
- * Safely wait for a timeout, checking if page is closed.
- * Simplified version that just checks if page is closed before waiting.
- * 
- * @param page - Playwright page object
- * @param ms - Milliseconds to wait (capped at 2000ms to avoid test timeouts)
- */
-async function safeWait(page: Page, ms: number) {
-  // Quick check if page is closed - if so, don't wait
-  try {
-    if (page.isClosed()) {
-      return;
-    }
-  } catch {
-    // Can't check if closed - assume it's in a bad state, just return
-    return;
-  }
-  
-  // Cap the wait to avoid test timeout issues
-  const cappedMs = Math.min(ms, 2000);
-  
-  try {
-    await page.waitForTimeout(cappedMs);
-  } catch (error) {
-    // If wait fails (e.g., page closed during wait), just return silently
-    // The calling code will handle any issues that arise
-    return;
-  }
-}
 
 /**
  * Helper to ensure login dialog is closed (it blocks clicks if open)
