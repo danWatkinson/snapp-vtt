@@ -144,6 +144,63 @@ async function tryDeselectCampaign(page: Page): Promise<boolean> {
 }
 
 /**
+ * Find a world tab by trying multiple strategies:
+ * 1. Try unique world name
+ * 2. Try base name "Eldoria"
+ * 3. Try first available world
+ * Returns the world tab locator and whether it exists.
+ */
+async function findWorldTab(
+  page: Page,
+  worldContextTablist: ReturnType<Page['getByRole']>,
+  uniqueWorldName: string,
+  hasUniqueWorld: boolean
+): Promise<{ worldTab: ReturnType<Page['getByRole']> | null; exists: boolean }> {
+  let worldTab: ReturnType<Page['getByRole']> | null = null;
+  let worldTabExists = false;
+  
+  // If we already found the unique world, use it
+  if (hasUniqueWorld) {
+    worldTab = worldContextTablist.getByRole("tab", { name: uniqueWorldName });
+    worldTabExists = true;
+  } else {
+    // First, try to find the unique world name
+    try {
+      worldTab = worldContextTablist.getByRole("tab", { name: uniqueWorldName });
+      worldTabExists = await isVisibleSafely(worldTab);
+    } catch {
+      // Can't check, continue
+    }
+  }
+  
+  // If unique world not found, try base name "Eldoria"
+  if (!worldTabExists) {
+    try {
+      worldTab = worldContextTablist.getByRole("tab", { name: "Eldoria" });
+      worldTabExists = await isVisibleSafely(worldTab);
+    } catch {
+      // Can't check, continue
+    }
+  }
+  
+  // If still not found, just get the first available world
+  if (!worldTabExists) {
+    try {
+      worldTab = worldContextTablist.getByRole("tab").first();
+      // Verify it exists
+      worldTabExists = await isVisibleSafely(worldTab);
+    } catch (error: any) {
+      if (error.message?.includes("closed") || (await isPageClosedSafely(page))) {
+        throw new Error("Page or browser context was closed while trying to find world tab");
+      }
+      throw error;
+    }
+  }
+  
+  return { worldTab, exists: worldTabExists };
+}
+
+/**
  * Ensures the ModeSelector (world context tablist) is visible.
  * If a world is currently selected, leaves it first.
  */
@@ -635,47 +692,12 @@ export async function selectWorldAndEnterPlanningMode(
 
   // Select the first available world
   // Try to find the unique world name first (for "Eldoria"), then fall back to any world
-  // uniqueWorldName already defined above
-  let worldTab;
-  let worldTabExists = false;
-  
-  // If we already found the unique world, use it
-  if (hasUniqueWorld) {
-    worldTab = worldContextTablist.getByRole("tab", { name: uniqueWorldName });
-    worldTabExists = true;
-  } else {
-    // First, try to find the unique world name
-    try {
-      worldTab = worldContextTablist.getByRole("tab", { name: uniqueWorldName });
-      worldTabExists = await isVisibleSafely(worldTab);
-    } catch {
-      // Can't check, continue
-    }
-  }
-  
-  // If unique world not found, try base name "Eldoria"
-  if (!worldTabExists) {
-    try {
-      worldTab = worldContextTablist.getByRole("tab", { name: "Eldoria" });
-      worldTabExists = await isVisibleSafely(worldTab);
-    } catch {
-      // Can't check, continue
-    }
-  }
-  
-  // If still not found, just get the first available world
-  if (!worldTabExists) {
-    try {
-      worldTab = worldContextTablist.getByRole("tab").first();
-      // Verify it exists
-      worldTabExists = await isVisibleSafely(worldTab);
-    } catch (error) {
-      if (error.message?.includes("closed") || page.isClosed()) {
-        throw new Error("Page or browser context was closed while trying to find world tab");
-      }
-      throw error;
-    }
-  }
+  let { worldTab, exists: worldTabExists } = await findWorldTab(
+    page,
+    worldContextTablist,
+    uniqueWorldName,
+    hasUniqueWorld
+  );
   
   // If we still don't have a world tab, wait a bit more and retry (for concurrent execution)
   if (!worldTabExists) {
@@ -720,9 +742,9 @@ export async function selectWorldAndEnterPlanningMode(
         worldTab = worldContextTablist.getByRole("tab").first();
         worldTabExists = await isVisibleSafely(worldTab);
       }
-    } catch (error) {
+    } catch (error: any) {
       // Still can't find it - check if page is closed
-      if (error.message?.includes("closed") || page.isClosed()) {
+      if (error.message?.includes("closed") || (await isPageClosedSafely(page))) {
         throw new Error("Page or browser context was closed while trying to find world tab");
       }
     }
@@ -735,24 +757,12 @@ export async function selectWorldAndEnterPlanningMode(
   // Ensure the tab is visible and clickable
   try {
     await expect(worldTab).toBeVisible({ timeout: 3000 });
-  } catch (error) {
+  } catch (error: any) {
     // Check if page is actually closed - be defensive about this check
-    let actuallyClosed = false;
-    try {
-      // Only check if page is closed if we can safely do so
-      if (!page.isClosed()) {
-        actuallyClosed = false;
-      } else {
-        actuallyClosed = true;
-      }
-    } catch {
-      // Can't check page state - might be in transition, don't assume it's closed
-      // Just rethrow the original error
-      throw error;
-    }
+    const actuallyClosed = await isPageClosedSafely(page);
     
     // Only throw page closed error if we're certain the page is closed
-    if (actuallyClosed) {
+    if (actuallyClosed || error.message?.includes("closed")) {
       throw new Error("Page or browser context was closed while waiting for world tab to be visible");
     }
     // If error mentions "closed" but page isn't actually closed, it might be a false positive
@@ -848,8 +858,8 @@ export async function selectWorldAndEnterPlanningMode(
         }
       }
     }
-  } catch (error) {
-    if (error.message?.includes("closed") || page.isClosed()) {
+  } catch (error: any) {
+    if (error.message?.includes("closed") || (await isPageClosedSafely(page))) {
       throw new Error("Page or browser context was closed while clicking world tab");
     }
     // Don't throw here - continue and wait for events (they might still fire even if click verification failed)
@@ -931,26 +941,8 @@ export async function selectWorldAndEnterPlanningMode(
       throw new Error("Page was closed before navigating to sub-tab");
     }
     
-    // Wait for the planning tablist to be visible before accessing it
-    const planningTablist = page.getByRole("tablist", { name: "World planning views" });
-    await expect(planningTablist).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
-    
-    const subTabButton = planningTablist.getByRole("tab", { name: subTab });
-    
-    // Check if already on the requested tab
-    const isActive = await getAttributeSafely(subTabButton, "aria-selected");
-    if (isActive === "true") {
-      return; // Already on the correct tab
-    }
-    
-    await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
-    // Set up event listener BEFORE clicking
-    const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
-    
-    await subTabButton.click();
-
-    // Wait for sub-tab to be activated (event-based)
-    await subTabPromise;
+    // Use helper function to navigate to sub-tab
+    await navigateToPlanningSubTabIfActive(page, subTab);
   }
 }
 
@@ -998,6 +990,9 @@ export async function ensureCampaignExists(
       await awaitSafely(worldEntitiesPromise); // Don't fail if event doesn't fire
       
       // Now navigate back to Campaigns
+      const campaignsTab = page
+        .getByRole("tablist", { name: "World planning views" })
+        .getByRole("tab", { name: "Campaigns" });
       const campaignsPromise = waitForPlanningSubTab(page, "Campaigns", 5000);
       await campaignsTab.click();
       await awaitSafely(campaignsPromise); // Don't fail if event doesn't fire
@@ -1068,10 +1063,14 @@ export async function ensureCampaignExists(
         if (tabExists) {
           // Try to click it even if not visible
           try {
-            if (!page.isClosed()) {
+            if (!(await isPageClosedSafely(page))) {
               await hiddenCampaignTab.click({ force: true, timeout: VISIBILITY_TIMEOUT_SHORT });
               await safeWait(page, STABILITY_WAIT_EXTRA);
               // Check if it worked
+              const selectedCampaignHeading = page
+                .locator('h3.snapp-heading')
+                .filter({ hasText: campaignName })
+                .first();
               const nowSelected = await isVisibleSafely(selectedCampaignHeading);
               if (nowSelected) {
                 return; // Successfully selected the campaign
@@ -1150,10 +1149,13 @@ export async function ensureCampaignExists(
   const campaignExistsAnywhere = hasCampaignTab || 
     (await isVisibleSafely(page.getByText(campaignName).first()));
 
+  // Check if we can create a campaign (no campaign views means no campaign selected)
+  const canCreateCampaign = !(await isCampaignSelected(page));
+
   // If no campaign is selected, we can create a campaign via Snapp menu
   // If campaign tab exists, we can select it
   // If campaign views are visible and it's the correct campaign, we're done (handled above)
-  if (!campaignExistsAnywhere && createButtonVisible) {
+  if (!campaignExistsAnywhere && canCreateCampaign) {
     // Campaign doesn't exist and we can create it
     // Use the Snapp menu "New Campaign" button
     // First check if a campaign was auto-selected while we were checking
@@ -1183,11 +1185,11 @@ export async function ensureCampaignExists(
     }
     
     // Open Snapp menu and click "New Campaign"
-    // Check page state before interacting
-    try {
-      if (page.isClosed()) {
-        throw new Error("Page was closed before opening Snapp menu");
-      }
+      // Check page state before interacting
+      try {
+        if (await isPageClosedSafely(page)) {
+          throw new Error("Page was closed before opening Snapp menu");
+        }
       await page.getByRole("button", { name: /^Snapp/i }).click();
       // Small wait for menu to open
       await page.waitForTimeout(STABILITY_WAIT_LONG);
@@ -1195,19 +1197,13 @@ export async function ensureCampaignExists(
       await expect(newCampaignButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
       
       // Check page state again before clicking
-      if (page.isClosed()) {
+      if (await isPageClosedSafely(page)) {
         throw new Error("Page was closed before clicking New Campaign");
       }
       await newCampaignButton.click();
-    } catch (error) {
+    } catch (error: any) {
       // Check if page is actually closed - be defensive
-      let actuallyClosed = false;
-      try {
-        actuallyClosed = page.isClosed();
-      } catch {
-        // Can't check - might be in transition, rethrow original error
-        throw error;
-      }
+      const actuallyClosed = await isPageClosedSafely(page);
       
       // Only throw page closed error if we're certain the page is closed
       if (actuallyClosed) {
@@ -1309,26 +1305,20 @@ export async function ensureCampaignExists(
     // Click it to select the campaign
     // Check page state before interacting
     try {
-      if (page.isClosed()) {
+      if (await isPageClosedSafely(page)) {
         throw new Error("Page was closed before selecting campaign tab");
       }
       const campaignTab = page.getByRole("tab", { name: campaignName }).first();
       await expect(campaignTab).toBeVisible({ timeout: 3000 });
       
       // Check page state again before clicking
-      if (page.isClosed()) {
+      if (await isPageClosedSafely(page)) {
         throw new Error("Page was closed before clicking campaign tab");
       }
       await campaignTab.click();
-    } catch (error) {
+    } catch (error: any) {
       // Check if page is actually closed - be defensive
-      let actuallyClosed = false;
-      try {
-        actuallyClosed = page.isClosed();
-      } catch {
-        // Can't check - might be in transition, rethrow original error
-        throw error;
-      }
+      const actuallyClosed = await isPageClosedSafely(page);
       
       // Only throw page closed error if we're certain the page is closed
       if (actuallyClosed) {
@@ -1344,21 +1334,21 @@ export async function ensureCampaignExists(
   } else if (hasCampaignTab && !campaignViewsStillVisible) {
     // Campaign exists but not selected - select it
     try {
-      if (page.isClosed()) {
+      if (await isPageClosedSafely(page)) {
         throw new Error("Page was closed before selecting existing campaign");
       }
       const campaignTab = page.getByRole("tab", { name: campaignName }).first();
       await expect(campaignTab).toBeVisible({ timeout: 3000 });
       
-      if (page.isClosed()) {
+      if (await isPageClosedSafely(page)) {
         throw new Error("Page was closed before clicking existing campaign tab");
       }
       await campaignTab.click();
       await expect(
         page.getByRole("tablist", { name: "Campaign views" })
       ).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
-    } catch (error) {
-      if (page.isClosed() || error.message?.includes("closed") || error.message?.includes("Target page")) {
+    } catch (error: any) {
+      if (await isPageClosedSafely(page) || error.message?.includes("closed") || error.message?.includes("Target page")) {
         throw new Error("Page was closed while trying to select existing campaign");
       }
       throw error;
@@ -1398,13 +1388,8 @@ export async function ensureCampaignExists(
   
   // Final check - ensure page is still open before returning
   // This helps catch cases where the page closes asynchronously
-  try {
-    if (page.isClosed()) {
-      throw new Error("Page was closed during ensureCampaignExists");
-    }
-  } catch (error) {
-    // If checking isClosed() throws, the page is likely in a bad state
-    // But don't throw here - let the next operation fail naturally
+  if (await isPageClosedSafely(page)) {
+    throw new Error("Page was closed during ensureCampaignExists");
   }
 }
 
