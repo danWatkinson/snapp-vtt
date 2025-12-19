@@ -22,10 +22,6 @@ async function getStoredAliceUsername(page: any): Promise<string> {
   return getUniqueUsername("alice");
 }
 
-When("the admin navigates to the players view", async ({ page }) => {
-  await page.getByRole("tab", { name: "Players" }).click();
-});
-
 When('the admin ensures player "alice" is added to the campaign', async ({ page }) => {
   const uniqueAliceName = await getStoredAliceUsername(page);
   

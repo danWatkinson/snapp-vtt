@@ -372,16 +372,6 @@ When("world {string} exists and is selected with creatures tab", async ({ page }
   await expect(page.getByRole("button", { name: "Add creature" })).toBeVisible({ timeout: 3000 });
 });
 
-When("the admin navigates to the creatures tab", async ({ page }) => {
-  // Ensure planning tabs are visible (world must be selected)
-  const planningTabs = page.getByRole("tablist", { name: "World planning views" });
-  await expect(planningTabs).toBeVisible({ timeout: 5000 });
-  
-  await expect(page.getByRole("tab", { name: "Creatures" })).toBeVisible({ timeout: 3000 });
-  await page.getByRole("tab", { name: "Creatures" }).click();
-  await expect(page.getByRole("button", { name: "Add creature" })).toBeVisible({ timeout: 3000 });
-});
-
 When('the admin ensures creature "Dragon" exists', async ({ page }) => {
   const hasDragon = await page
     .getByRole("listitem")

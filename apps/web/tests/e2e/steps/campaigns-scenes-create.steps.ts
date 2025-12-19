@@ -6,13 +6,6 @@ import { getStoredWorldName } from "../helpers";
 
 const { When, Then } = createBdd();
 
-When("the admin navigates to the sessions view", async ({ page }) => {
-  await page
-    .getByRole("tablist", { name: "Campaign views" })
-    .getByRole("tab", { name: "Sessions" })
-    .click();
-});
-
 When('session "Session 1" exists in the campaign', async ({ page }) => {
   const hasSession = await page
     .getByRole("listitem")
