@@ -1,13 +1,12 @@
-Feature: Game master creates campaigns
+Feature: World Builders can create campaigns
 
-  As a Game Master
+  As a World Builder
   I want to create campaigns
-  So that I can organize my game sessions and story arcs
+  So that a game master and their players can play them
 
   Background:
-    Given there is a game master user
+    Given there is a world builder
 
-  Scenario: Game master creates a campaign via the UI
-    When the game master signs in to the system
-    And the game master creates a campaign named "Rise of the Dragon King" with summary "A long-running campaign about ancient draconic power returning"
-    Then the UI shows a campaign tab named "Rise of the Dragon King"
+  Scenario: World builder can create a campaign
+    When the world builder creates a campaign
+    Then the campaign appears in the campaigns list
