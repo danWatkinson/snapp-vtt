@@ -9,9 +9,7 @@ Feature: World builder creates creatures and factions
 
   Scenario: World builder can add Creatures and Factions to a World via popup
     When the admin signs in to the system as "admin"
-    And the admin navigates to the "World Entities" planning screen
-    And world "Eldoria" exists
-    And the admin selects world "Eldoria"
+    And world "Eldoria" exists and is selected
     And the admin navigates to the creatures tab
     And the admin ensures creature "Dragon" exists
     Then creature "Dragon" appears in the creatures list

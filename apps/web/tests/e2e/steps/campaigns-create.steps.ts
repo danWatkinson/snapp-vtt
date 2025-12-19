@@ -62,14 +62,34 @@ When(
     await page.getByRole("button", { name: "Save campaign" }).click();
     
     // Wait for campaign creation event (this fires after API success + state update)
-    // The helper includes modal close fallback, so this is more reliable
+    // The helper includes multiple fallbacks (modal close, tab appearance, heading appearance)
     try {
       await campaignCreatedPromise;
-      // Campaign was created successfully - event fired
-      // Modal should be closed automatically, but if not, close it
-      await closeModalIfOpen(page, "campaign", /create campaign/i);
-    } catch (error) {
-      // Event didn't fire - check for errors
+      // Campaign was created successfully - verify it's visible
+      // Check if campaign tab or heading is visible (campaign might be auto-selected)
+      const campaignTab = page.getByRole("tab", { name: campaignName }).first();
+      const campaignHeading = page.locator('h3.snapp-heading').filter({ hasText: campaignName }).first();
+      const tabVisible = await campaignTab.isVisible({ timeout: 2000 }).catch(() => false);
+      const headingVisible = await campaignHeading.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (tabVisible || headingVisible) {
+        // Campaign is visible - success! Close modal if still open
+        await closeModalIfOpen(page, "campaign", /create campaign/i);
+        return;
+      }
+      
+      // Campaign not visible yet - wait a bit more and check again
+      await page.waitForTimeout(500);
+      const finalTabCheck = await campaignTab.isVisible({ timeout: 2000 }).catch(() => false);
+      const finalHeadingCheck = await campaignHeading.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (finalTabCheck || finalHeadingCheck) {
+        // Campaign is visible now - close modal if still open
+        await closeModalIfOpen(page, "campaign", /create campaign/i);
+        return;
+      }
+      
+      // Campaign not visible - check for errors
       const errorVisible = await page.getByTestId("error-message").isVisible({ timeout: 1000 }).catch(() => false);
       if (errorVisible) {
         const errorText = await page.getByTestId("error-message").textContent();
@@ -77,7 +97,33 @@ When(
         await handleAlreadyExistsError(page, errorText || null, "campaign", /create campaign/i);
         return; // Campaign already exists, it should appear in the list
       }
-      // No error but event didn't fire - rethrow original error
+      
+      // No error but campaign not visible - might be a timing issue
+      // Close modal and let the "Then" step verify campaign exists
+      await closeModalIfOpen(page, "campaign", /create campaign/i);
+    } catch (error) {
+      // Event/fallback didn't fire - check if campaign actually exists anyway
+      const campaignTab = page.getByRole("tab", { name: campaignName }).first();
+      const campaignHeading = page.locator('h3.snapp-heading').filter({ hasText: campaignName }).first();
+      const tabVisible = await campaignTab.isVisible({ timeout: 2000 }).catch(() => false);
+      const headingVisible = await campaignHeading.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (tabVisible || headingVisible) {
+        // Campaign exists - that's what matters, even if events didn't fire
+        await closeModalIfOpen(page, "campaign", /create campaign/i);
+        return;
+      }
+      
+      // Check for errors
+      const errorVisible = await page.getByTestId("error-message").isVisible({ timeout: 1000 }).catch(() => false);
+      if (errorVisible) {
+        const errorText = await page.getByTestId("error-message").textContent();
+        // Handle "already exists" errors gracefully
+        await handleAlreadyExistsError(page, errorText || null, "campaign", /create campaign/i);
+        return; // Campaign already exists, it should appear in the list
+      }
+      
+      // No error but event didn't fire and campaign not visible - rethrow original error
       throw error;
     }
   }

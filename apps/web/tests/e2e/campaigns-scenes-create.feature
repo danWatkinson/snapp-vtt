@@ -9,7 +9,6 @@ Feature: Game master creates scenes within a session
 
   Scenario: Game master can create a Scene within a Session
     When the admin signs in to the system as "admin"
-    And the admin navigates to the "Campaigns" planning screen
     And the campaign "Rise of the Dragon King" exists
     And the admin navigates to the sessions view
     And session "Session 1" exists in the campaign

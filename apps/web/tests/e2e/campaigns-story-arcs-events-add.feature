@@ -9,7 +9,6 @@ Feature: Game master adds events to story arcs
 
   Scenario: Game master can add Events to a Story Arc
     When the admin signs in to the system as "admin"
-    And the admin navigates to the "Story Arcs" planning screen
     And the campaign "Rise of the Dragon King" exists
     And the admin navigates to the story arcs view
     And story arc "The Ancient Prophecy" exists

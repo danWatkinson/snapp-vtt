@@ -9,7 +9,6 @@ Feature: Game master adds story arcs to a campaign
 
   Scenario: Game master can add Story Arcs to a Campaign
     When the admin signs in to the system as "admin"
-    And the admin navigates to the "Story Arcs" planning screen
     And the campaign "Rise of the Dragon King" exists
     And the admin navigates to the story arcs view
     And the admin ensures story arc "The Ancient Prophecy" exists

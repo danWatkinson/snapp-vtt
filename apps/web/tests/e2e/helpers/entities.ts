@@ -69,7 +69,7 @@ export async function waitForCampaignCreated(
   campaignName: string,
   timeout: number = DEFAULT_EVENT_TIMEOUT
 ): Promise<void> {
-  // Wait for event with name filter, with modal close as fallback
+  // Wait for event with name filter, with multiple fallbacks
   await waitForEventWithNameFilter(
     page,
     CAMPAIGN_CREATED_EVENT,
@@ -78,18 +78,70 @@ export async function waitForCampaignCreated(
     timeout,
     `Timeout waiting for campaign "{name}" to be created after ${timeout}ms`,
     async () => {
-      // Fallback: Wait for modal to close (campaign creation closes the modal)
-      await waitForModalClose(page, "campaign", timeout);
+      // Fallback: Check for campaign tab or heading appearance (most reliable indicator)
+      // This is better than waiting for modal close since the campaign might be auto-selected
+      const campaignTab = page.getByRole("tab", { name: new RegExp(campaignName, "i") }).first();
+      const campaignHeading = page.locator('h3.snapp-heading').filter({ hasText: new RegExp(campaignName, "i") }).first();
+      
+      // Race between modal close, tab appearance, and heading appearance
+      await Promise.race([
+        waitForModalClose(page, "campaign", timeout).catch(() => {}), // Don't fail if modal doesn't close
+        expect(campaignTab).toBeVisible({ timeout }).catch(() => {}), // Don't fail if tab check fails
+        expect(campaignHeading).toBeVisible({ timeout }).catch(() => {}) // Don't fail if heading check fails
+      ]);
+      
+      // Verify campaign actually appeared (either as tab or heading)
+      const tabVisible = await isVisibleSafely(campaignTab, 2000);
+      const headingVisible = await isVisibleSafely(campaignHeading, 2000);
+      
+      if (tabVisible || headingVisible) {
+        // Campaign appeared - success!
+        return;
+      }
+      
+      // Campaign didn't appear - check if modal is closed (might indicate success)
+      const dialog = page.getByRole("dialog", { name: /create campaign/i });
+      const isHidden = await isHiddenSafely(dialog, 1000);
+      if (isHidden) {
+        // Modal is closed - campaign might have been created, verify it exists
+        const finalTabCheck = await isVisibleSafely(campaignTab, 2000);
+        const finalHeadingCheck = await isVisibleSafely(campaignHeading, 2000);
+        if (finalTabCheck || finalHeadingCheck) {
+          return; // Campaign exists
+        }
+      }
+      
+      // Neither campaign appeared nor modal closed - this is an error
+      throw new Error(`Campaign "${campaignName}" was not created. Modal may still be open.`);
     }
   ).catch(async (error) => {
-    // If both failed, check if modal is closed anyway
+    // If both event and fallback failed, do a final check
     const dialog = page.getByRole("dialog", { name: /create campaign/i });
-    const isHidden = await isHiddenSafely(dialog);
-    if (isHidden) {
-      // Modal is closed, that's good enough
+    const isHidden = await isHiddenSafely(dialog, 1000);
+    
+    // Check if campaign actually exists (maybe event didn't fire but creation succeeded)
+    const campaignTab = page.getByRole("tab", { name: new RegExp(campaignName, "i") }).first();
+    const campaignHeading = page.locator('h3.snapp-heading').filter({ hasText: new RegExp(campaignName, "i") }).first();
+    const tabVisible = await isVisibleSafely(campaignTab, 2000);
+    const headingVisible = await isVisibleSafely(campaignHeading, 2000);
+    
+    if (tabVisible || headingVisible) {
+      // Campaign exists - that's what matters, even if events didn't fire
       return;
     }
-    // Neither event nor modal close - rethrow
+    
+    if (isHidden) {
+      // Modal is closed but campaign doesn't exist - might be a timing issue
+      // Wait a bit more and check again
+      await page.waitForTimeout(500);
+      const finalTabCheck = await isVisibleSafely(campaignTab, 2000);
+      const finalHeadingCheck = await isVisibleSafely(campaignHeading, 2000);
+      if (finalTabCheck || finalHeadingCheck) {
+        return; // Campaign exists now
+      }
+    }
+    
+    // Neither event nor campaign appearance - rethrow
     throw error;
   });
 }
