@@ -1,7 +1,7 @@
 import { Page, expect } from "@playwright/test";
 import { waitForModalOpen, waitForModalClose } from "./modals";
 import { isVisibleSafely, isHiddenSafely, waitForLoadStateSafely, createTimeoutPromise, awaitSafely, safeWait, isPageClosedSafely } from "./utils";
-import { STABILITY_WAIT_MEDIUM, STABILITY_WAIT_LONG, STABILITY_WAIT_MAX, VISIBILITY_TIMEOUT_MEDIUM, VISIBILITY_TIMEOUT_LONG, VISIBILITY_TIMEOUT_EXTRA } from "./constants";
+import { STABILITY_WAIT_MEDIUM, STABILITY_WAIT_LONG, STABILITY_WAIT_EXTRA, STABILITY_WAIT_MAX, VISIBILITY_TIMEOUT_SHORT, VISIBILITY_TIMEOUT_MEDIUM, VISIBILITY_TIMEOUT_LONG, VISIBILITY_TIMEOUT_EXTRA } from "./constants";
 
 /**
  * Check if user is currently logged in by checking for logout button.
@@ -117,11 +117,11 @@ export async function loginAs(page: Page, username: string, password: string) {
   try {
     await waitForLoadStateSafely(page, "domcontentloaded", VISIBILITY_TIMEOUT_MEDIUM);
     // Small additional wait to ensure React has rendered and buttons are interactive
-    await page.waitForTimeout(STABILITY_WAIT_LONG);
+    await safeWait(page, STABILITY_WAIT_LONG);
   } catch {
     // If wait fails, that's okay - page might already be loaded
     // But still add a small wait for React to render
-    await page.waitForTimeout(STABILITY_WAIT_LONG);
+    await safeWait(page, STABILITY_WAIT_LONG);
   }
   
   // Check if already logged in - if so, log out first
@@ -144,7 +144,7 @@ export async function loginAs(page: Page, username: string, password: string) {
   
   // Small stability wait to ensure button is fully interactive
   // This is especially important after clearing cookies/storage
-  await page.waitForTimeout(STABILITY_WAIT_LONG);
+  await safeWait(page, STABILITY_WAIT_LONG);
   
   // Check if we're already logged in (button might have changed)
   if (await isLoggedIn(page)) {
@@ -153,7 +153,8 @@ export async function loginAs(page: Page, username: string, password: string) {
   }
   
   // Set up the listener BEFORE clicking to avoid race conditions
-  const modalOpenPromise = waitForModalOpen(page, "login", 8000).catch(() => null);
+  // Reduced timeout from 8000ms to 5000ms for better performance
+  const modalOpenPromise = waitForModalOpen(page, "login", 5000).catch(() => null);
   
   // Click the login button
   await loginButton.click();
@@ -194,39 +195,49 @@ export async function loginAs(page: Page, username: string, password: string) {
     }
   }
   
-  // waitForModalOpen already waits for the dialog AND the form field to be visible
-  // Check if we somehow got logged in during the modal open process (this can happen)
-  if (await isLoggedIn(page)) {
+  // waitForModalOpen already waits for the dialog AND the form fields to be visible and enabled
+  // It also adds a stability wait. So we can trust that the modal is open and fields are ready.
+  // Just do a quick check to ensure we're still not logged in (in case something changed)
+  const loginDialog = page.getByRole("dialog", { name: "Login" });
+  const [isLoggedInCheck, dialogStillVisible] = await Promise.all([
+    isLoggedIn(page),
+    isVisibleSafely(loginDialog, VISIBILITY_TIMEOUT_SHORT) // Quick check
+  ]);
+  
+  if (isLoggedInCheck) {
     // We're logged in somehow - that's fine, no need for login dialog
     return;
   }
   
-  // waitForModalOpen should have ensured the dialog and form fields are visible
-  // However, after clearing cookies/storage (like in auth-roles test), fields might need extra time
-  // First verify the modal is still open (it might have closed)
-  const loginDialog = page.getByRole("dialog", { name: "Login" });
-  const dialogStillOpen = await isVisibleSafely(loginDialog, 2000);
-  if (!dialogStillOpen) {
-    // Modal closed - check if we're logged in
-    if (await isLoggedIn(page)) {
+  if (!dialogStillVisible) {
+    // Modal closed - this shouldn't happen after waitForModalOpen, but check login status
+    const finalLoginCheck = await isLoggedIn(page);
+    if (finalLoginCheck) {
       return; // We're logged in, no need to fill form
     }
     throw new Error("Login modal closed before form fields could be accessed. This may indicate a race condition or login failure.");
   }
   
-  // Add explicit checks to ensure fields are ready for interaction
+  // Get form fields - waitForModalOpen already verified they're visible and enabled
   const usernameInput = page.getByTestId("login-username");
   const passwordInput = page.getByTestId("login-password");
   
-  // Explicitly wait for fields to be visible and enabled before interacting
-  // Use longer timeouts since this is after navigation/state clearing
-  await expect(usernameInput).toBeVisible({ timeout: VISIBILITY_TIMEOUT_EXTRA });
-  await expect(passwordInput).toBeVisible({ timeout: VISIBILITY_TIMEOUT_EXTRA });
-  await expect(usernameInput).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_LONG });
-  await expect(passwordInput).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_LONG });
-  
-  // Small stability wait to ensure form is fully ready for interaction
-  await page.waitForTimeout(STABILITY_WAIT_MEDIUM);
+  // Quick verification that fields are still accessible (with short timeout since waitForModalOpen already checked)
+  // Do this in parallel with modal visibility check for efficiency
+  try {
+    await Promise.all([
+      expect(usernameInput).toBeVisible({ timeout: VISIBILITY_TIMEOUT_SHORT }),
+      expect(passwordInput).toBeVisible({ timeout: VISIBILITY_TIMEOUT_SHORT }),
+      expect(loginDialog).toBeVisible({ timeout: VISIBILITY_TIMEOUT_SHORT })
+    ]);
+  } catch (fieldError) {
+    // Fields or modal not accessible - check if we're logged in
+    const isLoggedInNow = await isLoggedIn(page);
+    if (isLoggedInNow) {
+      return; // We're logged in, no need to fill form
+    }
+    throw new Error("Login modal closed before form fields could be accessed. This may indicate a race condition or login failure.");
+  }
   
   await usernameInput.clear();
   await usernameInput.fill(username);

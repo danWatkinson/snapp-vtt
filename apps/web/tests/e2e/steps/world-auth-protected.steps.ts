@@ -28,7 +28,8 @@ When('the admin creates a world named "Authenticated Test World"', async ({ page
     await page.getByLabel("Description").fill("A test world created by authenticated user");
     
     // Set up event listeners BEFORE clicking submit
-    const worldCreatedPromise = waitForWorldCreated(page, worldName, 10000);
+    // Reduced timeout from 10000ms to 5000ms for better performance
+    const worldCreatedPromise = waitForWorldCreated(page, worldName, 5000);
     const errorPromise = waitForError(page, undefined, 5000).catch(() => null);
     
     await page.getByRole("button", { name: "Save world" }).click();

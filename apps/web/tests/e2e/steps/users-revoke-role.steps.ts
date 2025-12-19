@@ -29,7 +29,8 @@ When('the admin revokes the "gm" role from user "alice"', async ({ page }) => {
   await expect(gmRoleBadge).toBeVisible();
 
   // Set up event listener BEFORE clicking revoke
-  const roleRevokedPromise = waitForRoleRevoked(page, uniqueAliceName, "gm", 10000);
+  // Reduced timeout from 10000ms to 5000ms for better performance
+  const roleRevokedPromise = waitForRoleRevoked(page, uniqueAliceName, "gm", 5000);
   const errorPromise = waitForError(page, undefined, 5000).catch(() => null);
 
   await gmRoleBadge.getByText("×").click();

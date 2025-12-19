@@ -12,7 +12,7 @@ import {
   WORLD_UPDATED_EVENT
 } from "../../../lib/auth/authEvents";
 import { DEFAULT_EVENT_TIMEOUT } from "./constants";
-import { waitForSimpleEvent, waitForEventWithNameFilter, waitForEventWithIdFilter, isVisibleSafely, isHiddenSafely } from "./utils";
+import { waitForSimpleEvent, waitForEventWithNameFilter, waitForEventWithIdFilter, isVisibleSafely, isHiddenSafely, safeWait } from "./utils";
 import { waitForModalClose } from "./modals";
 
 /**
@@ -133,7 +133,7 @@ export async function waitForCampaignCreated(
     if (isHidden) {
       // Modal is closed but campaign doesn't exist - might be a timing issue
       // Wait a bit more and check again
-      await page.waitForTimeout(500);
+      await safeWait(page, 500);
       const finalTabCheck = await isVisibleSafely(campaignTab, 2000);
       const finalHeadingCheck = await isVisibleSafely(campaignHeading, 2000);
       if (finalTabCheck || finalHeadingCheck) {

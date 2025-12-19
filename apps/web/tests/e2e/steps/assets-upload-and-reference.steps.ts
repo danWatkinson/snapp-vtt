@@ -96,7 +96,7 @@ Then("the image asset {string} appears in the assets list", async ({ page }, fil
   // This can take a few seconds, especially with network latency
   await expect(
     page.getByRole("row").filter({ hasText: fileName }).first()
-  ).toBeVisible({ timeout: 10000 });
+  ).toBeVisible({ timeout: 5000 }); // Reduced from 10000ms to 5000ms for better performance
 });
 
 Then(
@@ -174,7 +174,7 @@ Then("the audio asset {string} appears in the assets list", async ({ page }, fil
   // Wait longer for the asset to appear - same timeout as image assets
   await expect(
     page.getByRole("row").filter({ hasText: fileName }).first()
-  ).toBeVisible({ timeout: 10000 });
+  ).toBeVisible({ timeout: 5000 }); // Reduced from 10000ms to 5000ms for better performance
 });
 
 When(

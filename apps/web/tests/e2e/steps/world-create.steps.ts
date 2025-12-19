@@ -74,7 +74,8 @@ When(
     
     // Set up event listener BEFORE clicking submit
     // This ensures we don't miss the event if it fires quickly
-    const worldCreatedPromise = waitForWorldCreated(page, uniqueWorldName, 10000);
+    // Reduced timeout from 10000ms to 5000ms for better performance
+    const worldCreatedPromise = waitForWorldCreated(page, uniqueWorldName, 5000);
 
     // Submit - wait for button to be enabled (indicates form validation passed)
     const saveButton = page.getByRole("button", { name: "Save world" });

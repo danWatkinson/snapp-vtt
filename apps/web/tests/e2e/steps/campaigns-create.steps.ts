@@ -138,7 +138,8 @@ When(
 
     // Set up event listener BEFORE clicking submit
     // This ensures we don't miss the event if it fires quickly
-    const campaignCreatedPromise = waitForCampaignCreated(page, campaignName, 10000);
+    // Reduced timeout from 10000ms to 5000ms for better performance
+    const campaignCreatedPromise = waitForCampaignCreated(page, campaignName, 5000);
 
     // Submit the form
     await page.getByRole("button", { name: "Save campaign" }).click();

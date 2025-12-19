@@ -145,7 +145,8 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
           await expect(clearButton).toBeVisible({ timeout: 2000 });
           
           // Set up event listeners BEFORE clicking Clear
-          const worldUpdatedPromise = waitForWorldUpdated(page, undefined, "splashImageCleared", 10000);
+          // Reduced timeout from 10000ms to 5000ms for better performance
+          const worldUpdatedPromise = waitForWorldUpdated(page, undefined, "splashImageCleared", 5000);
           
           // Click Clear - this should trigger setWorldSettingsOpen(false) and close the modal
           await clearButton.click();
@@ -332,7 +333,8 @@ When("the admin selects world {string}", async ({ page }, worldName: string) => 
           await expect(clearButton).toBeVisible({ timeout: 2000 });
           
           // Set up event listeners BEFORE clicking Clear
-          const worldUpdatedPromise = waitForWorldUpdated(page, undefined, "splashImageCleared", 10000);
+          // Reduced timeout from 10000ms to 5000ms for better performance
+          const worldUpdatedPromise = waitForWorldUpdated(page, undefined, "splashImageCleared", 5000);
           
           // Click Clear - this should trigger setWorldSettingsOpen(false) and close the modal
           await clearButton.click();

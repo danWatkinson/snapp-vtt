@@ -49,7 +49,8 @@ When(
     
     // Set up event listener BEFORE clicking (wait for world update with splash image set)
     // We can't easily get worldId here, so we'll wait for any world update
-    const worldUpdatedPromise = waitForWorldUpdated(page, undefined, "splashImageSet", 10000);
+    // Reduced timeout from 10000ms to 5000ms for better performance
+    const worldUpdatedPromise = waitForWorldUpdated(page, undefined, "splashImageSet", 5000);
     
     await assetButton.click();
     

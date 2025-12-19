@@ -217,7 +217,8 @@ When(
     await page.getByRole("button", { name: "Assign role" }).click();
 
     // Set up event listeners BEFORE clicking submit
-    const roleAssignedPromise = waitForRoleAssigned(page, uniqueAliceName, "gm", 10000);
+    // Reduced timeout from 10000ms to 5000ms for better performance
+    const roleAssignedPromise = waitForRoleAssigned(page, uniqueAliceName, "gm", 5000);
     const errorPromise = waitForError(page, undefined, 5000).catch(() => null);
     
     // Wait for either role assignment or error

@@ -21,13 +21,15 @@ When("the admin creates a new user via the Users UI", async ({ page }) => {
 
   await usernameField.fill(testUsername);
   await passwordField.clear();
-  await passwordField.type("testpass123", { delay: 50 });
+  // Removed delay for faster typing (50ms delay was unnecessary)
+  await passwordField.type("testpass123");
 
   await expect(usernameField).toHaveValue(testUsername);
   await expect(passwordField).toHaveValue("testpass123");
 
   // Set up event listener BEFORE clicking submit
-  const userCreatedPromise = waitForUserCreated(page, testUsername, 10000);
+  // Reduced timeout from 10000ms to 5000ms for better performance
+  const userCreatedPromise = waitForUserCreated(page, testUsername, 5000);
   const errorPromise = waitForError(page, undefined, 5000).catch(() => null);
 
   const createButton = createUserDialog.getByRole("button", { name: "Create user" });
@@ -66,7 +68,8 @@ When("the admin deletes that user from the users list", async ({ page }) => {
   });
 
   // Set up event listener BEFORE clicking delete
-  const userDeletedPromise = waitForUserDeleted(page, testUsername, 10000);
+  // Reduced timeout from 10000ms to 5000ms for better performance
+  const userDeletedPromise = waitForUserDeleted(page, testUsername, 5000);
 
   const deleteButton = page.getByTestId(`delete-${testUsername}`);
   await expect(deleteButton).toBeVisible({ timeout: 3000 });

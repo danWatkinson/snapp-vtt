@@ -383,7 +383,7 @@ export async function selectWorldAndEnterPlanningMode(
   await waitForLoadStateSafely(page, "domcontentloaded", VISIBILITY_TIMEOUT_MEDIUM);
   
   // Small stability wait to ensure React has rendered
-  await page.waitForTimeout(STABILITY_WAIT_EXTRA);
+  await safeWait(page, STABILITY_WAIT_EXTRA);
   
   // Verify we're still logged in after ensureModeSelectorVisible
   // Use a more defensive check - the logout button might be temporarily hidden during state transitions
@@ -779,8 +779,9 @@ export async function selectWorldAndEnterPlanningMode(
   
   // Set up event listeners BEFORE clicking to avoid race conditions
   // Use a more lenient name match (partial match) since the exact name might have variations
-  const worldSelectedPromise = waitForWorldSelected(page, worldName, 8000);
-  const planningModePromise = waitForPlanningMode(page, 8000);
+  // Reduced timeout from 8000ms to 5000ms for better performance (events typically fire within 1-2s)
+  const worldSelectedPromise = waitForWorldSelected(page, worldName, 5000);
+  const planningModePromise = waitForPlanningMode(page, 5000);
   
   // Click the tab - it's a button element, so clicking should work
   // Ensure the tab is visible and enabled before clicking
@@ -803,8 +804,9 @@ export async function selectWorldAndEnterPlanningMode(
     
     // Verify the click worked by checking if tab is selected
     // Give it a bit more time since React state updates might be delayed
+    // Optimized: Reduced from 3 to 2 retries with exponential backoff
     let clickedSelected = false;
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       clickedSelected = await awaitSafelyBoolean(
         Promise.race([
           getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
@@ -815,8 +817,8 @@ export async function selectWorldAndEnterPlanningMode(
       if (clickedSelected) {
         break;
       }
-      // Wait a bit more before next check
-      await safeWait(page, STABILITY_WAIT_LONG);
+      // Exponential backoff: 20ms, 40ms instead of fixed 100ms
+      await safeWait(page, STABILITY_WAIT_SHORT * (i + 1));
     }
     
     if (!clickedSelected) {
@@ -825,10 +827,11 @@ export async function selectWorldAndEnterPlanningMode(
       await expect(worldTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_SHORT });
       await expect(worldTab).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_SHORT });
       await worldTab.click({ force: true, timeout: VISIBILITY_TIMEOUT_SHORT });
-      await safeWait(page, STABILITY_WAIT_LONG * 2);
+      await safeWait(page, STABILITY_WAIT_LONG); // Reduced from STABILITY_WAIT_LONG * 2
       
       // Check again with multiple attempts
-      for (let i = 0; i < 3; i++) {
+      // Optimized: Reduced from 3 to 2 retries with exponential backoff
+      for (let i = 0; i < 2; i++) {
         clickedSelected = await awaitSafelyBoolean(
           Promise.race([
             getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
@@ -839,7 +842,8 @@ export async function selectWorldAndEnterPlanningMode(
         if (clickedSelected) {
           break;
         }
-        await safeWait(page, STABILITY_WAIT_LONG);
+        // Exponential backoff: 20ms, 40ms instead of fixed 100ms
+        await safeWait(page, STABILITY_WAIT_SHORT * (i + 1));
       }
       
       if (!clickedSelected) {
@@ -847,12 +851,12 @@ export async function selectWorldAndEnterPlanningMode(
         const retryBox = await getBoundingBoxSafely(worldTab);
         if (retryBox) {
           await page.mouse.click(retryBox.x + retryBox.width / 2, retryBox.y + retryBox.height / 2);
-          await safeWait(page, STABILITY_WAIT_LONG * 2);
+          await safeWait(page, STABILITY_WAIT_LONG); // Reduced from STABILITY_WAIT_LONG * 2
           // Final check
           clickedSelected = await awaitSafelyBoolean(
             Promise.race([
               getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
-              createTimeoutPromise(1000, false)
+              createTimeoutPromise(500, false) // Reduced from 1000ms to 500ms
             ])
           );
         }
@@ -879,8 +883,9 @@ export async function selectWorldAndEnterPlanningMode(
     const worldSelectedSucceeded = results[0].status === "fulfilled";
     const planningModeSucceeded = results[1].status === "fulfilled";
     
-    // Check if at least planning mode is active (most important indicator)
-    let planningTabsVisible = await isPlanningModeActive(page);
+    // If planning mode event succeeded, we can skip the initial DOM check (optimization)
+    // Only check DOM if event didn't fire, as events are faster than DOM updates
+    let planningTabsVisible = planningModeSucceeded ? true : await isPlanningModeActive(page);
     
     if (!planningTabsVisible) {
       // Planning mode not active - wait a bit more and check again
@@ -1206,8 +1211,8 @@ export async function ensureCampaignExists(
           throw new Error("Page was closed before opening Snapp menu");
         }
       await page.getByRole("button", { name: /^Snapp/i }).click();
-      // Small wait for menu to open
-      await page.waitForTimeout(STABILITY_WAIT_LONG);
+      // Small wait for menu to open - use safeWait instead of waitForTimeout
+      await safeWait(page, STABILITY_WAIT_LONG);
       const newCampaignButton = page.getByRole("button", { name: "New Campaign" });
       await expect(newCampaignButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
       
@@ -1532,7 +1537,7 @@ export async function waitForWorldSelected(
           if (isSelected === "true") {
             return; // Tab is visible and selected
           }
-          await page.waitForTimeout(STABILITY_WAIT_SHORT); // Small delay between polls
+          await safeWait(page, STABILITY_WAIT_SHORT); // Small delay between polls
         }
         // After polling, check one more time
         const finalSelected = await getAttributeSafely(worldTab, "aria-selected");
@@ -1734,7 +1739,7 @@ export async function waitForPlanningMode(
       await expect(planningTabs).toBeVisible({ timeout });
     } catch {
       // If tabs aren't visible, wait a bit more for UI to update
-      await page.waitForTimeout(STABILITY_WAIT_MAX);
+      await safeWait(page, STABILITY_WAIT_MAX);
       await expect(planningTabs).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
     }
   })();
