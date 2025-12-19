@@ -451,3 +451,25 @@ export async function waitForLocatorSafely(
     return null;
   }
 }
+
+/**
+ * Safely await a promise, ignoring any errors.
+ * Useful for event promises where you don't want to fail if the event doesn't fire.
+ * 
+ * @param promise - Promise to await safely
+ * @returns Promise that resolves when the input promise resolves or rejects (ignoring errors)
+ */
+export async function awaitSafely(promise: Promise<unknown>): Promise<void> {
+  await promise.catch(() => {});
+}
+
+/**
+ * Safely await a promise that returns a boolean, defaulting to false on error.
+ * Useful for Promise.race patterns where you want a boolean result.
+ * 
+ * @param promise - Promise that resolves to a boolean
+ * @returns Promise that resolves to the boolean result, or false on error
+ */
+export async function awaitSafelyBoolean(promise: Promise<boolean>): Promise<boolean> {
+  return await promise.catch(() => false);
+}

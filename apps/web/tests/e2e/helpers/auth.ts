@@ -1,6 +1,6 @@
 import { Page, expect } from "@playwright/test";
 import { waitForModalOpen, waitForModalClose } from "./modals";
-import { isVisibleSafely, isHiddenSafely, waitForLoadStateSafely, createTimeoutPromise } from "./utils";
+import { isVisibleSafely, isHiddenSafely, waitForLoadStateSafely, createTimeoutPromise, awaitSafely } from "./utils";
 import { STABILITY_WAIT_MEDIUM, STABILITY_WAIT_LONG } from "./constants";
 
 /**

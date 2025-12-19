@@ -9,10 +9,10 @@ import {
   ERROR_OCCURRED_EVENT,
   ERROR_CLEARED_EVENT
 } from "../../../lib/auth/authEvents";
-import { DEFAULT_EVENT_TIMEOUT, STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM, STABILITY_WAIT_LONG, STABILITY_WAIT_EXTRA, STABILITY_WAIT_MAX } from "./constants";
+import { DEFAULT_EVENT_TIMEOUT, STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM, STABILITY_WAIT_LONG, STABILITY_WAIT_EXTRA, STABILITY_WAIT_MAX, VISIBILITY_TIMEOUT_SHORT, VISIBILITY_TIMEOUT_MEDIUM, VISIBILITY_TIMEOUT_LONG, VISIBILITY_TIMEOUT_EXTRA } from "./constants";
 import { ensureLoginDialogClosed } from "./auth";
 import { waitForModalOpen, waitForModalClose } from "./modals";
-import { getUniqueCampaignName, waitForSimpleEvent, isVisibleSafely, isHiddenSafely, getAttributeSafely, waitForLoadStateSafely, getBoundingBoxSafely, createTimeoutPromise, waitForStateSafely, waitForLocatorSafely } from "./utils";
+import { getUniqueCampaignName, waitForSimpleEvent, isVisibleSafely, isHiddenSafely, getAttributeSafely, waitForLoadStateSafely, getBoundingBoxSafely, createTimeoutPromise, waitForStateSafely, waitForLocatorSafely, awaitSafely, awaitSafelyBoolean } from "./utils";
 
 /**
  * Safely wait for a timeout, checking if page is closed.
@@ -774,10 +774,12 @@ export async function selectWorldAndEnterPlanningMode(
     // Give it a bit more time since React state updates might be delayed
     let clickedSelected = false;
     for (let i = 0; i < 3; i++) {
-      clickedSelected = await Promise.race([
-        getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
-        createTimeoutPromise(500, false)
-      ]).catch(() => false);
+      clickedSelected = await awaitSafelyBoolean(
+        Promise.race([
+          getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
+          createTimeoutPromise(500, false)
+        ])
+      );
       
       if (clickedSelected) {
         break;
@@ -796,10 +798,12 @@ export async function selectWorldAndEnterPlanningMode(
       
       // Check again with multiple attempts
       for (let i = 0; i < 3; i++) {
-        clickedSelected = await Promise.race([
-          getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
-          createTimeoutPromise(500, false)
-        ]).catch(() => false);
+        clickedSelected = await awaitSafelyBoolean(
+          Promise.race([
+            getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
+            createTimeoutPromise(500, false)
+          ])
+        );
         
         if (clickedSelected) {
           break;
@@ -814,10 +818,12 @@ export async function selectWorldAndEnterPlanningMode(
           await page.mouse.click(retryBox.x + retryBox.width / 2, retryBox.y + retryBox.height / 2);
           await safeWait(page, 400);
           // Final check
-          clickedSelected = await Promise.race([
-            getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
-            createTimeoutPromise(1000, false)
-          ]).catch(() => false);
+          clickedSelected = await awaitSafelyBoolean(
+            Promise.race([
+              getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
+              createTimeoutPromise(1000, false)
+            ])
+          );
         }
       }
     }
@@ -872,10 +878,12 @@ export async function selectWorldAndEnterPlanningMode(
         
         const worldTabStillVisible = await isVisibleSafely(worldTab);
         const worldTabSelected = worldTabStillVisible
-          ? await Promise.race([
-              getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
-              createTimeoutPromise(2000, false)
-            ]).catch(() => false)
+            ? await awaitSafelyBoolean(
+              Promise.race([
+                getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
+                createTimeoutPromise(2000, false)
+              ])
+            )
           : false;
         
         const worldEventFired = worldSelectedSucceeded ? "yes" : "no";
@@ -892,10 +900,9 @@ export async function selectWorldAndEnterPlanningMode(
     }
   } catch (error) {
     // If there's an error, check if planning mode is active anyway
-    const planningTabsVisible = await page
-      .getByRole("tablist", { name: "World planning views" })
-      .isVisible()
-      .catch(() => false);
+    const planningTabsVisible = await isVisibleSafely(
+      page.getByRole("tablist", { name: "World planning views" })
+    );
     
     if (planningTabsVisible) {
       // Planning mode is active - that's what matters, continue
@@ -970,7 +977,7 @@ export async function ensureCampaignExists(
     // Set up event listener BEFORE clicking
     const campaignsPromise = waitForPlanningSubTab(page, "Campaigns", 5000);
     await campaignsTab.click();
-    await campaignsPromise.catch(() => {}); // Don't fail if event doesn't fire
+    await awaitSafely(campaignsPromise); // Don't fail if event doesn't fire
   }
 
   // Check if campaign is already selected (campaign views visible means campaign is selected)
@@ -1003,12 +1010,12 @@ export async function ensureCampaignExists(
       // Set up event listener BEFORE clicking
       const worldEntitiesPromise = waitForPlanningSubTab(page, "World Entities", 5000);
       await worldEntitiesTab.click();
-      await worldEntitiesPromise.catch(() => {}); // Don't fail if event doesn't fire
+      await awaitSafely(worldEntitiesPromise); // Don't fail if event doesn't fire
       
       // Now navigate back to Campaigns
       const campaignsPromise = waitForPlanningSubTab(page, "Campaigns", 5000);
       await campaignsTab.click();
-      await campaignsPromise.catch(() => {}); // Don't fail if event doesn't fire
+      await awaitSafely(campaignsPromise); // Don't fail if event doesn't fire
       
       // Re-check if campaign views are still visible (they shouldn't be after navigation)
       const stillSelected = await isVisibleSafely(
@@ -1019,7 +1026,7 @@ export async function ensureCampaignExists(
         // Still selected - try clicking the Campaigns tab again to force reset
         const campaignsPromise2 = waitForPlanningSubTab(page, "Campaigns", 5000);
         await campaignsTab.click();
-        await campaignsPromise2.catch(() => {}); // Don't fail if event doesn't fire
+        await awaitSafely(campaignsPromise2); // Don't fail if event doesn't fire
       }
     }
   }
@@ -1049,10 +1056,9 @@ export async function ensureCampaignExists(
     }
     // Different campaign selected - use the "Leave Campaign" button from Snapp menu to deselect
     // First, ensure we're actually viewing a campaign (campaign views should be visible)
-    const campaignViewsCurrentlyVisible = await page
-      .getByRole("tablist", { name: "Campaign views" })
-      .isVisible()
-      .catch(() => false);
+    const campaignViewsCurrentlyVisible = await isVisibleSafely(
+      page.getByRole("tablist", { name: "Campaign views" })
+    );
     
     let deselectionSucceeded = false;
     
@@ -1131,19 +1137,16 @@ export async function ensureCampaignExists(
       // Continue to normal campaign creation/selection logic below
     } else {
       // Deselection didn't work - check if campaign is still selected and handle error
-      const finalCampaignViewsVisible = await page
-        .getByRole("tablist", { name: "Campaign views" })
-        .isVisible()
-        .catch(() => false);
+      const finalCampaignViewsVisible = await isVisibleSafely(
+        page.getByRole("tablist", { name: "Campaign views" })
+      );
       
       if (finalCampaignViewsVisible) {
       // Still can't deselect - check if the campaign we want already exists
       // Look for it in the heading (if it's selected) or anywhere in the UI
-      const campaignNameVisible = await page
-        .getByText(campaignName)
-        .first()
-        .isVisible()
-        .catch(() => false);
+      const campaignNameVisible = await isVisibleSafely(
+        page.getByText(campaignName).first()
+      );
       
       if (campaignNameVisible) {
         // Campaign exists - check if it's currently selected
@@ -1257,11 +1260,9 @@ export async function ensureCampaignExists(
   // Wait a moment for UI to settle after navigation
   await safeWait(page, 200);
   
-  const hasCampaignTab = await page
-    .getByRole("tab", { name: campaignName })
-    .first()
-    .isVisible()
-    .catch(() => false);
+  const hasCampaignTab = await isVisibleSafely(
+    page.getByRole("tab", { name: campaignName }).first()
+  );
 
   // Also check if campaign exists by looking for it in any visible form (heading, tab, etc.)
   const campaignExistsAnywhere = hasCampaignTab || 
@@ -1275,10 +1276,9 @@ export async function ensureCampaignExists(
     // Use the Snapp menu "New Campaign" button
     // First check if a campaign was auto-selected while we were checking
     await safeWait(page, 300);
-    const newCampaignViewsVisible = await page
-      .getByRole("tablist", { name: "Campaign views" })
-      .isVisible()
-      .catch(() => false);
+    const newCampaignViewsVisible = await isVisibleSafely(
+      page.getByRole("tablist", { name: "Campaign views" })
+    );
     
     if (newCampaignViewsVisible) {
       // A campaign was selected - check if it's the one we want
@@ -1398,10 +1398,9 @@ export async function ensureCampaignExists(
     await safeWait(page, 500);
     
     // Check if campaign was auto-selected (campaign views visible)
-    const campaignViewsVisible = await page
-      .getByRole("tablist", { name: "Campaign views" })
-      .isVisible()
-      .catch(() => false);
+    const campaignViewsVisible = await isVisibleSafely(
+      page.getByRole("tablist", { name: "Campaign views" })
+    );
     
     if (campaignViewsVisible) {
       // Campaign was auto-selected - check if it's the one we want
@@ -1487,11 +1486,9 @@ export async function ensureCampaignExists(
     // This might mean it was just created or is in a weird state
     // Try waiting a bit more and checking again
     await safeWait(page, 500);
-    const campaignTabAfterWait = await page
-      .getByRole("tab", { name: campaignName })
-      .first()
-      .isVisible()
-      .catch(() => false);
+    const campaignTabAfterWait = await isVisibleSafely(
+      page.getByRole("tab", { name: campaignName }).first()
+    );
     
     if (campaignTabAfterWait) {
       await page.getByRole("tab", { name: campaignName }).first().click();
@@ -1679,10 +1676,9 @@ export async function waitForWorldSelected(
     ]);
   } catch (error) {
     // Both failed - check if planning mode is active anyway (might have happened via event)
-    const planningTabsVisible = await page
-      .getByRole("tablist", { name: "World planning views" })
-      .isVisible()
-      .catch(() => false);
+    const planningTabsVisible = await isVisibleSafely(
+      page.getByRole("tablist", { name: "World planning views" })
+    );
     
     if (planningTabsVisible) {
       // Planning mode is active - world must be selected, even if we didn't catch the event

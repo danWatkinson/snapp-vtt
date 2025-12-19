@@ -1,7 +1,7 @@
 import { Page, expect } from "@playwright/test";
 import { MODAL_OPENED_EVENT, MODAL_CLOSED_EVENT } from "../../../lib/auth/authEvents";
 import { MODAL_DIALOG_NAMES, DEFAULT_EVENT_TIMEOUT, STABILITY_WAIT_MEDIUM } from "./constants";
-import { isVisibleSafely, isHiddenSafely } from "./utils";
+import { isVisibleSafely, isHiddenSafely, awaitSafely } from "./utils";
 
 /**
  * Wait for a modal to open using transition events.
@@ -247,10 +247,10 @@ export async function closeModalIfOpen(
   
   if (cancelVisible) {
     await cancelButton.click();
-    await waitForModalClose(page, modalType, timeout).catch(() => {});
+    await awaitSafely(waitForModalClose(page, modalType, timeout));
   } else {
     // Fallback: try Escape key
     await page.keyboard.press("Escape");
-    await waitForModalClose(page, modalType, timeout).catch(() => {});
+    await awaitSafely(waitForModalClose(page, modalType, timeout));
   }
 }
