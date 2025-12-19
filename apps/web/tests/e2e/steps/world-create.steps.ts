@@ -12,6 +12,14 @@ When('the admin navigates to the "World Entities" planning screen', async ({ pag
 When(
   'the admin creates a world named {string} with description {string}',
   async ({ page }, worldName: string, description: string) => {
+    // Navigate to World Entities planning screen if not already there
+    const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+    const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (!isInPlanningMode) {
+      await selectWorldAndEnterPlanningMode(page, "World Entities");
+    }
+    
     await ensureModeSelectorVisible(page);
 
     // Make world name unique per worker to avoid conflicts in parallel execution

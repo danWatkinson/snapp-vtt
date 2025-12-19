@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView, safeWait } from "../helpers";
+import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView, safeWait, STABILITY_WAIT_SHORT } from "../helpers";
 import type { APIRequestContext, Page } from "@playwright/test";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
 
@@ -263,6 +263,24 @@ When('the test campaign exists with timeline view', async ({ page }) => {
 When(
   'the admin creates a campaign named {string} with summary {string}',
   async ({ page }, campaignName: string, summary: string) => {
+    // Navigate to Campaigns planning screen if not already there
+    const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+    const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (!isInPlanningMode) {
+      await selectWorldAndEnterPlanningMode(page, "Campaigns");
+    } else {
+      // Check if we're on the Campaigns sub-tab
+      const campaignsTab = planningTabs.getByRole("tab", { name: "Campaigns" });
+      const isOnCampaignsTab = await campaignsTab.getAttribute("aria-selected").then(attr => attr === "true").catch(() => false);
+      if (!isOnCampaignsTab) {
+        // Navigate to Campaigns sub-tab
+        await campaignsTab.click();
+        // Wait for Campaigns view to be ready
+        await safeWait(page, STABILITY_WAIT_SHORT);
+      }
+    }
+    
     // Check if campaign already exists (from previous test run)
     const hasCampaign = await page
       .getByRole("tab", { name: campaignName })

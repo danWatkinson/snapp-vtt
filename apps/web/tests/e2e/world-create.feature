@@ -9,6 +9,5 @@ Feature: World builder creates worlds
 
   Scenario: World builder creates a world via the UI
     When the admin signs in to the system
-    And the admin navigates to the "World Entities" planning screen
     And the admin creates a world named "Eldoria" with description "A high-fantasy realm of magic"
     Then the UI shows "Eldoria" in the world context selector

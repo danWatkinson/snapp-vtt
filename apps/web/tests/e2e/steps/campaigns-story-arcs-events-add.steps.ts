@@ -1,6 +1,8 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode } from "../helpers";
+import { selectWorldAndEnterPlanningMode, getUniqueCampaignName } from "../helpers";
+import { safeWait } from "../helpers/utils";
+import { STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 // Note: "the campaign \"Rise of the Dragon King\" exists" is defined in campaigns-create.steps.ts
 // Note: "the admin navigates to the \"Story Arcs\" planning screen" and
 // "the admin navigates to the story arcs view" are defined in campaigns-story-arcs-add.steps.ts
@@ -8,6 +10,80 @@ import { selectWorldAndEnterPlanningMode } from "../helpers";
 const { When, Then } = createBdd();
 
 When('story arc "The Ancient Prophecy" exists', async ({ page }) => {
+  // Navigate to story arcs view first (if not already there)
+  const addStoryArcButton = page.getByRole("button", { name: "Add story arc" });
+  const isOnStoryArcsView = await addStoryArcButton.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnStoryArcsView) {
+    // Use already-imported utilities from top of file
+    const campaignViews = page.getByRole("tablist", { name: "Campaign views" });
+    const isCampaignSelected = await campaignViews.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (!isCampaignSelected) {
+      // Get test campaign name
+      let campaignName: string | null = null;
+      for (let i = 0; i < 5; i++) {
+        try {
+          campaignName = await page.evaluate(() => {
+            return (window as any).__testCampaignName;
+          });
+          if (campaignName) break;
+        } catch {
+          await safeWait(page, 200);
+        }
+      }
+      
+      if (!campaignName) {
+        campaignName = getUniqueCampaignName("Rise of the Dragon King");
+      }
+      
+      // Navigate to Campaigns planning screen
+      await selectWorldAndEnterPlanningMode(page, "Campaigns");
+      
+      // Wait for campaigns to load
+      await safeWait(page, STABILITY_WAIT_MEDIUM);
+      
+      // Check if campaign is already selected
+      const campaignViewsCheck = page.getByRole("tablist", { name: "Campaign views" });
+      const campaignAlreadySelected = await campaignViewsCheck.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (!campaignAlreadySelected) {
+        // Find and select campaign
+        let campaignsTablist = page.getByRole("tablist", { name: "Campaigns" });
+        let isVisible = await campaignsTablist.isVisible({ timeout: 3000 }).catch(() => false);
+        
+        if (!isVisible) {
+          campaignsTablist = page.getByRole("tablist", { name: "Campaign context" });
+          isVisible = await campaignsTablist.isVisible({ timeout: 3000 }).catch(() => false);
+        }
+        
+        if (isVisible) {
+          let campaignTab = campaignsTablist.getByRole("tab", { name: campaignName }).first();
+          let exists = await campaignTab.isVisible({ timeout: 5000 }).catch(() => false);
+          
+          if (!exists) {
+            campaignTab = campaignsTablist.getByRole("tab").filter({ hasText: campaignName }).first();
+            exists = await campaignTab.isVisible({ timeout: 5000 }).catch(() => false);
+          }
+          
+          if (!exists) {
+            campaignTab = campaignsTablist.getByRole("tab", { name: "Rise of the Dragon King" }).first();
+            exists = await campaignTab.isVisible({ timeout: 5000 }).catch(() => false);
+          }
+          
+          if (exists) {
+            await campaignTab.click();
+            await expect(campaignViews).toBeVisible({ timeout: 5000 });
+          }
+        }
+      }
+    }
+    
+    // Navigate to story arcs tab
+    await campaignViews.getByRole("tab", { name: "Story arcs" }).click();
+    await expect(addStoryArcButton).toBeVisible();
+  }
+  
   const hasStoryArc = await page
     .getByRole("listitem")
     .filter({ hasText: "The Ancient Prophecy" })
@@ -16,7 +92,7 @@ When('story arc "The Ancient Prophecy" exists', async ({ page }) => {
     .catch(() => false);
 
   if (!hasStoryArc) {
-    await page.getByRole("button", { name: "Add story arc" }).click();
+    await addStoryArcButton.click();
     await expect(page.getByRole("dialog", { name: "Add story arc" })).toBeVisible();
 
     await page.getByLabel("Story arc name").fill("The Ancient Prophecy");

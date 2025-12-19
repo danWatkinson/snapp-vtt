@@ -1,22 +1,112 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { getStoredWorldName, waitForWorldUpdated, waitForModalOpen } from "../helpers";
+import { getStoredWorldName, waitForWorldUpdated, waitForModalOpen, selectWorldAndEnterPlanningMode, getUniqueCampaignName, waitForPlanningMode, safeWait, STABILITY_WAIT_MAX } from "../helpers";
 
 const { When, Then } = createBdd();
 
 When(
   "the admin opens the world settings for {string}",
   async ({ page }, worldName: string) => {
-    // Since "the admin selects world" should have already run before this step,
-    // the world should already be selected. Just verify the WorldHeader is visible
-    // and open settings from there.
-    
-    // Wait for the "World settings" button to be visible (indicates a world is selected)
-    // This button only appears when a world is selected and WorldHeader is rendered
+    // Check if world is already selected
     const settingsButton = page.getByRole("button", { name: "World settings" });
-    await expect(settingsButton).toBeVisible({ timeout: 3000 });
+    const isWorldSelected = await settingsButton.isVisible({ timeout: 1000 }).catch(() => false);
     
-    // Click the "World settings" button
+    if (!isWorldSelected) {
+      // Need to navigate and select the world
+      // Check if we're in planning mode
+      const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+      const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
+      
+      if (!isInPlanningMode) {
+        // Navigate to World Entities planning screen (this will select a world if none selected)
+        // After navigation, verify we're in planning mode before proceeding
+        try {
+          await selectWorldAndEnterPlanningMode(page, "World Entities");
+        } catch (error) {
+          // If planning mode activation failed, check if we're actually in planning mode anyway
+          const planningTabsCheck = page.getByRole("tablist", { name: "World planning views" });
+          const isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
+          if (!isActuallyInPlanningMode) {
+            // Not in planning mode - rethrow the error
+            throw error;
+          }
+          // We're in planning mode despite the error - continue
+        }
+        
+        // Verify planning mode is active
+        const planningTabsAfterNav = page.getByRole("tablist", { name: "World planning views" });
+        const isInPlanningModeAfterNav = await planningTabsAfterNav.isVisible({ timeout: 5000 }).catch(() => false);
+        if (!isInPlanningModeAfterNav) {
+          // Planning mode didn't activate - wait a bit more and check again
+          await safeWait(page, STABILITY_WAIT_MAX);
+          const stillNotInPlanningMode = !(await planningTabsAfterNav.isVisible({ timeout: 3000 }).catch(() => false));
+          if (stillNotInPlanningMode) {
+            throw new Error(`Planning mode did not activate after navigating to World Entities planning screen for world "${worldName}"`);
+          }
+        }
+      } else {
+        // In planning mode but wrong world - need to select the correct world
+        // Get unique world name
+        let uniqueWorldName = await getStoredWorldName(page, worldName).catch(() => null);
+        if (!uniqueWorldName) {
+          if (worldName === "Eldoria" || worldName === "NoSplashWorld") {
+            uniqueWorldName = getUniqueCampaignName(worldName);
+          } else {
+            uniqueWorldName = worldName;
+          }
+        }
+        
+        // Check if correct world is already selected by checking heading
+        const heading = page.locator('h3.snapp-heading').first();
+        const headingText = await heading.textContent().catch(() => "");
+        if (headingText && (headingText.includes(uniqueWorldName) || headingText.includes(worldName))) {
+          // Correct world already selected
+        } else {
+          // Need to leave world and select the correct one
+          const snappMenu = page.getByRole("button", { name: /^Snapp/i });
+          if (await snappMenu.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await snappMenu.click();
+            const leaveWorldButton = page.getByRole("button", { name: "Leave World" });
+            if (await leaveWorldButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+              await leaveWorldButton.click();
+              // Wait for world selector to appear
+              await expect(page.getByRole("tablist", { name: "World context" })).toBeVisible({ timeout: 3000 });
+            }
+          }
+          
+          // Now select the world
+          const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+          let worldTab = worldContextTablist.getByRole("tab", { name: uniqueWorldName, exact: true }).first();
+          let exists = await worldTab.isVisible().catch(() => false);
+          
+          if (!exists) {
+            worldTab = worldContextTablist.getByRole("tab").filter({ hasText: uniqueWorldName }).first();
+            exists = await worldTab.isVisible().catch(() => false);
+          }
+          
+          if (!exists && (worldName === "Eldoria" || worldName === "NoSplashWorld")) {
+            worldTab = worldContextTablist.getByRole("tab").filter({ hasText: new RegExp(worldName, "i") }).first();
+            exists = await worldTab.isVisible().catch(() => false);
+          }
+          
+          if (!exists) {
+            worldTab = worldContextTablist.getByRole("tab", { name: worldName, exact: true }).first();
+            exists = await worldTab.isVisible().catch(() => false);
+          }
+          
+          if (exists) {
+            const planningModePromise = waitForPlanningMode(page, 5000);
+            await worldTab.click();
+            await planningModePromise;
+          } else {
+            throw new Error(`World "${worldName}" not found in world selector`);
+          }
+        }
+      }
+    }
+    
+    // Now open settings
+    await expect(settingsButton).toBeVisible({ timeout: 3000 });
     await settingsButton.click();
     
     // Wait for the modal to appear
