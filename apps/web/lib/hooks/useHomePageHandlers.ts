@@ -542,9 +542,14 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
 
   async function handleCreateCampaign(e: FormEvent) {
     e.preventDefault();
+    // Campaigns require a world - UI should prevent this, but defensive check
+    if (!selectedIds.worldId) {
+      setError("Please select a world before creating a campaign");
+      return;
+    }
     try {
       await withAsyncAction(
-        () => createCampaign(campaignForm.form.name, campaignForm.form.summary, currentUser?.token),
+        () => createCampaign(campaignForm.form.name, campaignForm.form.summary, selectedIds.worldId!, currentUser?.token),
         {
           setIsLoading,
           setError,

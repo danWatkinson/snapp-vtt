@@ -16,28 +16,66 @@ function createTestToken(roles: string[] = ["gm"]): string {
 }
 
 describe("campaign REST API", () => {
+  const TEST_WORLD_ID = "world-1";
+
   it("lists no campaigns initially and allows creating a campaign", async () => {
     const { app } = createSeededCampaignApp();
 
-    const listResponse = await request(app).get("/campaigns").expect(200);
+    // Check that no campaigns exist for the test world
+    const listResponse = await request(app).get(`/worlds/${TEST_WORLD_ID}/campaigns`).expect(200);
     expect(listResponse.body.campaigns).toEqual([]);
 
     const createResponse = await request(app)
       .post("/campaigns")
       .set("Authorization", `Bearer ${createTestToken(["gm"])}`)
-      .send({ name: "Rise of the Dragon King", summary: "A long campaign." })
+      .send({ name: "Rise of the Dragon King", summary: "A long campaign.", worldId: TEST_WORLD_ID })
       .expect(201);
 
     expect(createResponse.body.campaign.name).toBe("Rise of the Dragon King");
+    expect(createResponse.body.campaign.worldId).toBe(TEST_WORLD_ID);
 
-    const listAfter = await request(app).get("/campaigns").expect(200);
+    // List campaigns for the world after creation
+    const listAfter = await request(app).get(`/worlds/${TEST_WORLD_ID}/campaigns`).expect(200);
     expect(listAfter.body.campaigns).toHaveLength(1);
+  });
+
+  it("returns 400 when creating campaign without worldId", async () => {
+    const { app } = createSeededCampaignApp();
+
+    const response = await request(app)
+      .post("/campaigns")
+      .set("Authorization", `Bearer ${createTestToken(["gm"])}`)
+      .send({ name: "Campaign", summary: "Summary" })
+      .expect(400);
+
+    expect(response.body.error).toBe("worldId is required");
+  });
+
+  it("lists campaigns by world", async () => {
+    const { app, store } = createSeededCampaignApp();
+
+    const campaign1 = store.createCampaign("Camp 1", "Summary", "world-1");
+    const campaign2 = store.createCampaign("Camp 2", "Summary", "world-1");
+    const campaign3 = store.createCampaign("Camp 3", "Summary", "world-2");
+
+    const world1Response = await request(app)
+      .get("/worlds/world-1/campaigns")
+      .expect(200);
+    expect(world1Response.body.campaigns).toHaveLength(2);
+    expect(world1Response.body.campaigns.map((c: any) => c.id)).toContain(campaign1.id);
+    expect(world1Response.body.campaigns.map((c: any) => c.id)).toContain(campaign2.id);
+
+    const world2Response = await request(app)
+      .get("/worlds/world-2/campaigns")
+      .expect(200);
+    expect(world2Response.body.campaigns).toHaveLength(1);
+    expect(world2Response.body.campaigns[0].id).toBe(campaign3.id);
   });
 
   it("creates sessions and scenes under a campaign", async () => {
     const { app, store } = createSeededCampaignApp();
 
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     const sessionResponse = await request(app)
       .post(`/campaigns/${campaign.id}/sessions`)
@@ -67,7 +105,7 @@ describe("campaign REST API", () => {
   it("manages players in campaigns", async () => {
     const { app, store } = createSeededCampaignApp();
 
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     const listResponse = await request(app)
       .get(`/campaigns/${campaign.id}/players`)
@@ -100,7 +138,7 @@ describe("campaign REST API", () => {
   it("returns 400 when adding duplicate player", async () => {
     const { app, store } = createSeededCampaignApp();
 
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
     store.addPlayer(campaign.id, "alice");
 
     const response = await request(app)
@@ -123,7 +161,7 @@ describe("campaign REST API", () => {
   it("manages story arcs in campaigns", async () => {
     const { app, store } = createSeededCampaignApp();
 
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     const listResponse = await request(app)
       .get(`/campaigns/${campaign.id}/story-arcs`)
@@ -148,7 +186,7 @@ describe("campaign REST API", () => {
   it("returns 400 when creating story arc with missing name", async () => {
     const { app, store } = createSeededCampaignApp();
 
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     const response = await request(app)
       .post(`/campaigns/${campaign.id}/story-arcs`)
@@ -162,7 +200,7 @@ describe("campaign REST API", () => {
   it("manages events in story arcs", async () => {
     const { app, store } = createSeededCampaignApp();
 
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
     const storyArc = store.createStoryArc(campaign.id, "Arc", "Summary");
 
     const listResponse = await request(app)
@@ -196,7 +234,7 @@ describe("campaign REST API", () => {
   it("returns 400 when adding duplicate event to story arc", async () => {
     const { app, store } = createSeededCampaignApp();
 
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
     const storyArc = store.createStoryArc(campaign.id, "Arc", "Summary");
     store.addEventToStoryArc(storyArc.id, "event-1");
 
@@ -220,7 +258,7 @@ describe("campaign REST API", () => {
   it("manages campaign timeline", async () => {
     const { app, store } = createSeededCampaignApp();
 
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     const getResponse = await request(app)
       .get(`/campaigns/${campaign.id}/timeline`)

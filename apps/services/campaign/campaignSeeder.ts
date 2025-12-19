@@ -94,6 +94,7 @@ export const seedCampaigns = async (
     const campaignsData = JSON.parse(campaignsFileContent) as Array<{
       name: string;
       summary: string;
+      worldName: string; // Required: campaigns must belong to a world
       playerIds?: string[];
       currentMoment?: number;
       sessions?: Array<{
@@ -123,10 +124,28 @@ export const seedCampaigns = async (
         continue;
       }
 
+      if (!campaignData.worldName) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `Skipping campaign ${campaignData.name} with missing worldName (campaigns require a world)`
+        );
+        continue;
+      }
+
+      const worldId = worldNameToId.get(campaignData.worldName);
+      if (!worldId) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `World '${campaignData.worldName}' not found, skipping campaign '${campaignData.name}'`
+        );
+        continue;
+      }
+
       try {
         const campaign = store.createCampaign(
           campaignData.name,
-          campaignData.summary
+          campaignData.summary,
+          worldId
         );
 
         if (campaignData.currentMoment) {

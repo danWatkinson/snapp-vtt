@@ -61,19 +61,25 @@ export function createCampaignApp(
     next();
   });
 
-  // Campaigns
-  app.get("/campaigns", (_req: Request, res: Response) => {
-    const campaigns = store.listCampaigns();
+  // Campaigns by world
+  app.get("/worlds/:worldId/campaigns", (req: Request, res: Response) => {
+    const { worldId } = req.params;
+    const campaigns = store.listCampaignsByWorld(worldId);
     res.json({ campaigns });
   });
 
   app.post("/campaigns", authenticate("gm"), (req: Request, res: Response) => {
-    const { name, summary } = req.body as {
+    const { name, summary, worldId } = req.body as {
       name?: string;
       summary?: string;
+      worldId?: string;
     };
+    if (!worldId || !worldId.trim()) {
+      res.status(400).json({ error: "worldId is required" });
+      return;
+    }
     try {
-      const campaign = store.createCampaign(name ?? "", summary ?? "");
+      const campaign = store.createCampaign(name ?? "", summary ?? "", worldId);
       res.status(201).json({ campaign });
     } catch (err) {
       res.status(400).json({ error: (err as Error).message });

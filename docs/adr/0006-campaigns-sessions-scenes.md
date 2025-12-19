@@ -59,8 +59,8 @@ We need a clear model for how Campaigns, Sessions, and Scenes relate to Worlds a
 
 - **API shape (initial)**
   - Campaigns:
-    - `GET /campaigns` – list campaigns.
-    - `POST /campaigns` – create a campaign.
+    - `GET /worlds/:worldId/campaigns` – list campaigns for a world.
+    - `POST /campaigns` – create a campaign (requires `worldId` in request body).
   - Sessions:
     - `GET /campaigns/:campaignId/sessions` – list sessions for a campaign.
     - `POST /campaigns/:campaignId/sessions` – create a session for a campaign.

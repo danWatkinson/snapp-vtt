@@ -302,6 +302,80 @@ export async function ensureModeSelectorVisible(page: Page) {
   }
 }
 
+/**
+ * Select a specific world by name and enter planning mode
+ */
+export async function selectWorldAndEnterPlanningModeWithWorldName(
+  page: Page,
+  subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users",
+  worldName: string
+) {
+  // First do all the setup checks (login, mode selector, etc.)
+  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
+  await waitForLoadStateSafely(page, "domcontentloaded", VISIBILITY_TIMEOUT_LONG);
+  const logoutButton = page.getByRole("button", { name: "Log out" });
+  await expect(logoutButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
+
+  const guestView = await isVisibleSafely(page.getByText("Welcome to Snapp"));
+  if (guestView) {
+    throw new Error("Cannot navigate to planning screen: still on guest view after login.");
+  }
+
+  // Check if already in planning mode
+  if (await isPlanningModeActive(page)) {
+    await navigateToPlanningSubTabIfActive(page, subTab);
+    return;
+  }
+
+  await ensureModeSelectorVisible(page);
+  await waitForLoadStateSafely(page, "domcontentloaded", VISIBILITY_TIMEOUT_MEDIUM);
+  await safeWait(page, STABILITY_WAIT_EXTRA);
+
+  // Wait for world context tablist to be visible
+  const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+  await expect(worldContextTablist).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
+  
+  // Wait a bit for worlds to load (especially if created via API in Background)
+  await safeWait(page, STABILITY_WAIT_SHORT);
+  
+  // Try to find the world by exact name match first
+  let worldTab = worldContextTablist.getByRole("tab", { name: worldName });
+  let worldFound = await isVisibleSafely(worldTab, 2000).catch(() => false);
+  
+  // If not found, try to find any world containing the name (handles unique names)
+  if (!worldFound) {
+    const allWorldTabs = await worldContextTablist.getByRole("tab").all();
+    for (const tab of allWorldTabs) {
+      const tabName = await tab.textContent().catch(() => "");
+      if (tabName && (tabName === worldName || tabName.includes(worldName) || worldName.includes(tabName))) {
+        worldTab = tab;
+        worldFound = true;
+        break;
+      }
+    }
+  }
+  
+  // If still not found, try base name matching (for "Eldoria" matching "Eldoria-worker-0")
+  if (!worldFound && worldName === "Eldoria") {
+    const uniqueName = getUniqueCampaignName("Eldoria");
+    worldTab = worldContextTablist.getByRole("tab", { name: uniqueName });
+    worldFound = await isVisibleSafely(worldTab, 2000).catch(() => false);
+  }
+  
+  if (!worldFound) {
+    throw new Error(`World "${worldName}" not found in world context. Available worlds may not have loaded yet or world was not created.`);
+  }
+  
+  // Click the world tab
+  await worldTab.click();
+  
+  // Wait for planning mode to activate
+  await waitForPlanningMode(page, VISIBILITY_TIMEOUT_LONG);
+  
+  // Navigate to the requested sub-tab
+  await navigateToPlanningSubTabIfActive(page, subTab);
+}
+
 export async function selectWorldAndEnterPlanningMode(
   page: Page,
   subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users" = "World Entities"
@@ -994,11 +1068,27 @@ export async function ensureCampaignExists(
     throw new Error("Page was closed unexpectedly");
   }
 
+  // Check if we have a stored world name from API-based campaign creation (Background steps)
+  // This ensures we select the same world that was used when creating the campaign via API
+  let storedWorldName: string | null = null;
+  try {
+    storedWorldName = await page.evaluate(() => {
+      return (window as any).__testWorldName || null;
+    });
+  } catch {
+    // Page might not be ready - that's okay, we'll use default behavior
+  }
+
   // Ensure we're in planning mode with a world selected
   // Check if planning tabs are visible (indicates world is selected)
   if (!(await isPlanningModeActive(page))) {
     // Need to select a world first
-    await selectWorldAndEnterPlanningMode(page, "Campaigns");
+    // If we have a stored world name from API creation, select that specific world
+    if (storedWorldName) {
+      await selectWorldAndEnterPlanningModeWithWorldName(page, "Campaigns", storedWorldName);
+    } else {
+      await selectWorldAndEnterPlanningMode(page, "Campaigns");
+    }
   }
 
   // Ensure we're on the Campaigns tab

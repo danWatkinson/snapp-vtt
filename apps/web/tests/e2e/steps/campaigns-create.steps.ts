@@ -16,6 +16,11 @@ const CAMPAIGN_SERVICE_URL =
   process.env.NEXT_PUBLIC_CAMPAIGN_SERVICE_URL ??
   "https://localhost:4600";
 
+const WORLD_SERVICE_URL =
+  process.env.WORLD_SERVICE_URL ??
+  process.env.NEXT_PUBLIC_WORLD_SERVICE_URL ??
+  "https://localhost:4501";
+
 // Helper to get admin token for API calls
 async function getAdminTokenForCampaign(request: APIRequestContext): Promise<string> {
   const url = `${AUTH_SERVICE_URL}/auth/login`;
@@ -74,6 +79,71 @@ async function campaignApiCall(
   return response.json();
 }
 
+// Helper to get or create a test world via API
+async function getOrCreateTestWorld(request: APIRequestContext, adminToken: string): Promise<string> {
+  const worldName = "Eldoria"; // Use a standard test world name
+  
+  try {
+    // Try to get existing worlds
+    const worldsResponse = await request.fetch(`${WORLD_SERVICE_URL}/worlds`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      ignoreHTTPSErrors: true
+    });
+    
+    if (worldsResponse.ok()) {
+      const body = await worldsResponse.json() as { worlds?: Array<{ id: string; name: string }> };
+      const worlds = body.worlds || [];
+      const existingWorld = worlds.find((w) => w.name.toLowerCase() === worldName.toLowerCase());
+      if (existingWorld) {
+        return existingWorld.id;
+      }
+    }
+  } catch {
+    // If GET fails, try to create
+  }
+  
+  // Create a new world
+  try {
+    const createResponse = await request.fetch(`${WORLD_SERVICE_URL}/worlds`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`
+      },
+      data: { name: worldName, description: "A test world for campaigns" },
+      ignoreHTTPSErrors: true
+    });
+    
+    if (createResponse.ok()) {
+      const body = await createResponse.json() as { world?: { id: string } };
+      if (body.world?.id) {
+        return body.world.id;
+      }
+    }
+    
+    // If creation failed, try to get worlds again (maybe it was created concurrently)
+    const worldsResponse = await request.fetch(`${WORLD_SERVICE_URL}/worlds`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      ignoreHTTPSErrors: true
+    });
+    
+    if (worldsResponse.ok()) {
+      const body = await worldsResponse.json() as { worlds?: Array<{ id: string; name: string }> };
+      const worlds = body.worlds || [];
+      const existingWorld = worlds.find((w) => w.name.toLowerCase() === worldName.toLowerCase());
+      if (existingWorld) {
+        return existingWorld.id;
+      }
+    }
+  } catch {
+    // Fall through to error
+  }
+  
+  throw new Error(`Failed to get or create test world "${worldName}"`);
+}
+
 When('the admin navigates to the "Campaigns" planning screen', async ({ page }) => {
   await selectWorldAndEnterPlanningMode(page, "Campaigns");
 });
@@ -100,17 +170,41 @@ When('the test campaign exists', async ({ page, request }) => {
       // Get admin token for API calls
       const adminToken = await getAdminTokenForCampaign(request);
       
-      // Check if campaign already exists
+      // Get or create a test world (campaigns require a world)
+      const worldId = await getOrCreateTestWorld(request, adminToken);
+      
+      // Get the world name from the worldId so we can select it in UI scenarios
+      let worldName = "Eldoria"; // Default fallback
       try {
-        const campaignsResponse = await campaignApiCall(request, "GET", "/campaigns", { token: adminToken });
+        const worldsResponse = await request.fetch(`${WORLD_SERVICE_URL}/worlds`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          ignoreHTTPSErrors: true
+        });
+        if (worldsResponse.ok()) {
+          const body = await worldsResponse.json() as { worlds?: Array<{ id: string; name: string }> };
+          const worlds = body.worlds || [];
+          const world = worlds.find((w) => w.id === worldId);
+          if (world) {
+            worldName = world.name;
+          }
+        }
+      } catch {
+        // If we can't get world name, use default
+      }
+      
+      // Check if campaign already exists (filter by world)
+      try {
+        const campaignsResponse = await campaignApiCall(request, "GET", `/worlds/${worldId}/campaigns`, { token: adminToken });
         const campaigns = campaignsResponse.campaigns || [];
         const existingCampaign = campaigns.find((c: any) => c.name === uniqueCampaignName);
         if (existingCampaign) {
-          // Campaign exists - store the name and return
+          // Campaign exists - store the name and world name for other steps to use
         try {
-          await page.evaluate((name) => {
+          await page.evaluate((name, world) => {
             (window as any).__testCampaignName = name;
-          }, uniqueCampaignName);
+            (window as any).__testWorldName = world;
+          }, uniqueCampaignName, worldName);
         } catch {
           // Page might not be ready - that's okay
         }
@@ -120,10 +214,10 @@ When('the test campaign exists', async ({ page, request }) => {
         // If GET fails, try to create anyway
       }
       
-      // Create campaign via API
+      // Create campaign via API with worldId
       const createResponse = await campaignApiCall(request, "POST", "/campaigns", {
         token: adminToken,
-        body: { name: uniqueCampaignName, summary: "A long-running campaign about ancient draconic power returning." }
+        body: { name: uniqueCampaignName, summary: "A long-running campaign about ancient draconic power returning.", worldId }
       });
       
       // Response format: { campaign: Campaign }
@@ -132,12 +226,13 @@ When('the test campaign exists', async ({ page, request }) => {
         throw new Error("Campaign creation response missing campaign data");
       }
       
-      // Store the unique name in page context for other steps to use
+      // Store the unique name and world name in page context for other steps to use
       // Use try-catch since page might not be ready yet in Background
       try {
-        await page.evaluate((name) => {
+        await page.evaluate((name, world) => {
           (window as any).__testCampaignName = name;
-        }, uniqueCampaignName);
+          (window as any).__testWorldName = world;
+        }, uniqueCampaignName, worldName);
       } catch {
         // Page might not be ready - that's okay, we'll regenerate the name in the select step
         // The name is deterministic (based on worker index), so it will match

@@ -151,6 +151,9 @@ describe("useHomePageHandlers", () => {
   });
 
   it("should handle create user", async () => {
+    const mockUser = { id: "user-1", username: "newuser", roles: [] };
+    vi.mocked(authClient.createUser).mockResolvedValue(mockUser as any);
+
     const props = createMockProps();
     props.currentUser = { user: { username: "admin", roles: ["admin"] }, token: "token" } as any;
 
@@ -369,11 +372,12 @@ describe("useHomePageHandlers", () => {
   });
 
   it("should handle create campaign", async () => {
-    const mockCampaign = { id: "1", name: "Campaign", summary: "Sum", playerIds: [], currentMoment: 0 };
+    const mockCampaign = { id: "1", name: "Campaign", summary: "Sum", worldId: "world-1", playerIds: [], currentMoment: 0 };
     vi.mocked(campaignClient.createCampaign).mockResolvedValue(mockCampaign as any);
 
     const props = createMockProps();
     props.currentUser = { user: { username: "admin", roles: [] }, token: "token" } as any;
+    props.selectedIds.worldId = "world-1";
 
     const { result } = renderHook(() => useHomePageHandlers(props));
 
@@ -383,8 +387,25 @@ describe("useHomePageHandlers", () => {
       await result.current.handleCreateCampaign(mockEvent);
     });
 
-    expect(campaignClient.createCampaign).toHaveBeenCalledWith("Campaign", "Sum", "token");
+    expect(campaignClient.createCampaign).toHaveBeenCalledWith("Campaign", "Sum", "world-1", "token");
     expect(props.setCampaigns).toHaveBeenCalled();
+  });
+
+  it("should not create campaign when no world is selected", async () => {
+    const props = createMockProps();
+    props.currentUser = { user: { username: "admin", roles: [] }, token: "token" } as any;
+    props.selectedIds.worldId = null;
+
+    const { result } = renderHook(() => useHomePageHandlers(props));
+
+    const mockEvent = { preventDefault: vi.fn() } as any;
+
+    await act(async () => {
+      await result.current.handleCreateCampaign(mockEvent);
+    });
+
+    expect(campaignClient.createCampaign).not.toHaveBeenCalled();
+    expect(props.setError).toHaveBeenCalledWith("Please select a world before creating a campaign");
   });
 
   it("should early-return in handleCreateEntity when no worldId", async () => {
@@ -428,7 +449,7 @@ describe("useHomePageHandlers", () => {
       undefined
     );
     expect(props.setEntities).toHaveBeenCalled();
-    expect(props.setEntitiesLoadedFor).toHaveBeenCalledWith(null);
+    // Note: setEntitiesLoadedFor is NOT called to keep the cache, so the entity stays in the list
   });
 
   it("should create non-event entity with undefined timestamps", async () => {

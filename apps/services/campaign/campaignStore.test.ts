@@ -8,34 +8,71 @@ import {
 } from "./campaignStore";
 
 describe("InMemoryCampaignStore", () => {
+  const TEST_WORLD_ID = "world-1";
+
   it("creates and lists campaigns", () => {
     const store = new InMemoryCampaignStore();
-    expect(store.listCampaigns()).toEqual([]);
+    expect(store.listCampaignsByWorld("world-1")).toEqual([]);
 
-    const campaign = store.createCampaign("Test Campaign", "Summary");
-    const campaigns = store.listCampaigns();
+    const campaign = store.createCampaign("Test Campaign", "Summary", TEST_WORLD_ID);
+    const campaigns = store.listCampaignsByWorld("world-1");
     expect(campaigns).toHaveLength(1);
     expect(campaigns[0]).toEqual(campaign);
     expect(campaign.playerIds).toEqual([]);
+    expect(campaign.worldId).toBe(TEST_WORLD_ID);
   });
 
   it("requires a campaign name", () => {
     const store = new InMemoryCampaignStore();
-    expect(() => store.createCampaign("", "Summary")).toThrow(
+    expect(() => store.createCampaign("", "Summary", TEST_WORLD_ID)).toThrow(
       "Campaign name is required"
     );
   });
 
-  it("prevents creating duplicate campaigns by name", () => {
+  it("requires a worldId", () => {
     const store = new InMemoryCampaignStore();
-    store.createCampaign("Camp", "Summary");
-    expect(() => store.createCampaign("Camp", "Another"))
-      .toThrow("Campaign 'Camp' already exists");
+    expect(() => store.createCampaign("Camp", "Summary", "")).toThrow(
+      "worldId is required"
+    );
+  });
+
+  it("prevents creating duplicate campaigns by name in the same world", () => {
+    const store = new InMemoryCampaignStore();
+    store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
+    expect(() => store.createCampaign("Camp", "Another", TEST_WORLD_ID))
+      .toThrow("Campaign 'Camp' already exists in this world");
+  });
+
+  it("allows same campaign name in different worlds", () => {
+    const store = new InMemoryCampaignStore();
+    const campaign1 = store.createCampaign("Camp", "Summary", "world-1");
+    const campaign2 = store.createCampaign("Camp", "Summary", "world-2");
+    
+    expect(campaign1.name).toBe(campaign2.name);
+    expect(campaign1.worldId).toBe("world-1");
+    expect(campaign2.worldId).toBe("world-2");
+    expect(campaign1.id).not.toBe(campaign2.id);
+  });
+
+  it("lists campaigns by world", () => {
+    const store = new InMemoryCampaignStore();
+    const campaign1 = store.createCampaign("Camp 1", "Summary", "world-1");
+    const campaign2 = store.createCampaign("Camp 2", "Summary", "world-1");
+    const campaign3 = store.createCampaign("Camp 3", "Summary", "world-2");
+
+    const world1Campaigns = store.listCampaignsByWorld("world-1");
+    expect(world1Campaigns).toHaveLength(2);
+    expect(world1Campaigns).toContainEqual(campaign1);
+    expect(world1Campaigns).toContainEqual(campaign2);
+
+    const world2Campaigns = store.listCampaignsByWorld("world-2");
+    expect(world2Campaigns).toHaveLength(1);
+    expect(world2Campaigns).toContainEqual(campaign3);
   });
 
   it("creates sessions and scenes", () => {
     const store = new InMemoryCampaignStore();
-    const campaign: Campaign = store.createCampaign("Camp", "Summary");
+    const campaign: Campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     const session: Session = store.createSession(campaign.id, "Session 1");
     const sessions = store.listSessions(campaign.id);
@@ -56,7 +93,7 @@ describe("InMemoryCampaignStore", () => {
 
   it("requires campaignId and name when creating a session", () => {
     const store = new InMemoryCampaignStore();
-    const campaign: Campaign = store.createCampaign("Camp", "Summary");
+    const campaign: Campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     expect(() => store.createSession("", "Session 1")).toThrow(
       "campaignId is required"
@@ -68,7 +105,7 @@ describe("InMemoryCampaignStore", () => {
 
   it("requires sessionId, name, and worldId when creating a scene", () => {
     const store = new InMemoryCampaignStore();
-    const campaign: Campaign = store.createCampaign("Camp", "Summary");
+    const campaign: Campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
     const session: Session = store.createSession(campaign.id, "Session 1");
 
     expect(() =>
@@ -84,7 +121,7 @@ describe("InMemoryCampaignStore", () => {
 
   it("manages players in campaigns", () => {
     const store = new InMemoryCampaignStore();
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     expect(store.listPlayers(campaign.id)).toEqual([]);
 
@@ -97,7 +134,7 @@ describe("InMemoryCampaignStore", () => {
 
   it("automatically creates a story arc when adding a player", () => {
     const store = new InMemoryCampaignStore();
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     expect(store.listStoryArcs(campaign.id)).toEqual([]);
 
@@ -118,7 +155,7 @@ describe("InMemoryCampaignStore", () => {
 
   it("prevents adding duplicate players", () => {
     const store = new InMemoryCampaignStore();
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     store.addPlayer(campaign.id, "alice");
     expect(() => store.addPlayer(campaign.id, "alice")).toThrow(
@@ -128,7 +165,7 @@ describe("InMemoryCampaignStore", () => {
 
   it("requires campaignId and playerId when adding players", () => {
     const store = new InMemoryCampaignStore();
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     expect(() => store.addPlayer("", "alice")).toThrow("campaignId is required");
     expect(() => store.addPlayer(campaign.id, "")).toThrow("playerId is required");
@@ -150,7 +187,7 @@ describe("InMemoryCampaignStore", () => {
 
   it("manages story arcs in campaigns", () => {
     const store = new InMemoryCampaignStore();
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     expect(store.listStoryArcs(campaign.id)).toEqual([]);
 
@@ -166,7 +203,7 @@ describe("InMemoryCampaignStore", () => {
 
   it("requires campaignId and name when creating story arc", () => {
     const store = new InMemoryCampaignStore();
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     expect(() => store.createStoryArc("", "Arc", "Summary")).toThrow(
       "campaignId is required"
@@ -185,7 +222,7 @@ describe("InMemoryCampaignStore", () => {
 
   it("manages events in story arcs", () => {
     const store = new InMemoryCampaignStore();
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
     const storyArc = store.createStoryArc(campaign.id, "Arc", "Summary");
 
     expect(store.listStoryArcEvents(storyArc.id)).toEqual([]);
@@ -199,7 +236,7 @@ describe("InMemoryCampaignStore", () => {
 
   it("prevents adding duplicate events to story arc", () => {
     const store = new InMemoryCampaignStore();
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
     const storyArc = store.createStoryArc(campaign.id, "Arc", "Summary");
 
     store.addEventToStoryArc(storyArc.id, "event-1");
@@ -210,7 +247,7 @@ describe("InMemoryCampaignStore", () => {
 
   it("requires storyArcId and eventId when adding events", () => {
     const store = new InMemoryCampaignStore();
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
     const storyArc = store.createStoryArc(campaign.id, "Arc", "Summary");
 
     expect(() => store.addEventToStoryArc("", "event-1")).toThrow(
@@ -237,7 +274,7 @@ describe("InMemoryCampaignStore", () => {
 
   it("manages campaign timeline", () => {
     const store = new InMemoryCampaignStore();
-    const campaign = store.createCampaign("Camp", "Summary");
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
 
     const timeline = store.getTimeline(campaign.id);
     expect(timeline.currentMoment).toBeGreaterThan(0);

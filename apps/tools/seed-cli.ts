@@ -215,57 +215,52 @@ async function seedAssets(
 }
 
 /**
- * Detect file type by examining JSON structure
+ * Detect if file contains worlds data
  * Handles both arrays and single objects
+ * Campaigns are now nested within worlds.json files
  */
-function detectFileType(fileContent: any): "worlds" | "campaigns" | "unknown" {
+function isWorldsFile(fileContent: any): boolean {
   // Normalize to array - handle both single objects and arrays
   let items: any[];
   if (Array.isArray(fileContent)) {
     if (fileContent.length === 0) {
-      return "unknown";
+      return false;
     }
     items = fileContent;
   } else if (fileContent && typeof fileContent === "object") {
     // Single object - wrap in array
     items = [fileContent];
   } else {
-    return "unknown";
+    return false;
   }
 
   const firstItem = items[0];
   
-  // Worlds have: name, description, optional entities array
+  // Worlds have: name, description, optional entities array, optional campaigns array
   if (firstItem.name && firstItem.description && (firstItem.entities === undefined || Array.isArray(firstItem.entities))) {
     // Check if it looks like a world (entities have type, name, summary)
     if (firstItem.entities && firstItem.entities.length > 0) {
       const entity = firstItem.entities[0];
       if (entity.type && entity.name && entity.summary) {
-        return "worlds";
+        return true;
       }
     }
     // Or if it has splashImageFileName, it's definitely a world
     if (firstItem.splashImageFileName !== undefined) {
-      return "worlds";
-    }
-    // If it has name/description but no other distinguishing features, check for campaign indicators
-    if (firstItem.summary !== undefined && firstItem.sessions !== undefined) {
-      return "campaigns";
+      return true;
     }
     // Default to worlds if it has name/description (worlds are simpler structure)
+    // Campaigns are now nested within worlds, so standalone campaign files are not supported
     if (!firstItem.summary && !firstItem.sessions && !firstItem.storyArcs) {
-      return "worlds";
+      return true;
+    }
+    // If it has campaigns array, it's definitely a world (with nested campaigns)
+    if (firstItem.campaigns !== undefined && Array.isArray(firstItem.campaigns)) {
+      return true;
     }
   }
 
-  // Campaigns have: name, summary, optional sessions, storyArcs, playerIds
-  if (firstItem.name && firstItem.summary !== undefined) {
-    if (firstItem.sessions !== undefined || firstItem.storyArcs !== undefined || firstItem.playerIds !== undefined) {
-      return "campaigns";
-    }
-  }
-
-  return "unknown";
+  return false;
 }
 
 /**
@@ -284,7 +279,7 @@ async function seedWorlds(filePath: string, options: SeedOptions, token: string)
   const worldsFileContent = fs.readFileSync(worldsFilePath, "utf-8");
   const parsedContent = JSON.parse(worldsFileContent);
   // Handle both single world object and array of worlds
-  const worlds = Array.isArray(parsedContent) 
+    const worlds = Array.isArray(parsedContent) 
     ? parsedContent 
     : [parsedContent] as Array<{
     name: string;
@@ -296,6 +291,26 @@ async function seedWorlds(filePath: string, options: SeedOptions, token: string)
       summary: string;
       beginningTimestamp?: number;
       endingTimestamp?: number;
+    }>;
+    campaigns?: Array<{
+      name: string;
+      summary: string;
+      playerIds?: string[];
+      currentMoment?: number;
+      sessions?: Array<{
+        name: string;
+        scenes?: Array<{
+          name: string;
+          summary: string;
+          worldName?: string;
+          entityIds?: string[];
+        }>;
+      }>;
+      storyArcs?: Array<{
+        name: string;
+        summary: string;
+        eventIds?: string[];
+      }>;
     }>;
   }>;
 
@@ -419,34 +434,75 @@ async function seedWorlds(filePath: string, options: SeedOptions, token: string)
         }
       }
     }
+
+    // Seed campaigns nested in this world
+    if (world.campaigns && worldId) {
+      for (const campaignData of world.campaigns) {
+        if (!campaignData.name || !campaignData.summary) {
+          console.warn(`  Skipping campaign with missing name or summary: ${JSON.stringify(campaignData)}`);
+          continue;
+        }
+
+        // Check if campaign already exists (filter by world)
+        let campaignId: string | undefined;
+        try {
+          const existingCampaignsResponse = await makeRequest(
+            options.campaignUrl,
+            `/worlds/${worldId}/campaigns`,
+            "GET",
+            token
+          );
+          const existingCampaigns = (existingCampaignsResponse.body as { campaigns?: Array<{ id: string; name: string }> }).campaigns ?? [];
+          const existingCampaign = existingCampaigns.find(c => c.name.toLowerCase() === campaignData.name.toLowerCase());
+          if (existingCampaign) {
+            campaignId = existingCampaign.id;
+            console.log(`  Campaign '${campaignData.name}' already exists, skipping creation`);
+            continue;
+          }
+        } catch {
+          // If check fails, try to create anyway
+        }
+
+        // Create campaign
+        try {
+          const createResponse = await makeRequest(
+            options.campaignUrl,
+            "/campaigns",
+            "POST",
+            token,
+            { name: campaignData.name, summary: campaignData.summary, worldId }
+          );
+
+          if (createResponse.status === 201) {
+            campaignId = (createResponse.body as { campaign?: { id: string } }).campaign?.id;
+            if (campaignId) {
+              console.log(`  ✓ Created campaign: ${campaignData.name}`);
+              // Continue with sessions, scenes, players, story arcs (reuse logic from seedCampaigns)
+              await seedCampaignRelatedData(campaignId, campaignData, options, token);
+            }
+          } else if (createResponse.status === 400 && (createResponse.body as any).error?.includes("already exists")) {
+            console.log(`  Campaign '${campaignData.name}' already exists, skipping creation`);
+          } else {
+            throw new Error((createResponse.body as any).error || "Unknown error");
+          }
+        } catch (err) {
+          console.error(`  Failed to create campaign ${campaignData.name}:`, (err as Error).message);
+        }
+      }
+    }
   }
 
   console.log(`\nWorld seeding complete: ${createdCount} created, ${skippedCount} skipped`);
 }
 
 /**
- * Seed campaigns from JSON file
+ * Seed campaign-related data (players, sessions, scenes, story arcs, events)
+ * Extracted for reuse between standalone campaign seeding and nested campaign seeding
  */
-async function seedCampaigns(filePath: string, options: SeedOptions, token: string): Promise<void> {
-  const campaignsFilePath = path.isAbsolute(filePath)
-    ? filePath
-    : path.join(process.cwd(), filePath);
-
-  if (!fs.existsSync(campaignsFilePath)) {
-    console.warn(`Campaigns file not found at ${campaignsFilePath}, skipping campaign seeding`);
-    return;
-  }
-
-  const campaignsFileContent = fs.readFileSync(campaignsFilePath, "utf-8");
-  const parsedContent = JSON.parse(campaignsFileContent);
-  // Handle both single campaign object and array of campaigns
-  const campaignsData = Array.isArray(parsedContent)
-    ? parsedContent
-    : [parsedContent] as Array<{
-    name: string;
-    summary: string;
+async function seedCampaignRelatedData(
+  campaignId: string,
+  campaignData: {
     playerIds?: string[];
-    currentMoment?: number;
     sessions?: Array<{
       name: string;
       scenes?: Array<{
@@ -461,9 +517,41 @@ async function seedCampaigns(filePath: string, options: SeedOptions, token: stri
       summary: string;
       eventIds?: string[];
     }>;
-  }>;
+  },
+  options: SeedOptions,
+  token: string
+): Promise<void> {
+  // Add players
+  if (campaignData.playerIds) {
+    for (const playerId of campaignData.playerIds) {
+      try {
+        const playerResponse = await makeRequest(
+          options.campaignUrl,
+          `/campaigns/${campaignId}/players`,
+          "POST",
+          token,
+          { playerId }
+        );
 
-  // Get world name-to-ID mapping
+        if (playerResponse.status === 201) {
+          console.log(`    ✓ Added player: ${playerId}`);
+        } else if (playerResponse.status === 400 && (playerResponse.body as any).error?.includes("already")) {
+          console.log(`    Player '${playerId}' already in campaign, skipping`);
+        } else {
+          throw new Error((playerResponse.body as any).error || "Unknown error");
+        }
+      } catch (err) {
+        const errorMsg = (err as Error).message;
+        if (errorMsg.includes("already")) {
+          console.log(`    Player '${playerId}' already in campaign, skipping`);
+        } else {
+          console.warn(`    Failed to add player ${playerId}:`, errorMsg);
+        }
+      }
+    }
+  }
+
+  // Get world name-to-ID mapping for scenes
   const worldsResponse = await makeRequest(options.worldUrl, "/worlds", "GET", token);
   const worlds = (worldsResponse.body as { worlds?: Array<{ id: string; name: string }> }).worlds ?? [];
   const worldNameToId = new Map<string, string>();
@@ -471,235 +559,93 @@ async function seedCampaigns(filePath: string, options: SeedOptions, token: stri
     worldNameToId.set(world.name, world.id);
   }
 
-  // Get existing campaigns to check for duplicates
-  const existingCampaignsResponse = await makeRequest(options.campaignUrl, "/campaigns", "GET", token);
-  const existingCampaigns = (existingCampaignsResponse.body as { campaigns?: Array<{ id: string; name: string }> }).campaigns ?? [];
-  const campaignNameToId = new Map<string, string>();
-  for (const campaign of existingCampaigns) {
-    campaignNameToId.set(campaign.name.toLowerCase(), campaign.id);
-  }
-
-  let createdCount = 0;
-  let skippedCount = 0;
-
-  for (const campaignData of campaignsData) {
-    if (!campaignData.name || !campaignData.summary) {
-      console.warn(`Skipping campaign with missing name or summary: ${JSON.stringify(campaignData)}`);
-      continue;
-    }
-
-    const campaignKey = campaignData.name.toLowerCase();
-    let campaignId = campaignNameToId.get(campaignKey);
-
-    // Create campaign if it doesn't exist
-    if (!campaignId) {
-      try {
-        const createResponse = await makeRequest(
-          options.campaignUrl,
-          "/campaigns",
-          "POST",
-          token,
-          { name: campaignData.name, summary: campaignData.summary }
-        );
-
-        if (createResponse.status === 201) {
-          campaignId = (createResponse.body as { campaign?: { id: string } }).campaign?.id;
-          if (campaignId) {
-            campaignNameToId.set(campaignKey, campaignId);
-            console.log(`✓ Created campaign: ${campaignData.name}`);
-            createdCount++;
-          }
-        } else if (createResponse.status === 400 && (createResponse.body as any).error?.includes("already exists")) {
-          // Campaign exists but wasn't in our list - fetch it to get the ID
-          const allCampaignsResponse = await makeRequest(options.campaignUrl, "/campaigns", "GET", token);
-          const allCampaigns = (allCampaignsResponse.body as { campaigns?: Array<{ id: string; name: string }> }).campaigns ?? [];
-          const existingCampaign = allCampaigns.find(c => c.name.toLowerCase() === campaignKey);
-          if (existingCampaign) {
-            campaignId = existingCampaign.id;
-            campaignNameToId.set(campaignKey, campaignId);
-          }
-          console.log(`  Campaign '${campaignData.name}' already exists, skipping creation`);
-          skippedCount++;
-        } else {
-          throw new Error((createResponse.body as any).error || "Unknown error");
-        }
-      } catch (err) {
-        console.error(`Failed to create campaign ${campaignData.name}:`, (err as Error).message);
+  // Create sessions and scenes
+  if (campaignData.sessions) {
+    for (const sessionData of campaignData.sessions) {
+      if (!sessionData.name) {
+        console.warn(`    Skipping session with missing name in campaign`);
         continue;
       }
-    } else {
-      console.log(`  Campaign '${campaignData.name}' already exists, skipping creation`);
-      skippedCount++;
-    }
 
-    if (!campaignId) {
-      console.warn(`  No campaign ID for ${campaignData.name}, skipping related data`);
-      continue;
-    }
+      let sessionId: string | undefined;
+      try {
+        const sessionResponse = await makeRequest(
+          options.campaignUrl,
+          `/campaigns/${campaignId}/sessions`,
+          "POST",
+          token,
+          { name: sessionData.name }
+        );
 
-    // Note: currentMoment is not settable via API - campaigns are created with Date.now()
-    // If a specific currentMoment is needed, it would require a PATCH endpoint
-
-    // Add players
-    if (campaignData.playerIds) {
-      for (const playerId of campaignData.playerIds) {
-        try {
-          const playerResponse = await makeRequest(
-            options.campaignUrl,
-            `/campaigns/${campaignId}/players`,
-            "POST",
-            token,
-            { playerId }
-          );
-
-          if (playerResponse.status === 201) {
-            console.log(`  ✓ Added player: ${playerId}`);
-          } else if (playerResponse.status === 400 && (playerResponse.body as any).error?.includes("already")) {
-            console.log(`  Player '${playerId}' already in campaign, skipping`);
-          } else {
-            throw new Error((playerResponse.body as any).error || "Unknown error");
+        if (sessionResponse.status === 201) {
+          sessionId = (sessionResponse.body as { session?: { id: string } }).session?.id;
+          if (sessionId) {
+            console.log(`    ✓ Created session: ${sessionData.name}`);
           }
-        } catch (err) {
-          // Check if it's an "already exists" error - if so, just log and continue
-          const errorMsg = (err as Error).message;
-          if (errorMsg.includes("already")) {
-            console.log(`  Player '${playerId}' already in campaign, skipping`);
-          } else {
-            console.warn(`  Failed to add player ${playerId}:`, errorMsg);
-          }
+        } else if (sessionResponse.status === 400 && (sessionResponse.body as any).error?.includes("already exists")) {
+          console.log(`    Session '${sessionData.name}' already exists, skipping`);
+        } else {
+          throw new Error((sessionResponse.body as any).error || "Unknown error");
+        }
+      } catch (err) {
+        const errorMsg = (err as Error).message;
+        if (errorMsg.includes("already")) {
+          console.log(`    Session '${sessionData.name}' already exists, skipping`);
+        } else {
+          console.warn(`    Failed to create session ${sessionData.name}:`, errorMsg);
+          continue;
         }
       }
-    }
 
-    // Create sessions and scenes
-    if (campaignData.sessions) {
-      for (const sessionData of campaignData.sessions) {
-        if (!sessionData.name) {
-          console.warn(`  Skipping session with missing name in campaign ${campaignData.name}`);
-          continue;
-        }
+      if (!sessionId) continue;
 
-        let sessionId: string | undefined;
-        try {
-          const sessionResponse = await makeRequest(
-            options.campaignUrl,
-            `/campaigns/${campaignId}/sessions`,
-            "POST",
-            token,
-            { name: sessionData.name }
-          );
-
-          if (sessionResponse.status === 201) {
-            sessionId = (sessionResponse.body as { session?: { id: string } }).session?.id;
-            if (sessionId) {
-              console.log(`  ✓ Created session: ${sessionData.name}`);
-            }
-          } else {
-            throw new Error((sessionResponse.body as any).error || "Unknown error");
+      // Create scenes
+      if (sessionData.scenes) {
+        for (const sceneData of sessionData.scenes) {
+          if (!sceneData.name || !sceneData.summary) {
+            console.warn(`      Skipping scene with missing name or summary`);
+            continue;
           }
-        } catch (err) {
-          console.error(`  Failed to create session ${sessionData.name}:`, (err as Error).message);
-          continue;
-        }
 
-        if (sessionId && sessionData.scenes) {
-          for (const sceneData of sessionData.scenes) {
-            if (!sceneData.name || !sceneData.summary) {
-              console.warn(`    Skipping scene with missing name or summary in session ${sessionData.name}`);
+          let worldId: string | undefined;
+          if (sceneData.worldName) {
+            worldId = worldNameToId.get(sceneData.worldName);
+            if (!worldId) {
+              console.warn(`      World '${sceneData.worldName}' not found, skipping scene '${sceneData.name}'`);
               continue;
             }
+          } else {
+            console.warn(`      Scene '${sceneData.name}' missing worldName, skipping`);
+            continue;
+          }
 
-            let worldId: string | undefined;
-            if (sceneData.worldName) {
-              worldId = worldNameToId.get(sceneData.worldName);
-              if (!worldId) {
-                console.warn(`    World '${sceneData.worldName}' not found, skipping scene '${sceneData.name}'`);
-                continue;
+          try {
+            const sceneResponse = await makeRequest(
+              options.campaignUrl,
+              `/sessions/${sessionId}/scenes`,
+              "POST",
+              token,
+              {
+                name: sceneData.name,
+                summary: sceneData.summary,
+                worldId,
+                entityIds: sceneData.entityIds || []
               }
+            );
+
+            if (sceneResponse.status === 201) {
+              console.log(`      ✓ Created scene: ${sceneData.name}`);
+            } else if (sceneResponse.status === 400 && (sceneResponse.body as any).error?.includes("already exists")) {
+              console.log(`      Scene '${sceneData.name}' already exists, skipping`);
             } else {
-              console.warn(`    Scene '${sceneData.name}' missing worldName, skipping`);
-              continue;
+              throw new Error((sceneResponse.body as any).error || "Unknown error");
             }
-
-            try {
-              const sceneResponse = await makeRequest(
-                options.campaignUrl,
-                `/sessions/${sessionId}/scenes`,
-                "POST",
-                token,
-                {
-                  name: sceneData.name,
-                  summary: sceneData.summary,
-                  worldId,
-                  entityIds: sceneData.entityIds || []
-                }
-              );
-
-              if (sceneResponse.status === 201) {
-                console.log(`    ✓ Created scene: ${sceneData.name}`);
-              } else {
-                throw new Error((sceneResponse.body as any).error || "Unknown error");
-              }
-            } catch (err) {
-              console.error(`    Failed to create scene ${sceneData.name}:`, (err as Error).message);
-            }
-          }
-        }
-      }
-    }
-
-    // Create story arcs
-    if (campaignData.storyArcs) {
-      for (const arcData of campaignData.storyArcs) {
-        if (!arcData.name || !arcData.summary) {
-          console.warn(`  Skipping story arc with missing name or summary in campaign ${campaignData.name}`);
-          continue;
-        }
-
-        let storyArcId: string | undefined;
-        try {
-          const arcResponse = await makeRequest(
-            options.campaignUrl,
-            `/campaigns/${campaignId}/story-arcs`,
-            "POST",
-            token,
-            { name: arcData.name, summary: arcData.summary }
-          );
-
-          if (arcResponse.status === 201) {
-            storyArcId = (arcResponse.body as { storyArc?: { id: string } }).storyArc?.id;
-            if (storyArcId) {
-              console.log(`  ✓ Created story arc: ${arcData.name}`);
-            }
-          } else {
-            throw new Error((arcResponse.body as any).error || "Unknown error");
-          }
-        } catch (err) {
-          console.error(`  Failed to create story arc ${arcData.name}:`, (err as Error).message);
-          continue;
-        }
-
-        // Add events to story arc
-        if (storyArcId && arcData.eventIds) {
-          for (const eventId of arcData.eventIds) {
-            try {
-              const eventResponse = await makeRequest(
-                options.campaignUrl,
-                `/story-arcs/${storyArcId}/events`,
-                "POST",
-                token,
-                { eventId }
-              );
-
-              if (eventResponse.status === 201) {
-                console.log(`    ✓ Added event to story arc: ${eventId}`);
-              } else if (eventResponse.status === 400 && (eventResponse.body as any).error?.includes("already exists")) {
-                console.log(`    Event '${eventId}' already in story arc, skipping`);
-              } else {
-                throw new Error((eventResponse.body as any).error || "Unknown error");
-              }
-            } catch (err) {
-              console.warn(`    Failed to add event ${eventId} to story arc:`, (err as Error).message);
+          } catch (err) {
+            const errorMsg = (err as Error).message;
+            if (errorMsg.includes("already")) {
+              console.log(`      Scene '${sceneData.name}' already exists, skipping`);
+            } else {
+              console.warn(`      Failed to create scene ${sceneData.name}:`, errorMsg);
             }
           }
         }
@@ -707,8 +653,82 @@ async function seedCampaigns(filePath: string, options: SeedOptions, token: stri
     }
   }
 
-  console.log(`\nCampaign seeding complete: ${createdCount} created, ${skippedCount} skipped`);
+  // Create story arcs and events
+  if (campaignData.storyArcs) {
+    for (const arcData of campaignData.storyArcs) {
+      if (!arcData.name || !arcData.summary) {
+        console.warn(`    Skipping story arc with missing name or summary`);
+        continue;
+      }
+
+      let storyArcId: string | undefined;
+      try {
+        const arcResponse = await makeRequest(
+          options.campaignUrl,
+          `/campaigns/${campaignId}/story-arcs`,
+          "POST",
+          token,
+          { name: arcData.name, summary: arcData.summary }
+        );
+
+        if (arcResponse.status === 201) {
+          storyArcId = (arcResponse.body as { storyArc?: { id: string } }).storyArc?.id;
+          if (storyArcId) {
+            console.log(`    ✓ Created story arc: ${arcData.name}`);
+          }
+        } else if (arcResponse.status === 400 && (arcResponse.body as any).error?.includes("already exists")) {
+          console.log(`    Story arc '${arcData.name}' already exists, skipping`);
+        } else {
+          throw new Error((arcResponse.body as any).error || "Unknown error");
+        }
+      } catch (err) {
+        const errorMsg = (err as Error).message;
+        if (errorMsg.includes("already")) {
+          console.log(`    Story arc '${arcData.name}' already exists, skipping`);
+        } else {
+          console.warn(`    Failed to create story arc ${arcData.name}:`, errorMsg);
+          continue;
+        }
+      }
+
+      if (!storyArcId || !arcData.eventIds) continue;
+
+      // Add events to story arc
+      for (const eventId of arcData.eventIds) {
+        try {
+          const eventResponse = await makeRequest(
+            options.campaignUrl,
+            `/story-arcs/${storyArcId}/events`,
+            "POST",
+            token,
+            { eventId }
+          );
+
+          if (eventResponse.status === 201) {
+            console.log(`      ✓ Added event: ${eventId}`);
+          } else if (eventResponse.status === 400 && (eventResponse.body as any).error?.includes("already")) {
+            console.log(`      Event '${eventId}' already in story arc, skipping`);
+          } else {
+            throw new Error((eventResponse.body as any).error || "Unknown error");
+          }
+        } catch (err) {
+          const errorMsg = (err as Error).message;
+          if (errorMsg.includes("already")) {
+            console.log(`      Event '${eventId}' already in story arc, skipping`);
+          } else {
+            console.warn(`      Failed to add event ${eventId}:`, errorMsg);
+          }
+        }
+      }
+    }
+  }
 }
+
+/**
+ * Seed campaigns from JSON file
+ */
+// Note: seedCampaigns function removed - campaigns are now nested within worlds.json
+// and are seeded as part of seedWorlds() function
 
 /**
  * Main seeding function
@@ -725,7 +745,7 @@ async function seed(options: SeedOptions): Promise<void> {
 
   console.log("Starting seeding process...\n");
 
-  // Read and parse the file to detect its type
+  // Read and parse the file
   let fileContent: any;
   try {
     const fileContentStr = fs.readFileSync(filePath, "utf-8");
@@ -735,9 +755,10 @@ async function seed(options: SeedOptions): Promise<void> {
     process.exit(1);
   }
 
-  const fileType = detectFileType(fileContent);
-  if (fileType === "unknown") {
-    console.error(`✗ Error: Could not determine file type. File should contain either worlds or campaigns data.`);
+  // Verify it's a worlds file (campaigns are now nested within worlds)
+  if (!isWorldsFile(fileContent)) {
+    console.error(`✗ Error: File does not appear to be a valid worlds file. ` +
+      `Campaigns should be nested within worlds.json files.`);
     process.exit(1);
   }
 
@@ -752,14 +773,9 @@ async function seed(options: SeedOptions): Promise<void> {
     process.exit(1);
   }
 
-  // Seed based on detected file type
-  if (fileType === "worlds") {
-    console.log("Detected worlds file. Seeding worlds...");
-    await seedWorlds(filePath, options, token);
-  } else if (fileType === "campaigns") {
-    console.log("Detected campaigns file. Seeding campaigns...");
-    await seedCampaigns(filePath, options, token);
-  }
+  // Seed worlds (campaigns are nested within and will be seeded automatically)
+  console.log("Seeding worlds and nested campaigns...");
+  await seedWorlds(filePath, options, token);
 
   console.log("\n✓ Seeding complete!");
 }
@@ -832,11 +848,10 @@ async function seedAll(options: SeedAllOptions): Promise<void> {
   for (const subdir of subdirs) {
     const subdirPath = path.join(folderPath, subdir);
     const worldsFile = path.join(subdirPath, "worlds.json");
-    const campaignsFile = path.join(subdirPath, "campaigns.json");
 
     console.log(`\n=== Processing: ${subdir} ===`);
 
-    // Seed worlds if file exists
+    // Seed worlds if file exists (campaigns are nested within worlds.json)
     if (fs.existsSync(worldsFile)) {
       console.log(`  Found worlds.json, seeding...`);
       try {
@@ -854,26 +869,6 @@ async function seedAll(options: SeedAllOptions): Promise<void> {
       }
     } else {
       console.log(`  No worlds.json found, skipping`);
-    }
-
-    // Seed campaigns if file exists
-    if (fs.existsSync(campaignsFile)) {
-      console.log(`  Found campaigns.json, seeding...`);
-      try {
-        await seedCampaigns(campaignsFile, {
-          username: options.username,
-          password: options.password,
-          authUrl: options.authUrl,
-          worldUrl: options.worldUrl,
-          campaignUrl: options.campaignUrl,
-          assetUrl: options.assetUrl,
-          file: campaignsFile
-        }, token);
-      } catch (err) {
-        console.error(`  ✗ Error seeding campaigns from ${campaignsFile}:`, (err as Error).message);
-      }
-    } else {
-      console.log(`  No campaigns.json found, skipping`);
     }
   }
 
@@ -940,7 +935,7 @@ void yargs(hideBin(process.argv))
   )
   .command(
     "seedAll",
-    "Seed all worlds and campaigns from subfolders (looks for worlds.json and campaigns.json in each subfolder)",
+    "Seed all worlds and campaigns from subfolders (looks for worlds.json in each subfolder; campaigns are nested within worlds.json)",
     (yargsBuilder) =>
       yargsBuilder
         .option("username", {
@@ -979,7 +974,7 @@ void yargs(hideBin(process.argv))
           alias: "f",
           type: "string",
           demandOption: true,
-          describe: "Path to folder containing subfolders with worlds.json and/or campaigns.json files"
+          describe: "Path to folder containing subfolders with worlds.json files (campaigns are nested within worlds.json)"
         }),
     async (args) => {
       await seedAll({

@@ -49,6 +49,51 @@
         "name": "The Shadow Thieves",
         "summary": "A criminal organization that operates in the darker corners of Eldoria. They deal in stolen magical artifacts and information, and have connections in every major city."
       }
+    ],
+    "campaigns": [
+      {
+        "name": "Rise of the Dragon King",
+        "summary": "A long-running campaign about ancient draconic power returning to the realm. The party must uncover the truth behind the disappearance of the last dragon lord and prevent a catastrophic war.",
+        "playerIds": ["alice", "bob"],
+        "currentMoment": 1700000000000,
+        "sessions": [
+          {
+            "name": "Session 1: The Awakening",
+            "scenes": [
+              {
+                "name": "The Ancient Prophecy",
+                "summary": "The party discovers an ancient scroll foretelling the return of the Dragon King. They must decipher its meaning before their enemies do.",
+                "worldName": "Eldoria",
+                "entityIds": []
+              },
+              {
+                "name": "The First Sign",
+                "summary": "Strange phenomena begin occurring across the realm - earthquakes, unusual weather patterns, and sightings of draconic creatures.",
+                "worldName": "Eldoria",
+                "entityIds": []
+              }
+            ]
+          },
+          {
+            "name": "Session 2: The Gathering Storm",
+            "scenes": [
+              {
+                "name": "Meeting the Oracle",
+                "summary": "The party seeks out a reclusive oracle who may hold the key to understanding the prophecy.",
+                "worldName": "Eldoria",
+                "entityIds": []
+              }
+            ]
+          }
+        ],
+        "storyArcs": [
+          {
+            "name": "The Prophecy Arc",
+            "summary": "Uncovering the truth behind the ancient prophecy and its connection to the Dragon King's return.",
+            "eventIds": []
+          }
+        ]
+      }
     ]
   }
 ]

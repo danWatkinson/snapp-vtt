@@ -318,8 +318,17 @@ When('the test user signs in to the system', async ({ page }) => {
   // Clear any existing session
   await page.context().clearCookies();
   await page.evaluate(() => localStorage.clear());
+  
   // Use domcontentloaded instead of load - faster and more reliable
+  // Wait for the page to fully load and stabilize before attempting login
   await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
+  
+  // Add a stability wait after navigation to ensure page state is settled
+  // This is especially important when running with other tests that may have
+  // left behind some state that affects page initialization
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {
+    // Network idle may timeout if there are long-polling requests, that's ok
+  });
   
   await loginAs(page, uniqueAliceName, "alice123");
 });

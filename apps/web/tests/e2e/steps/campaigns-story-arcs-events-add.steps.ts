@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, getUniqueCampaignName } from "../helpers";
+import { selectWorldAndEnterPlanningMode, selectWorldAndEnterPlanningModeWithWorldName, getUniqueCampaignName, ensureCampaignExists } from "../helpers";
 import { safeWait } from "../helpers/utils";
 import { STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 // Note: "the campaign \"Rise of the Dragon King\" exists" is defined in campaigns-create.steps.ts
@@ -37,50 +37,21 @@ When('story arc "The Ancient Prophecy" exists', async ({ page }) => {
         campaignName = getUniqueCampaignName("Rise of the Dragon King");
       }
       
-      // Navigate to Campaigns planning screen
-      await selectWorldAndEnterPlanningMode(page, "Campaigns");
-      
-      // Wait for campaigns to load
-      await safeWait(page, STABILITY_WAIT_MEDIUM);
-      
-      // Check if campaign is already selected
-      const campaignViewsCheck = page.getByRole("tablist", { name: "Campaign views" });
-      const campaignAlreadySelected = await campaignViewsCheck.isVisible({ timeout: 2000 }).catch(() => false);
-      
-      if (!campaignAlreadySelected) {
-        // Find and select campaign
-        let campaignsTablist = page.getByRole("tablist", { name: "Campaigns" });
-        let isVisible = await campaignsTablist.isVisible({ timeout: 3000 }).catch(() => false);
-        
-        if (!isVisible) {
-          campaignsTablist = page.getByRole("tablist", { name: "Campaign context" });
-          isVisible = await campaignsTablist.isVisible({ timeout: 3000 }).catch(() => false);
-        }
-        
-        if (isVisible) {
-          let campaignTab = campaignsTablist.getByRole("tab", { name: campaignName }).first();
-          let exists = await campaignTab.isVisible({ timeout: 5000 }).catch(() => false);
-          
-          if (!exists) {
-            campaignTab = campaignsTablist.getByRole("tab").filter({ hasText: campaignName }).first();
-            exists = await campaignTab.isVisible({ timeout: 5000 }).catch(() => false);
-          }
-          
-          if (!exists) {
-            campaignTab = campaignsTablist.getByRole("tab", { name: "Rise of the Dragon King" }).first();
-            exists = await campaignTab.isVisible({ timeout: 5000 }).catch(() => false);
-          }
-          
-          if (exists) {
-            await campaignTab.click();
-            await expect(campaignViews).toBeVisible({ timeout: 5000 });
-          }
-        }
-      }
+      // Use ensureCampaignExists which handles world selection, campaign finding/creation, etc.
+      // This ensures we use the stored world name if available from Background steps
+      await ensureCampaignExists(
+        page,
+        campaignName,
+        "A long-running campaign about ancient draconic power returning."
+      );
     }
     
+    // Ensure campaign views are visible before navigating to story arcs tab
+    const finalCampaignViews = page.getByRole("tablist", { name: "Campaign views" });
+    await expect(finalCampaignViews).toBeVisible({ timeout: 5000 });
+    
     // Navigate to story arcs tab
-    await campaignViews.getByRole("tab", { name: "Story arcs" }).click();
+    await finalCampaignViews.getByRole("tab", { name: "Story arcs" }).click();
     await expect(addStoryArcButton).toBeVisible();
   }
   

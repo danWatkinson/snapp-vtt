@@ -3,27 +3,36 @@ import { isAuthError } from "../auth/authErrors";
 
 /**
  * Hook to fetch campaigns when the Campaigns tab is active.
+ * Fetches campaigns for the selected world using server-side filtering.
  */
 export function useCampaigns(
   activeTab: string | null,
   campaignsLoaded: boolean,
-  fetchCampaigns: () => Promise<any[]>,
+  selectedWorldId: string | null,
+  fetchCampaignsByWorld: (worldId: string) => Promise<any[]>,
   setCampaigns: (campaigns: any[]) => void,
   setCampaignsLoaded: (loaded: boolean) => void,
   setError: (error: string | null) => void
 ) {
   useEffect(() => {
     if (activeTab !== "Campaigns" || campaignsLoaded) return;
+    // Campaigns require a world - only fetch if world is selected
+    if (!selectedWorldId) {
+      setCampaigns([]);
+      setCampaignsLoaded(true);
+      return;
+    }
     (async () => {
       try {
-        const existing = await fetchCampaigns();
+        // Fetch campaigns for the selected world
+        const existing = await fetchCampaignsByWorld(selectedWorldId);
         setCampaigns(existing);
         setCampaignsLoaded(true);
       } catch (err) {
         setError((err as Error).message);
       }
     })();
-  }, [activeTab, campaignsLoaded, fetchCampaigns, setCampaigns, setCampaignsLoaded, setError]);
+  }, [activeTab, campaignsLoaded, selectedWorldId, fetchCampaignsByWorld, setCampaigns, setCampaignsLoaded, setError]);
 }
 
 /**

@@ -21,57 +21,72 @@ describe("useDataFetching", () => {
   });
 
   describe("useCampaigns", () => {
-    it("should fetch campaigns when Campaigns tab is active", async () => {
-      const fetchCampaigns = vi.fn().mockResolvedValue([{ id: "1", name: "Campaign 1" }]);
+    it("should fetch campaigns by world when Campaigns tab is active and world is selected", async () => {
+      const fetchCampaignsByWorld = vi.fn().mockResolvedValue([{ id: "1", name: "Campaign 1", worldId: "world-1" }]);
       const setCampaigns = vi.fn();
       const setCampaignsLoaded = vi.fn();
       const setError = vi.fn();
 
       renderHook(() =>
-        useCampaigns("Campaigns", false, fetchCampaigns, setCampaigns, setCampaignsLoaded, setError)
+        useCampaigns("Campaigns", false, "world-1", fetchCampaignsByWorld, setCampaigns, setCampaignsLoaded, setError)
       );
 
       await waitFor(() => {
-        expect(fetchCampaigns).toHaveBeenCalled();
-        expect(setCampaigns).toHaveBeenCalledWith([{ id: "1", name: "Campaign 1" }]);
+        expect(fetchCampaignsByWorld).toHaveBeenCalledWith("world-1");
+        expect(setCampaigns).toHaveBeenCalledWith([{ id: "1", name: "Campaign 1", worldId: "world-1" }]);
         expect(setCampaignsLoaded).toHaveBeenCalledWith(true);
       });
     });
 
     it("should not fetch if tab is not Campaigns", () => {
-      const fetchCampaigns = vi.fn();
+      const fetchCampaignsByWorld = vi.fn();
       const setCampaigns = vi.fn();
       const setCampaignsLoaded = vi.fn();
       const setError = vi.fn();
 
       renderHook(() =>
-        useCampaigns("World", false, fetchCampaigns, setCampaigns, setCampaignsLoaded, setError)
+        useCampaigns("World", false, "world-1", fetchCampaignsByWorld, setCampaigns, setCampaignsLoaded, setError)
       );
 
-      expect(fetchCampaigns).not.toHaveBeenCalled();
+      expect(fetchCampaignsByWorld).not.toHaveBeenCalled();
     });
 
     it("should not fetch if already loaded", () => {
-      const fetchCampaigns = vi.fn();
+      const fetchCampaignsByWorld = vi.fn();
       const setCampaigns = vi.fn();
       const setCampaignsLoaded = vi.fn();
       const setError = vi.fn();
 
       renderHook(() =>
-        useCampaigns("Campaigns", true, fetchCampaigns, setCampaigns, setCampaignsLoaded, setError)
+        useCampaigns("Campaigns", true, "world-1", fetchCampaignsByWorld, setCampaigns, setCampaignsLoaded, setError)
       );
 
-      expect(fetchCampaigns).not.toHaveBeenCalled();
+      expect(fetchCampaignsByWorld).not.toHaveBeenCalled();
+    });
+
+    it("should set empty campaigns when no world is selected", () => {
+      const fetchCampaignsByWorld = vi.fn();
+      const setCampaigns = vi.fn();
+      const setCampaignsLoaded = vi.fn();
+      const setError = vi.fn();
+
+      renderHook(() =>
+        useCampaigns("Campaigns", false, null, fetchCampaignsByWorld, setCampaigns, setCampaignsLoaded, setError)
+      );
+
+      expect(setCampaigns).toHaveBeenCalledWith([]);
+      expect(setCampaignsLoaded).toHaveBeenCalledWith(true);
+      expect(fetchCampaignsByWorld).not.toHaveBeenCalled();
     });
 
     it("should handle errors", async () => {
-      const fetchCampaigns = vi.fn().mockRejectedValue(new Error("Network error"));
+      const fetchCampaignsByWorld = vi.fn().mockRejectedValue(new Error("Network error"));
       const setCampaigns = vi.fn();
       const setCampaignsLoaded = vi.fn();
       const setError = vi.fn();
 
       renderHook(() =>
-        useCampaigns("Campaigns", false, fetchCampaigns, setCampaigns, setCampaignsLoaded, setError)
+        useCampaigns("Campaigns", false, "world-1", fetchCampaignsByWorld, setCampaigns, setCampaignsLoaded, setError)
       );
 
       await waitFor(() => {

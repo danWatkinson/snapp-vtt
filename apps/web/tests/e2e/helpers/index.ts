@@ -5,6 +5,9 @@
 export * from "./constants";
 export * from "./utils";
 
+// Explicit re-exports for commonly used utilities to ensure they're available
+export { safeWait } from "./utils";
+
 // Modal helpers
 export * from "./modals";
 

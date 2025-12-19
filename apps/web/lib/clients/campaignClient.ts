@@ -7,24 +7,20 @@ export interface Campaign {
   id: string;
   name: string;
   summary: string;
+  worldId: string; // Reference to the parent World (mandatory)
   playerIds: string[];
   currentMoment: number;
-}
-
-export async function fetchCampaigns(): Promise<Campaign[]> {
-  const res = await fetch(`${CAMPAIGN_SERVICE_URL}/campaigns`);
-  if (!res.ok) {
-    throw new Error("Failed to load campaigns");
-  }
-  const body = (await res.json()) as { campaigns: Campaign[] };
-  return body.campaigns;
 }
 
 export async function createCampaign(
   name: string,
   summary: string,
+  worldId: string,
   token?: string
 ): Promise<Campaign> {
+  if (!worldId || !worldId.trim()) {
+    throw new Error("worldId is required");
+  }
   const headers: HeadersInit = { "Content-Type": "application/json" };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -32,7 +28,7 @@ export async function createCampaign(
   const res = await fetch(`${CAMPAIGN_SERVICE_URL}/campaigns`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ name, summary })
+    body: JSON.stringify({ name, summary, worldId })
   });
 
   const body = await res.json().catch(() => ({}));
@@ -43,6 +39,15 @@ export async function createCampaign(
     throw new Error(body.error ?? "Failed to create campaign");
   }
   return body.campaign as Campaign;
+}
+
+export async function fetchCampaignsByWorld(worldId: string): Promise<Campaign[]> {
+  const res = await fetch(`${CAMPAIGN_SERVICE_URL}/worlds/${worldId}/campaigns`);
+  if (!res.ok) {
+    throw new Error("Failed to load campaigns for world");
+  }
+  const body = (await res.json()) as { campaigns: Campaign[] };
+  return body.campaigns;
 }
 
 export interface Session {

@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { getStoredWorldName, waitForWorldUpdated, waitForModalOpen, selectWorldAndEnterPlanningMode, getUniqueCampaignName, waitForPlanningMode, safeWait, STABILITY_WAIT_MAX } from "../helpers";
+import { getStoredWorldName, waitForWorldUpdated, waitForModalOpen, selectWorldAndEnterPlanningMode, getUniqueCampaignName, waitForPlanningMode, safeWait, STABILITY_WAIT_MAX, STABILITY_WAIT_SHORT } from "../helpers";
 
 const { When, Then } = createBdd();
 
@@ -189,14 +189,42 @@ When(
       await expect(settingsModal).toBeVisible({ timeout: 3000 });
     }
     
-    // Find the image asset button by its alt text or the asset name
-    // The grid shows images with alt text from asset.name or asset.originalFileName
-    const assetButton = settingsModal
+    // Wait for image assets to be loaded in the modal
+    // First, wait for the "Select a splash image:" text to appear, indicating the section is rendered
+    await expect(
+      settingsModal.getByText("Select a splash image:")
+    ).toBeVisible({ timeout: 3000 });
+    
+    // Wait for at least one image asset button to be visible
+    // This ensures the assets have been fetched and rendered
+    await expect(
+      settingsModal.getByRole("button").filter({ hasText: /./ }).first()
+    ).toBeVisible({ timeout: 5000 });
+    
+    // Find the image asset button by the text content (which appears in the p tag inside the button)
+    // The button contains: <img alt="assetName or originalFileName" /> and <p>assetName or originalFileName</p>
+    // The component uses: asset.name || asset.originalFileName
+    // The asset name might be the fileName with or without extension, so try both
+    const assetNameWithoutExt = assetName.replace(/\.[^.]+$/, "");
+    
+    // Try to find button with full filename first, then without extension
+    let assetButton = settingsModal
       .getByRole("button")
       .filter({ hasText: assetName })
       .first();
     
-    await expect(assetButton).toBeVisible({ timeout: 3000 });
+    // Check if button is visible, if not try without extension
+    const isVisible = await assetButton.isVisible({ timeout: 1000 }).catch(() => false);
+    if (!isVisible) {
+      assetButton = settingsModal
+        .getByRole("button")
+        .filter({ hasText: assetNameWithoutExt })
+        .first();
+    }
+    
+    // Wait for the specific asset button to be visible
+    // Use a longer timeout to ensure assets have loaded from the server
+    await expect(assetButton).toBeVisible({ timeout: 5000 });
     
     // Set up event listener BEFORE clicking (wait for world update with splash image set)
     // We can't easily get worldId here, so we'll wait for any world update

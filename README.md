@@ -34,30 +34,23 @@ Each backend service exposes a small CLI wrapper (implemented with `yargs`) to m
 
 - Campaign service:
   - `npm run cli:campaign -- start` – start the campaign HTTPS service.
-  - `npm run cli:campaign -- seed-campaigns` – seed campaigns, sessions, scenes, story arcs, and events from the configured JSON file (or `--file path/to/campaigns.json`).
 
 ### Seeding Data
 
-To seed worlds or campaigns into running services, use the `snapp-seed` CLI tool. The tool automatically detects the file type:
+To seed worlds (and their nested campaigns) into running services, use the `snapp-seed` CLI tool:
 
 ```bash
-# Seed worlds
+# Seed worlds (campaigns are nested within worlds.json)
 npm run seed -- \
   --username admin \
   --password admin123 \
   --file /tmp/worlds.json
-
-# Seed campaigns
-npm run seed -- \
-  --username admin \
-  --password admin123 \
-  --file /tmp/campaigns.json
 ```
 
 **Options:**
 - `--username`, `-u` (required): Username for authentication
 - `--password`, `-p` (required): Password for authentication
-- `--file`, `-f` (required): Path to worlds or campaigns JSON file (type is auto-detected)
+- `--file`, `-f` (required): Path to worlds JSON file (campaigns are nested within worlds.json)
 - `--auth-url` (default: `https://localhost:3001`): Auth service URL
 - `--world-url` (default: `https://localhost:3002`): World service URL
 - `--campaign-url` (default: `https://localhost:3003`): Campaign service URL
@@ -66,12 +59,12 @@ npm run seed -- \
 The seeding tool:
 - Authenticates with the auth service to get a JWT token
 - Creates worlds and their entities via HTTP APIs
+- Creates campaigns (nested within worlds), sessions, scenes, players, and story arcs via HTTP APIs
 - Sets world splash images by looking up assets from the asset service
-- Creates campaigns, sessions, scenes, players, and story arcs via HTTP APIs
 - Handles existing data gracefully (idempotent - can run multiple times)
 - Provides clear progress logging
 
-**Note:** Services no longer automatically seed data on startup. Use the seeding CLI tool to populate data after services are running.
+**Note:** Services no longer automatically seed data on startup. Use the seeding CLI tool to populate data after services are running. Campaigns are now nested within worlds.json files.
 
 ### Seeding Multiple Worlds and Campaigns
 
@@ -87,9 +80,8 @@ npm run seedAll -- \
 
 The `seedAll` command:
 - Scans the specified folder for subdirectories
-- Processes each subdirectory, looking for `worlds.json` and `campaigns.json` files
-- Seeds worlds first, then campaigns in each subdirectory
-- Skips missing files gracefully (e.g., if a subdirectory only has `worlds.json`)
+- Processes each subdirectory, looking for `worlds.json` files
+- Campaigns are nested within `worlds.json`, so they're seeded automatically with their worlds
 - Authenticates once at the start for efficiency
 
 **Options:**
@@ -105,13 +97,11 @@ Example folder structure:
 ```
 seeds/
   eldoria/
-    worlds.json
-    campaigns.json
+    worlds.json  # Contains both world and nested campaign data
   shadowmere/
-    worlds.json
-    campaigns.json
+    worlds.json  # Contains both world and nested campaign data
   the-wastelands/
-    worlds.json
+    worlds.json  # Contains both world and nested campaign data
 ```
 
 

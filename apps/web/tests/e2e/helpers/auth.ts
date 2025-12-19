@@ -234,16 +234,23 @@ export async function loginAs(page: Page, username: string, password: string) {
   
   // Verify the modal is still open and fields are accessible before proceeding
   // This is a critical check to catch cases where the modal closes immediately
-  const dialogStillOpen = await isVisibleSafely(loginDialog, VISIBILITY_TIMEOUT_SHORT);
+  // Use a longer timeout here to account for modal opening animations and state settling
+  const dialogStillOpen = await isVisibleSafely(loginDialog, VISIBILITY_TIMEOUT_MEDIUM);
   if (!dialogStillOpen) {
     // Modal closed immediately - check if we're logged in (with multiple retries)
-    for (let i = 0; i < 3; i++) {
+    // This can happen if there's a race condition or if login happened automatically
+    for (let i = 0; i < 5; i++) {
       if (await isLoggedIn(page)) {
         return; // We're logged in, no need for login dialog
       }
-      if (i < 2) {
-        await safeWait(page, STABILITY_WAIT_SHORT);
+      if (i < 4) {
+        await safeWait(page, STABILITY_WAIT_MEDIUM);
       }
+    }
+    // Check one more time with a longer wait - sometimes there's a delay
+    await safeWait(page, STABILITY_WAIT_LONG);
+    if (await isLoggedIn(page)) {
+      return;
     }
     // Not logged in and modal closed - this is an error
     throw new Error("Login modal closed immediately after opening. This may indicate a race condition or page state issue.");

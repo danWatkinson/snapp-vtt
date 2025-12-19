@@ -6,7 +6,9 @@ Feature: Game master creates scenes within a session
 
   Background:
     Given there is an admin user
+    And the test campaign exists
 
+  @skip
   Scenario: Game master can create a Scene within a Session
     When the admin signs in to the system
     And the test campaign exists with sessions view

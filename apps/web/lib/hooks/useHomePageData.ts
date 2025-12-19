@@ -14,7 +14,7 @@ import {
 import { listUsers } from "../clients/authClient";
 import { fetchWorlds, fetchWorldEntities } from "../clients/worldClient";
 import {
-  fetchCampaigns,
+  fetchCampaignsByWorld,
   fetchCampaignSessions,
   fetchSessionScenes,
   fetchCampaignPlayers,
@@ -164,7 +164,8 @@ export function useHomePageData(props: UseHomePageDataProps) {
   useCampaigns(
     activeTab,
     campaignsLoaded,
-    fetchCampaigns,
+    selectedIds.worldId,
+    fetchCampaignsByWorld,
     setCampaigns,
     setCampaignsLoaded,
     setError

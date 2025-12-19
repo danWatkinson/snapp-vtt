@@ -2,6 +2,7 @@ export interface Campaign {
   id: string;
   name: string;
   summary: string;
+  worldId: string; // Reference to the parent World (mandatory)
   playerIds: string[];
   currentMoment: number; // Unix timestamp in milliseconds
 }
@@ -35,24 +36,29 @@ export class InMemoryCampaignStore {
   private scenes: Scene[] = [];
   private storyArcs: StoryArc[] = [];
 
-  listCampaigns(): Campaign[] {
-    return [...this.campaigns];
+  listCampaignsByWorld(worldId: string): Campaign[] {
+    return this.campaigns.filter((c) => c.worldId === worldId);
   }
 
-  createCampaign(name: string, summary: string): Campaign {
+  createCampaign(name: string, summary: string, worldId: string): Campaign {
     if (!name.trim()) {
       throw new Error("Campaign name is required");
     }
+    if (!worldId.trim()) {
+      throw new Error("worldId is required");
+    }
+    // Check uniqueness per world: same name cannot exist twice in the same world
     const existing = this.campaigns.find(
-      (c) => c.name.toLowerCase() === name.toLowerCase()
+      (c) => c.name.toLowerCase() === name.toLowerCase() && c.worldId === worldId
     );
     if (existing) {
-      throw new Error(`Campaign '${name}' already exists`);
+      throw new Error(`Campaign '${name}' already exists in this world`);
     }
     const campaign: Campaign = {
       id: `camp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       name,
       summary,
+      worldId,
       playerIds: [],
       currentMoment: Date.now() // Initialize to current time
     };

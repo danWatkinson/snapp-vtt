@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
-  fetchCampaigns,
   createCampaign,
+  fetchCampaignsByWorld,
   fetchCampaignSessions,
   createSession,
   fetchSessionScenes,
@@ -28,10 +28,10 @@ describe("campaignClient", () => {
     vi.restoreAllMocks();
   });
 
-  describe("fetchCampaigns", () => {
-    it("should fetch campaigns", async () => {
+  describe("fetchCampaignsByWorld", () => {
+    it("should fetch campaigns for a world", async () => {
       const mockCampaigns = [
-        { id: "1", name: "Campaign 1", summary: "Sum", playerIds: [], currentMoment: 0 }
+        { id: "1", name: "Campaign 1", summary: "Sum", worldId: "world-1", playerIds: [], currentMoment: 0 }
       ];
 
       mockFetch.mockResolvedValueOnce({
@@ -39,9 +39,12 @@ describe("campaignClient", () => {
         json: async () => ({ campaigns: mockCampaigns })
       });
 
-      const result = await fetchCampaigns();
+      const result = await fetchCampaignsByWorld("world-1");
 
       expect(result).toEqual(mockCampaigns);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/worlds/world-1/campaigns")
+      );
     });
 
     it("should throw error on failed request", async () => {
@@ -49,7 +52,7 @@ describe("campaignClient", () => {
         ok: false
       });
 
-      await expect(fetchCampaigns()).rejects.toThrow("Failed to load campaigns");
+      await expect(fetchCampaignsByWorld("world-1")).rejects.toThrow("Failed to load campaigns for world");
     });
   });
 
@@ -59,6 +62,7 @@ describe("campaignClient", () => {
         id: "1",
         name: "New Campaign",
         summary: "Sum",
+        worldId: "world-1",
         playerIds: [],
         currentMoment: 0
       };
@@ -68,9 +72,15 @@ describe("campaignClient", () => {
         json: async () => ({ campaign: mockCampaign })
       });
 
-      const result = await createCampaign("New Campaign", "Sum", "token");
+      const result = await createCampaign("New Campaign", "Sum", "world-1", "token");
 
       expect(result).toEqual(mockCampaign);
+      const call = mockFetch.mock.calls[0][1];
+      expect(JSON.parse(call.body as string)).toEqual({
+        name: "New Campaign",
+        summary: "Sum",
+        worldId: "world-1"
+      });
     });
 
     it("should create campaign without token", async () => {
@@ -78,6 +88,7 @@ describe("campaignClient", () => {
         id: "1",
         name: "New Campaign",
         summary: "Sum",
+        worldId: "world-1",
         playerIds: [],
         currentMoment: 0
       };
@@ -87,20 +98,29 @@ describe("campaignClient", () => {
         json: async () => ({ campaign: mockCampaign })
       });
 
-      const result = await createCampaign("New Campaign", "Sum");
+      const result = await createCampaign("New Campaign", "Sum", "world-1");
 
       expect(result).toEqual(mockCampaign);
       const call = mockFetch.mock.calls[0][1];
       expect(call.headers).not.toHaveProperty("Authorization");
+      expect(JSON.parse(call.body as string)).toEqual({
+        name: "New Campaign",
+        summary: "Sum",
+        worldId: "world-1"
+      });
+    });
+
+    it("should throw error when worldId is missing", async () => {
+      await expect(createCampaign("New", "Sum", "")).rejects.toThrow("worldId is required");
     });
 
     it("should throw error on failed request", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
-        json: async () => ({ error: "Campaign name already exists" })
+        json: async () => ({ error: "Campaign name already exists in this world" })
       });
 
-      await expect(createCampaign("Existing", "Sum")).rejects.toThrow("Campaign name already exists");
+      await expect(createCampaign("Existing", "Sum", "world-1")).rejects.toThrow("Campaign name already exists in this world");
     });
 
     it("should throw generic error when response has no error message", async () => {
@@ -109,7 +129,7 @@ describe("campaignClient", () => {
         json: async () => ({})
       });
 
-      await expect(createCampaign("New", "Sum")).rejects.toThrow("Failed to create campaign");
+      await expect(createCampaign("New", "Sum", "world-1")).rejects.toThrow("Failed to create campaign");
     });
   });
 
