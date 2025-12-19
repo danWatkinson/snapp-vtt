@@ -4,6 +4,33 @@ import { isVisibleSafely, isHiddenSafely, waitForLoadStateSafely, createTimeoutP
 import { STABILITY_WAIT_MEDIUM, STABILITY_WAIT_LONG, STABILITY_WAIT_MAX, VISIBILITY_TIMEOUT_MEDIUM, VISIBILITY_TIMEOUT_LONG, VISIBILITY_TIMEOUT_EXTRA } from "./constants";
 
 /**
+ * Check if user is currently logged in by checking for logout button.
+ */
+async function isLoggedIn(page: Page): Promise<boolean> {
+  const logoutButton = page.getByRole("button", { name: "Log out" });
+  return await isVisibleSafely(logoutButton);
+}
+
+/**
+ * Log out the current user if logged in.
+ */
+async function logoutIfLoggedIn(page: Page): Promise<void> {
+  if (await isLoggedIn(page)) {
+    const logoutButton = page.getByRole("button", { name: "Log out" });
+    await logoutButton.click();
+    // Wait for the UI to update (Login button should appear, logout button should disappear)
+    try {
+      await Promise.race([
+        page.getByRole("button", { name: "Login" }).waitFor({ state: "visible", timeout: VISIBILITY_TIMEOUT_MEDIUM }),
+        createTimeoutPromise(5000) // Fallback timeout
+      ]);
+    } catch {
+      // If wait fails, that's okay - continue anyway
+    }
+  }
+}
+
+/**
  * Helper to ensure login dialog is closed (it blocks clicks if open)
  */
 export async function ensureLoginDialogClosed(page: Page) {
@@ -40,7 +67,7 @@ export async function ensureLoginDialogClosed(page: Page) {
  */
 export async function loginAs(page: Page, username: string, password: string) {
   // Check if page is closed before attempting navigation
-  if (page.isClosed()) {
+  if (await isPageClosedSafely(page)) {
     throw new Error("Page was closed before login attempt");
   }
   
@@ -75,7 +102,7 @@ export async function loginAs(page: Page, username: string, password: string) {
         }
       } catch (urlError: any) {
         // Can't get URL - page might be in bad state
-        if (urlError.message?.includes("closed") || page.isClosed()) {
+        if (urlError.message?.includes("closed") || (await isPageClosedSafely(page))) {
           throw new Error("Page was closed or is in bad state during navigation");
         }
         // If we can't get URL but page isn't closed, try to continue
@@ -97,30 +124,11 @@ export async function loginAs(page: Page, username: string, password: string) {
     await page.waitForTimeout(STABILITY_WAIT_LONG);
   }
   
-  // Check if already logged in - if so, log out first using the logout button
-  // The logout button clears the token and dispatches AUTH_EVENT (no page reload)
-  const logoutButton = page.getByRole("button", { name: "Log out" });
-  const isLoggedIn = await isVisibleSafely(logoutButton);
-  if (isLoggedIn) {
-    // Click logout button - this clears localStorage and dispatches AUTH_EVENT
-    // No navigation happens, just state updates
-    await logoutButton.click();
-    // Wait for the UI to update (Login button should appear, logout button should disappear)
-    // Use a longer timeout and be more defensive
-    try {
-      await Promise.race([
-        page.getByRole("button", { name: "Login" }).waitFor({ state: "visible", timeout: VISIBILITY_TIMEOUT_MEDIUM }),
-        createTimeoutPromise(5000) // Fallback timeout
-      ]);
-    } catch {
-      // If wait fails, that's okay - continue anyway
-    }
-  }
+  // Check if already logged in - if so, log out first
+  await logoutIfLoggedIn(page);
   
   // Check if we're already logged in BEFORE trying to open login dialog
-  const checkLogoutButtonBefore = page.getByRole("button", { name: "Log out" });
-  const alreadyLoggedInBefore = await isVisibleSafely(checkLogoutButtonBefore);
-  if (alreadyLoggedInBefore) {
+  if (await isLoggedIn(page)) {
     // Already logged in, no need to show login dialog
     return;
   }
@@ -139,9 +147,7 @@ export async function loginAs(page: Page, username: string, password: string) {
   await page.waitForTimeout(STABILITY_WAIT_LONG);
   
   // Check if we're already logged in (button might have changed)
-  const checkLogoutButtonBeforeClick = page.getByRole("button", { name: "Log out" });
-  const alreadyLoggedInBeforeClick = await isVisibleSafely(checkLogoutButtonBeforeClick, 500);
-  if (alreadyLoggedInBeforeClick) {
+  if (await isLoggedIn(page)) {
     // Already logged in, no need to show login dialog
     return;
   }
@@ -152,12 +158,9 @@ export async function loginAs(page: Page, username: string, password: string) {
   // Click the login button
   await loginButton.click();
   
-    // Wait for login modal to open using transition event
-    // Double-check if we're already logged in after clicking login button
-    const logoutButtonAfterClick = page.getByRole("button", { name: "Log out" });
-    const stillLoggedIn = await isVisibleSafely(logoutButtonAfterClick);
-  
-  if (stillLoggedIn) {
+  // Wait for login modal to open using transition event
+  // Double-check if we're already logged in after clicking login button
+  if (await isLoggedIn(page)) {
     // Already logged in, no need to show login dialog
     return;
   }
@@ -166,10 +169,8 @@ export async function loginAs(page: Page, username: string, password: string) {
   try {
     await modalOpenPromise;
   } catch (error) {
-      // If modal doesn't open, check if we somehow got logged in
-      const checkLogoutAgain = page.getByRole("button", { name: "Log out" });
-      const gotLoggedIn = await isVisibleSafely(checkLogoutAgain);
-    if (gotLoggedIn) {
+    // If modal doesn't open, check if we somehow got logged in
+    if (await isLoggedIn(page)) {
       // Somehow we're logged in now, that's fine
       return;
     }
@@ -193,11 +194,9 @@ export async function loginAs(page: Page, username: string, password: string) {
     }
   }
   
-    // waitForModalOpen already waits for the dialog AND the form field to be visible
-    // Check if we somehow got logged in during the modal open process (this can happen)
-    const checkLogoutButtonAfterModal = page.getByRole("button", { name: "Log out" });
-    const isLoggedInAfterModal = await isVisibleSafely(checkLogoutButtonAfterModal);
-  if (isLoggedInAfterModal) {
+  // waitForModalOpen already waits for the dialog AND the form field to be visible
+  // Check if we somehow got logged in during the modal open process (this can happen)
+  if (await isLoggedIn(page)) {
     // We're logged in somehow - that's fine, no need for login dialog
     return;
   }
@@ -209,9 +208,7 @@ export async function loginAs(page: Page, username: string, password: string) {
   const dialogStillOpen = await isVisibleSafely(loginDialog, 2000);
   if (!dialogStillOpen) {
     // Modal closed - check if we're logged in
-    const logoutButtonCheck = page.getByRole("button", { name: "Log out" });
-    const isLoggedIn = await isVisibleSafely(logoutButtonCheck, 1000);
-    if (isLoggedIn) {
+    if (await isLoggedIn(page)) {
       return; // We're logged in, no need to fill form
     }
     throw new Error("Login modal closed before form fields could be accessed. This may indicate a race condition or login failure.");
@@ -267,10 +264,7 @@ export async function loginAs(page: Page, username: string, password: string) {
     
     // Modal didn't close and no error - might be a timeout
     // Check if we're logged in anyway
-    const logoutButton = page.getByRole("button", { name: "Log out" });
-    const isLoggedIn = await isVisibleSafely(logoutButton);
-    
-    if (!isLoggedIn) {
+    if (!(await isLoggedIn(page))) {
       throw new Error(
         `Login did not complete for user "${username}". Modal did not close and logout button did not appear. ` +
         `This may indicate: 1) The user does not exist, 2) The password is incorrect, 3) There was a network/auth service error. ` +

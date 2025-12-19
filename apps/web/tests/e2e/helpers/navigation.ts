@@ -68,6 +68,82 @@ async function storeWorldName(page: Page, worldName: string): Promise<void> {
 }
 
 /**
+ * Check if a campaign is currently selected by checking for campaign views visibility.
+ */
+async function isCampaignSelected(page: Page): Promise<boolean> {
+  return await isVisibleSafely(
+    page.getByRole("tablist", { name: "Campaign views" })
+  );
+}
+
+/**
+ * Check if a specific campaign is currently selected by checking the heading.
+ */
+async function isCampaignSelectedByName(page: Page, campaignName: string): Promise<boolean> {
+  const selectedCampaignHeading = page
+    .locator('h3.snapp-heading')
+    .filter({ hasText: campaignName })
+    .first();
+  return await isVisibleSafely(selectedCampaignHeading);
+}
+
+/**
+ * Navigate to the Campaigns planning sub-tab.
+ */
+async function navigateToCampaignsTab(page: Page): Promise<void> {
+  const campaignsTab = page
+    .getByRole("tablist", { name: "World planning views" })
+    .getByRole("tab", { name: "Campaigns" });
+  
+  const isOnCampaignsTab = await isVisibleSafely(campaignsTab);
+  if (!isOnCampaignsTab) {
+    const campaignsPromise = waitForPlanningSubTab(page, "Campaigns", 5000);
+    await campaignsTab.click();
+    await awaitSafely(campaignsPromise);
+  }
+}
+
+/**
+ * Try to deselect the currently selected campaign using the Leave Campaign button.
+ * Returns true if deselection succeeded, false otherwise.
+ */
+async function tryDeselectCampaign(page: Page): Promise<boolean> {
+  if (await isPageClosedSafely(page)) {
+    return false;
+  }
+  
+  try {
+    // Open Snapp menu
+    await page.getByRole("button", { name: /^Snapp/i }).click();
+    
+    if (await isPageClosedSafely(page)) {
+      return false;
+    }
+    
+    // Wait for menu to be visible and "Leave Campaign" button to appear
+    const leaveCampaignButton = page.getByRole("button", { name: "Leave Campaign" });
+    const buttonVisible = await isVisibleSafely(leaveCampaignButton, 2000);
+    
+    if (buttonVisible && !(await isPageClosedSafely(page))) {
+      // Click to deselect the campaign
+      await leaveCampaignButton.click();
+      // Wait for state to update
+      await safeWait(page, STABILITY_WAIT_EXTRA);
+      
+      // Check if campaign views disappeared (indicates deselection worked)
+      if (!(await isPageClosedSafely(page))) {
+        const campaignViewsGone = !(await isCampaignSelected(page));
+        return campaignViewsGone;
+      }
+    }
+  } catch {
+    // Deselection failed - that's okay
+  }
+  
+  return false;
+}
+
+/**
  * Ensures the ModeSelector (world context tablist) is visible.
  * If a world is currently selected, leaves it first.
  */
@@ -553,15 +629,8 @@ export async function selectWorldAndEnterPlanningMode(
   }
 
   // Ensure page is still valid before proceeding
-  // Use a try-catch to handle cases where isClosed() might throw
-  try {
-    if (page.isClosed()) {
-      throw new Error("Page was closed unexpectedly");
-    }
-  } catch (error) {
-    // If checking isClosed() itself throws, the page is likely in a bad state
-    // But don't throw here - let the next operation fail naturally
-    // This handles cases where the page is in transition
+  if (await isPageClosedSafely(page)) {
+    throw new Error("Page was closed unexpectedly");
   }
 
   // Select the first available world
@@ -858,7 +927,7 @@ export async function selectWorldAndEnterPlanningMode(
   // Navigate to the requested sub-tab if not already on it
   if (subTab !== "World Entities") {
     // Ensure page is still valid
-    if (page.isClosed()) {
+    if (await isPageClosedSafely(page)) {
       throw new Error("Page was closed before navigating to sub-tab");
     }
     
@@ -895,7 +964,7 @@ export async function ensureCampaignExists(
   summary: string
 ) {
   // Ensure page is still valid
-  if (page.isClosed()) {
+  if (await isPageClosedSafely(page)) {
     throw new Error("Page was closed unexpectedly");
   }
 
@@ -907,33 +976,11 @@ export async function ensureCampaignExists(
   }
 
   // Ensure we're on the Campaigns tab
-  const campaignsTab = page
-    .getByRole("tablist", { name: "World planning views" })
-    .getByRole("tab", { name: "Campaigns" });
-    const isOnCampaignsTab = await isVisibleSafely(campaignsTab);
-  if (!isOnCampaignsTab) {
-    // Set up event listener BEFORE clicking
-    const campaignsPromise = waitForPlanningSubTab(page, "Campaigns", 5000);
-    await campaignsTab.click();
-    await awaitSafely(campaignsPromise); // Don't fail if event doesn't fire
-  }
+  await navigateToCampaignsTab(page);
 
-  // Check if campaign is already selected (campaign views visible means campaign is selected)
-  const campaignViewsVisible = await isVisibleSafely(
-    page.getByRole("tablist", { name: "Campaign views" })
-  );
-
-  // If a campaign is selected, check if it's the one we want
-  if (campaignViewsVisible) {
-    // Check if the selected campaign is the one we want by looking for its name in the heading
-    const selectedCampaignHeading = page
-      .locator('h3.snapp-heading')
-      .filter({ hasText: campaignName })
-      .first();
-    
-    const isCorrectCampaign = await isVisibleSafely(selectedCampaignHeading);
-    
-    if (isCorrectCampaign) {
+  // Check if campaign is already selected and if it's the one we want
+  if (await isCampaignSelected(page)) {
+    if (await isCampaignSelectedByName(page, campaignName)) {
       // The campaign we want is already selected, we're done
       return;
     }
@@ -970,114 +1017,30 @@ export async function ensureCampaignExists(
   }
 
   // Wait for UI to settle - check that campaigns tab is active
+  const campaignsTab = page
+    .getByRole("tablist", { name: "World planning views" })
+    .getByRole("tab", { name: "Campaigns" });
   await expect(campaignsTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_SHORT });
   
   // Re-check campaign views visibility after potential deselection
-  const campaignViewsStillVisible = await isVisibleSafely(
-    page.getByRole("tablist", { name: "Campaign views" })
-  );
+  const campaignViewsStillVisible = await isCampaignSelected(page);
   
-  // Check if we can create a campaign (no campaign views means no campaign selected)
-  const createButtonVisible = !campaignViewsStillVisible;
-
   // If campaign views are still visible, check if it's the campaign we want
-  // OR if create button is visible, no campaign is selected (even if views are visible from previous state)
-  if (campaignViewsStillVisible && !createButtonVisible) {
-    const selectedCampaignHeading = page
-      .locator('h3.snapp-heading')
-      .filter({ hasText: campaignName })
-      .first();
-    
-    const isCorrectCampaign = await isVisibleSafely(selectedCampaignHeading);
-    if (isCorrectCampaign) {
+  if (campaignViewsStillVisible) {
+    if (await isCampaignSelectedByName(page, campaignName)) {
       return; // Already have the correct campaign selected
     }
-    // Different campaign selected - use the "Leave Campaign" button from Snapp menu to deselect
-    // First, ensure we're actually viewing a campaign (campaign views should be visible)
-    const campaignViewsCurrentlyVisible = await isVisibleSafely(
-      page.getByRole("tablist", { name: "Campaign views" })
-    );
     
-    let deselectionSucceeded = false;
+    // Different campaign selected - try to deselect it
+    const deselectionSucceeded = await tryDeselectCampaign(page);
     
-    if (campaignViewsCurrentlyVisible) {
-      // Campaign is selected - try to deselect it, but if it fails, we'll work around it
-      // Only try once to avoid causing issues - if deselection fails, we'll try to work with the existing selection
-      try {
-        // Check page state before attempting deselection
-        if (page.isClosed()) {
-          // Page is closed, can't deselect - skip deselection and continue
-          deselectionSucceeded = false;
-        } else {
-          // Open Snapp menu
-          await page.getByRole("button", { name: /^Snapp/i }).click();
-          
-          // Check page state after opening menu
-          if (page.isClosed()) {
-            // Page closed, skip deselection
-            deselectionSucceeded = false;
-          } else {
-            // Wait for menu to be visible and "Leave Campaign" button to appear
-            const leaveCampaignButton = page.getByRole("button", { name: "Leave Campaign" });
-            const buttonVisible = await isVisibleSafely(leaveCampaignButton, 2000);
-            
-            if (buttonVisible && !page.isClosed()) {
-              // Click to deselect the campaign
-              await leaveCampaignButton.click();
-              // Wait for state to update
-              await safeWait(page, STABILITY_WAIT_EXTRA);
-              
-              // Check if campaign views disappeared (indicates deselection worked)
-              if (!page.isClosed()) {
-                const campaignViewsGone = !(await isVisibleSafely(
-                  page.getByRole("tablist", { name: "Campaign views" })
-                ));
-                
-                if (campaignViewsGone) {
-                  // Successfully deselected! Campaign views are gone
-                  deselectionSucceeded = true;
-                }
-              }
-            }
-          }
-        }
-      } catch (error) {
-        // Deselection failed - that's okay, we'll try to work around it
-        // Check if page is closed - if so, we can't continue
-        let pageClosed = false;
-        try {
-          pageClosed = page.isClosed();
-        } catch {
-          // Can't check - assume page is in bad state, skip deselection
-          pageClosed = true;
-        }
-        
-        if (pageClosed) {
-          // Page is closed, can't continue with this approach
-          // But don't throw - let the function try alternative approaches
-          deselectionSucceeded = false;
-        } else {
-          // Page is still open, deselection just failed - that's okay
-          // We'll try to work with the existing selection or try alternative approaches
-          deselectionSucceeded = false;
-        }
-      }
-    } else {
-      // Campaign views not visible - might mean no campaign is selected after all
-      // This is fine, continue to normal flow
-      deselectionSucceeded = true; // No need to deselect if nothing is selected
-    }
-    
-    // If deselection succeeded, continue with normal flow (skip error handling)
     if (deselectionSucceeded) {
       // Wait a bit more for UI to fully settle
       await safeWait(page, STABILITY_WAIT_LONG);
       // Continue to normal campaign creation/selection logic below
     } else {
       // Deselection didn't work - check if campaign is still selected and handle error
-      const finalCampaignViewsVisible = await isVisibleSafely(
-        page.getByRole("tablist", { name: "Campaign views" })
-      );
+      const finalCampaignViewsVisible = await isCampaignSelected(page);
       
       if (finalCampaignViewsVisible) {
       // Still can't deselect - check if the campaign we want already exists
@@ -1088,31 +1051,12 @@ export async function ensureCampaignExists(
       
       if (campaignNameVisible) {
         // Campaign exists - check if it's currently selected
-        const selectedCampaignHeading = page
-          .locator('h3.snapp-heading')
-          .filter({ hasText: campaignName })
-          .first();
-        
-        const isCorrectCampaign = await isVisibleSafely(selectedCampaignHeading);
-        if (isCorrectCampaign) {
+        if (await isCampaignSelectedByName(page, campaignName)) {
           return; // Already have the correct campaign selected
         }
         
         // Campaign exists but not selected - try to deselect first, then select it
-        // Try using "Leave Campaign" from Snapp menu to deselect
-        try {
-          if (!page.isClosed()) {
-            await page.getByRole("button", { name: /^Snapp/i }).click();
-            const leaveCampaignButton = page.getByRole("button", { name: "Leave Campaign" });
-            const buttonVisible = await isVisibleSafely(leaveCampaignButton, 2000);
-            if (buttonVisible && !page.isClosed()) {
-              await leaveCampaignButton.click();
-              await safeWait(page, STABILITY_WAIT_EXTRA);
-            }
-          }
-        } catch {
-          // Deselection failed - that's okay, try to select anyway
-        }
+        await tryDeselectCampaign(page);
         
         // Now try to find and select the campaign tab
         // Even if tabs are not visible, they might exist in the DOM
