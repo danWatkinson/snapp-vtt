@@ -160,6 +160,21 @@ export async function loginAs(page: Page, username: string, password: string) {
   await loginButton.click();
   
   // Wait for login modal to open using transition event
+  // Add a small wait after clicking to ensure the click registered
+  await safeWait(page, STABILITY_WAIT_MEDIUM);
+  
+  // Wait for the modal to actually open - this is critical
+  try {
+    await modalOpenPromise;
+  } catch (modalError) {
+    // Modal might not have opened - check if we're logged in (maybe auto-login happened)
+    if (await isLoggedIn(page)) {
+      return; // Already logged in, no need to fill form
+    }
+    // If modal didn't open and we're not logged in, this is an error
+    // But continue to try to find the dialog anyway in case the event didn't fire
+  }
+  
   // Double-check if we're already logged in after clicking login button
   if (await isLoggedIn(page)) {
     // Already logged in, no need to show login dialog
@@ -200,8 +215,13 @@ export async function loginAs(page: Page, username: string, password: string) {
   // Add a small stability wait to ensure the modal is fully settled
   await safeWait(page, STABILITY_WAIT_MEDIUM);
   
+  // Get form fields - waitForModalOpen already verified they're visible and enabled
+  const loginDialog = page.getByRole("dialog", { name: "Login" });
+  const usernameInput = page.getByTestId("login-username");
+  const passwordInput = page.getByTestId("login-password");
+  
   // Check if we're already logged in (might have happened during modal open)
-  // Do this check multiple times with small delays to catch race conditions
+  // Do this check FIRST before verifying modal is open, as login might have succeeded
   for (let i = 0; i < 3; i++) {
     if (await isLoggedIn(page)) {
       // We're logged in somehow - that's fine, no need for login dialog
@@ -212,10 +232,22 @@ export async function loginAs(page: Page, username: string, password: string) {
     }
   }
   
-  // Get form fields - waitForModalOpen already verified they're visible and enabled
-  const loginDialog = page.getByRole("dialog", { name: "Login" });
-  const usernameInput = page.getByTestId("login-username");
-  const passwordInput = page.getByTestId("login-password");
+  // Verify the modal is still open and fields are accessible before proceeding
+  // This is a critical check to catch cases where the modal closes immediately
+  const dialogStillOpen = await isVisibleSafely(loginDialog, VISIBILITY_TIMEOUT_SHORT);
+  if (!dialogStillOpen) {
+    // Modal closed immediately - check if we're logged in (with multiple retries)
+    for (let i = 0; i < 3; i++) {
+      if (await isLoggedIn(page)) {
+        return; // We're logged in, no need for login dialog
+      }
+      if (i < 2) {
+        await safeWait(page, STABILITY_WAIT_SHORT);
+      }
+    }
+    // Not logged in and modal closed - this is an error
+    throw new Error("Login modal closed immediately after opening. This may indicate a race condition or page state issue.");
+  }
   
   // Verify that dialog and fields are still accessible (with longer timeout for robustness)
   // Check login status in parallel for efficiency

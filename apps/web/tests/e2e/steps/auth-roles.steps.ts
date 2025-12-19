@@ -1,6 +1,8 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 import { loginAs, ensureLoginDialogClosed, getUniqueUsername, waitForRoleAssigned, waitForError } from "../helpers";
+import { safeWait } from "../helpers/utils";
+import { STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 import jwt from "jsonwebtoken";
 import type { APIRequestContext } from "@playwright/test";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
@@ -253,9 +255,47 @@ Then(
     // Clear storage to logout admin first
     await page.context().clearCookies();
     await page.evaluate(() => localStorage.clear());
-    await page.goto("/");
     
-    await loginAs(page, uniqueAliceName, "alice123");
+    // Navigate to home page and wait for it to be ready
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    await safeWait(page, STABILITY_WAIT_MEDIUM);
+    
+    // Retry login up to 3 times to handle race conditions
+    let loginSucceeded = false;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await loginAs(page, uniqueAliceName, "alice123");
+        loginSucceeded = true;
+        break;
+      } catch (loginError) {
+        lastError = loginError as Error;
+        
+        // Check if we're actually logged in (maybe login succeeded but threw an error)
+        const logoutButton = page.getByRole("button", { name: "Log out" });
+        const isLoggedIn = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
+        
+        if (isLoggedIn) {
+          // We're logged in - the error was likely just a timeout or race condition
+          loginSucceeded = true;
+          break;
+        }
+        
+        // If this isn't the last attempt, wait a bit and try again
+        if (attempt < 2) {
+          await page.waitForTimeout(500); // Brief delay before retry
+        }
+      }
+    }
+    
+    if (!loginSucceeded && lastError) {
+      throw new Error(
+        `Login failed for test user "${uniqueAliceName}" after 3 attempts. ` +
+        `The loginAs function reported an error: ${lastError.message}.`
+      );
+    }
 
     // Verify login succeeded by checking for authenticated UI
     await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });

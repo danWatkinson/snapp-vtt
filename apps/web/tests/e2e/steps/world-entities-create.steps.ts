@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { ensureModeSelectorVisible, getUniqueCampaignName, waitForModalOpen, waitForModalClose, loginAs, loginAsAdmin, waitForWorldUpdated, waitForPlanningMode } from "../helpers";
+import { ensureModeSelectorVisible, getUniqueCampaignName, waitForModalOpen, waitForModalClose, loginAs, loginAsAdmin, waitForWorldUpdated, waitForPlanningMode, safeWait, STABILITY_WAIT_MEDIUM } from "../helpers";
 import type { Page, APIRequestContext } from "@playwright/test";
 
 const { Given, When, Then } = createBdd();
@@ -208,25 +208,50 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
       }
     }
     
-    // Set up event listener BEFORE clicking
-    const planningModePromise = waitForPlanningMode(page, 10000);
+    // Retry logic for world selection and planning mode activation
+    let planningModeActivated = false;
+    let lastError: Error | null = null;
     
-    await worldTab.click();
-    
-    // Wait for planning mode to activate (event-based)
-    // Note: waitForPlanningMode already verifies planning tabs are visible internally
-    // Increased timeout since worlds created via API may need more time to load
-    try {
-      await planningModePromise;
-    } catch (error) {
-      // If planning mode doesn't activate, check if we're actually in planning mode
-      // (maybe the event didn't fire but the UI updated)
-      const planningTabsAfterClick = page.getByRole("tablist", { name: "World planning views" });
-      const tabsVisible = await planningTabsAfterClick.isVisible({ timeout: 3000 }).catch(() => false);
-      if (!tabsVisible) {
-        throw error; // Re-throw if tabs still not visible
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        // Set up event listener BEFORE clicking
+        const planningModePromise = waitForPlanningMode(page, 10000);
+        
+        await worldTab.click();
+        
+        // Wait for planning mode to activate (event-based)
+        // Note: waitForPlanningMode already verifies planning tabs are visible internally
+        // Increased timeout since worlds created via API may need more time to load
+        await planningModePromise;
+        planningModeActivated = true;
+        break;
+      } catch (error) {
+        lastError = error as Error;
+        
+        // If planning mode doesn't activate, check if we're actually in planning mode
+        // (maybe the event didn't fire but the UI updated)
+        const planningTabsAfterClick = page.getByRole("tablist", { name: "World planning views" });
+        const tabsVisible = await planningTabsAfterClick.isVisible({ timeout: 3000 }).catch(() => false);
+        if (tabsVisible) {
+          // Tabs are visible even though event didn't fire - that's okay
+          planningModeActivated = true;
+          break;
+        }
+        
+        // If this isn't the last attempt, wait a bit and try again
+        if (attempt < 2) {
+          await safeWait(page, STABILITY_WAIT_MEDIUM);
+          // Re-find the world tab in case the UI updated
+          worldTab = worldContextTablist.getByRole("tab", { name: finalWorldName });
+          if (!(await worldTab.isVisible().catch(() => false))) {
+            worldTab = worldContextTablist.getByRole("tab", { name: worldName });
+          }
+        }
       }
-      // Tabs are visible even though event didn't fire - that's okay
+    }
+    
+    if (!planningModeActivated && lastError) {
+      throw lastError;
     }
     
     // For "NoSplashWorld", ensure it has no splash image

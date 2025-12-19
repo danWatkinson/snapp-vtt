@@ -178,25 +178,66 @@ When('the admin signs in to the system', async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
   await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
   
-  // loginAsAdmin (which calls loginAs) already handles logout if user is logged in
-  // No need to clear storage or reload - let loginAs handle it
-  try {
-    await loginAsAdmin(page);
-  } catch (loginError) {
-    // loginAs should have already waited for logout button, but if it failed,
-    // check if we're actually logged in
-    const logoutButton = page.getByRole("button", { name: "Log out" });
-    const isLoggedIn = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
-    
-    if (!isLoggedIn) {
-      // Not logged in - throw a more descriptive error
-      throw new Error(
-        `Login failed for admin user. ` +
-        `The loginAs function reported an error: ${loginError instanceof Error ? loginError.message : String(loginError)}. ` +
-        `Please verify the admin user exists and the credentials are correct.`
-      );
+  // Wait for page to be fully ready before attempting login
+  await page.waitForTimeout(1000);
+  
+  // Check if already logged in after navigation (page state might have changed)
+  const logoutButton = page.getByRole("button", { name: "Log out" });
+  const alreadyLoggedIn = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
+  
+  if (alreadyLoggedIn) {
+    // Already logged in - no need to login again
+    return;
+  }
+  
+  // Ensure login dialog is closed before attempting to open it
+  await ensureLoginDialogClosed(page);
+  
+  // Double-check we're not logged in after ensuring dialog is closed
+  const stillNotLoggedIn = !(await logoutButton.isVisible({ timeout: 1000 }).catch(() => false));
+  if (!stillNotLoggedIn) {
+    // We're logged in now - no need to login again
+    return;
+  }
+  
+  // Retry login up to 3 times to handle race conditions
+  let loginSucceeded = false;
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await loginAsAdmin(page);
+      loginSucceeded = true;
+      break;
+    } catch (loginError) {
+      lastError = loginError as Error;
+      
+      // Check if we're actually logged in (maybe login succeeded but threw an error)
+      const logoutButtonAfterAttempt = page.getByRole("button", { name: "Log out" });
+      const isLoggedIn = await logoutButtonAfterAttempt.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (isLoggedIn) {
+        // We're logged in - the error was likely just a timeout or race condition
+        loginSucceeded = true;
+        break;
+      }
+      
+      // If this isn't the last attempt, wait a bit longer and try again
+      if (attempt < 2) {
+        // Close any open dialogs and wait before retry
+        await ensureLoginDialogClosed(page);
+        await page.waitForTimeout(1000); // Longer delay before retry
+      }
     }
-    // If we're logged in, the error was likely just a timeout - continue
+  }
+  
+  if (!loginSucceeded && lastError) {
+    // Not logged in after all retries - throw a more descriptive error
+    throw new Error(
+      `Login failed for admin user after 3 attempts. ` +
+      `The loginAs function reported an error: ${lastError.message}. ` +
+      `Please verify the admin user exists and the credentials are correct.`
+    );
   }
   
   // Double-check login succeeded (loginAs should have already verified this)
@@ -205,8 +246,8 @@ When('the admin signs in to the system', async ({ page }) => {
   await page.waitForLoadState("networkidle", { timeout: 3000 }).catch(() => {});
   
   // Verify login succeeded by checking for logout button
-  const logoutButton = page.getByRole("button", { name: "Log out" });
-  await expect(logoutButton).toBeVisible({ timeout: 3000 });
+  const logoutButtonFinal = page.getByRole("button", { name: "Log out" });
+  await expect(logoutButtonFinal).toBeVisible({ timeout: 3000 });
 });
 
 Given('there is a world builder', async ({ page, request }) => {
