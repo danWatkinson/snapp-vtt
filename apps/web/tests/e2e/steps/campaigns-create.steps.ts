@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView, safeWait } from "../helpers";
-import type { APIRequestContext } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
 
 const { When, Then } = createBdd();
@@ -107,10 +107,14 @@ When('the test campaign exists', async ({ page, request }) => {
         const existingCampaign = campaigns.find((c: any) => c.name === uniqueCampaignName);
         if (existingCampaign) {
           // Campaign exists - store the name and return
+        try {
           await page.evaluate((name) => {
             (window as any).__testCampaignName = name;
           }, uniqueCampaignName);
-          return;
+        } catch {
+          // Page might not be ready - that's okay
+        }
+        return;
         }
       } catch {
         // If GET fails, try to create anyway
@@ -129,9 +133,15 @@ When('the test campaign exists', async ({ page, request }) => {
       }
       
       // Store the unique name in page context for other steps to use
-      await page.evaluate((name) => {
-        (window as any).__testCampaignName = name;
-      }, uniqueCampaignName);
+      // Use try-catch since page might not be ready yet in Background
+      try {
+        await page.evaluate((name) => {
+          (window as any).__testCampaignName = name;
+        }, uniqueCampaignName);
+      } catch {
+        // Page might not be ready - that's okay, we'll regenerate the name in the select step
+        // The name is deterministic (based on worker index), so it will match
+      }
     } catch (err) {
       const error = err as Error;
       if (error.message.includes("Cannot connect") || error.message.includes("ECONNREFUSED")) {
@@ -141,9 +151,13 @@ When('the test campaign exists', async ({ page, request }) => {
       }
       // If campaign already exists (409), that's fine - just store the name
       if (error.message.includes("409") || error.message.includes("already exists")) {
-        await page.evaluate((name) => {
-          (window as any).__testCampaignName = name;
-        }, uniqueCampaignName);
+        try {
+          await page.evaluate((name) => {
+            (window as any).__testCampaignName = name;
+          }, uniqueCampaignName);
+        } catch {
+          // Page might not be ready - that's okay
+        }
         return;
       }
       throw err;
@@ -392,3 +406,36 @@ Then(
     // If either is visible, the campaign exists and is shown in the UI
   }
 );
+
+When("the admin selects the test campaign", async ({ page }) => {
+  // Get the stored test campaign name
+  // Try multiple times in case page context isn't ready yet
+  let uniqueCampaignName: string | null = null;
+  for (let i = 0; i < 5; i++) {
+    try {
+      uniqueCampaignName = await page.evaluate(() => {
+        return (window as any).__testCampaignName;
+      });
+      if (uniqueCampaignName) break;
+    } catch {
+      // Page might not be ready yet
+    }
+    await page.waitForTimeout(200);
+  }
+  
+  if (!uniqueCampaignName) {
+    // Fallback: generate the name (should match what was created)
+    uniqueCampaignName = getUniqueCampaignName("Rise of the Dragon King");
+  }
+  
+  // Select the campaign tab
+  const campaignTab = page.getByRole("tab", { name: uniqueCampaignName }).first();
+  await expect(campaignTab).toBeVisible({ timeout: 5000 });
+  await campaignTab.click();
+  
+  // Wait for campaign to be selected (heading or view to appear)
+  await Promise.race([
+    page.locator('h3.snapp-heading').filter({ hasText: uniqueCampaignName }).first().waitFor({ timeout: 3000 }).catch(() => null),
+    page.getByRole("tablist", { name: "Campaign views" }).waitFor({ timeout: 3000 }).catch(() => null)
+  ]);
+});

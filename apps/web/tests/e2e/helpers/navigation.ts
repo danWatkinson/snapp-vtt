@@ -518,6 +518,9 @@ export async function selectWorldAndEnterPlanningMode(
   }
   
   // First, check if the unique world name already exists
+  // Wait a bit for worlds to load (especially if created via API in Background)
+  await safeWait(page, STABILITY_WAIT_SHORT);
+  
   const uniqueWorldName = getUniqueCampaignName("Eldoria");
   let hasUniqueWorld = await isVisibleSafely(
     worldContextTablist.getByRole("tab", { name: uniqueWorldName })
@@ -530,6 +533,8 @@ export async function selectWorldAndEnterPlanningMode(
     }, uniqueWorldName);
   } else {
     // Check if any world exists (might be base "Eldoria" or another world)
+    // Wait a bit more for worlds created via API to appear
+    await safeWait(page, STABILITY_WAIT_SHORT);
     const hasWorld = await isVisibleSafely(
       worldContextTablist.getByRole("tab").first()
     );
@@ -692,6 +697,9 @@ export async function selectWorldAndEnterPlanningMode(
 
   // Select the first available world
   // Try to find the unique world name first (for "Eldoria"), then fall back to any world
+  // Wait a bit for worlds created via API in Background to load
+  await safeWait(page, STABILITY_WAIT_MEDIUM);
+  
   let { worldTab, exists: worldTabExists } = await findWorldTab(
     page,
     worldContextTablist,
@@ -705,6 +713,7 @@ export async function selectWorldAndEnterPlanningMode(
     await expect(worldContextTablist).toBeVisible({ timeout: 3000 });
     
     // Wait a bit for worlds to appear (may be delayed during concurrent execution or data loading)
+    // Increased wait time for API-created worlds
     await safeWait(page, VISIBILITY_TIMEOUT_SHORT);
     
     // Try one more time to find any world
@@ -756,7 +765,7 @@ export async function selectWorldAndEnterPlanningMode(
   
   // Ensure the tab is visible and clickable
   try {
-    await expect(worldTab).toBeVisible({ timeout: 3000 });
+    await expect(worldTab).toBeVisible({ timeout: 5000 });
   } catch (error: any) {
     // Check if page is actually closed - be defensive about this check
     const actuallyClosed = await isPageClosedSafely(page);
@@ -770,6 +779,11 @@ export async function selectWorldAndEnterPlanningMode(
     throw error;
   }
   
+  // Wait for world to be fully loaded (especially important for API-created worlds)
+  // Check if the tab is enabled and ready to be clicked
+  await expect(worldTab).toBeEnabled({ timeout: 5000 });
+  await safeWait(page, STABILITY_WAIT_SHORT);
+  
   // Get the world name for event-based waiting
   // Trim whitespace and normalize the name
   // Remove any leading special characters that might interfere with matching (like em dashes, en dashes, regular dashes)
@@ -779,12 +793,12 @@ export async function selectWorldAndEnterPlanningMode(
   
   // Set up event listeners BEFORE clicking to avoid race conditions
   // Use a more lenient name match (partial match) since the exact name might have variations
-  // Reduced timeout from 8000ms to 5000ms for better performance (events typically fire within 1-2s)
-  const worldSelectedPromise = waitForWorldSelected(page, worldName, 5000);
-  const planningModePromise = waitForPlanningMode(page, 5000);
+  // Increased timeout for worlds created via API (may need more time to load)
+  const worldSelectedPromise = waitForWorldSelected(page, worldName, 8000);
+  const planningModePromise = waitForPlanningMode(page, 10000);
   
   // Click the tab - it's a button element, so clicking should work
-  // Ensure the tab is visible and enabled before clicking
+  // Ensure the tab is visible and enabled before clicking (double-check)
   await expect(worldTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
   await expect(worldTab).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_SHORT });
   

@@ -6,10 +6,12 @@ Feature: Game master adds events to story arcs
 
   Background:
     Given there is an admin user
+    And the test campaign exists
 
   Scenario: Game master can add Events to a Story Arc
     When the admin signs in to the system
-    And the test campaign exists
+    And the admin navigates to the "Campaigns" planning screen
+    And the admin selects the test campaign
     And the admin navigates to the story arcs view
     And story arc "The Ancient Prophecy" exists
     And the admin views events for story arc "The Ancient Prophecy"

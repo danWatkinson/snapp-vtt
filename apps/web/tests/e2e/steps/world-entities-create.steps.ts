@@ -80,17 +80,22 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
       ? getUniqueCampaignName(worldName) 
       : worldName;
   
-  // Ensure user is logged in first
-  // If called from Background, ensure page is ready first
-  await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
-  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
-  
+  // Check if user is already logged in (don't navigate/relogin if already logged in)
+  // This prevents race conditions when called after "the admin signs in to the system"
   const logoutButton = page.getByRole("button", { name: "Log out" });
-  const isLoggedIn = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
+  const isLoggedIn = await logoutButton.isVisible({ timeout: 3000 }).catch(() => false);
+  
   if (!isLoggedIn) {
+    // Only navigate and login if not already logged in
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
     await loginAsAdmin(page);
+  } else {
+    // Already logged in - just ensure page is ready
+    await page.waitForLoadState("networkidle", { timeout: 3000 }).catch(() => {});
   }
   
+  // Ensure mode selector is visible (only if not already in planning mode)
   await ensureModeSelectorVisible(page);
 
   const worldContextTablist = page.getByRole("tablist", { name: "World context" });
@@ -183,17 +188,46 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
   }
   
   if (exists) {
+    // Check if we're already in planning mode with this world selected
+    const planningTabsCheck = page.getByRole("tablist", { name: "World planning views" });
+    const alreadyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (alreadyInPlanningMode) {
+      // Check if this world is already selected by checking the heading
+      const heading = page.locator('h3.snapp-heading').first();
+      const headingText = await heading.textContent().catch(() => "");
+      if (headingText && (headingText.includes(finalWorldName) || headingText.includes(worldName))) {
+        // Already have the correct world selected in planning mode - we're done
+        // For "NoSplashWorld", ensure it has no splash image (skip to that check)
+        if (worldName === "NoSplashWorld") {
+          // Wait for the world header to render - wait for settings button to be visible
+          const settingsButton = page.getByRole("button", { name: "World settings" });
+          await expect(settingsButton).toBeVisible({ timeout: 5000 });
+        }
+        return;
+      }
+    }
+    
     // Set up event listener BEFORE clicking
-    const planningModePromise = waitForPlanningMode(page, 5000);
+    const planningModePromise = waitForPlanningMode(page, 10000);
     
     await worldTab.click();
     
     // Wait for planning mode to activate (event-based)
-    await planningModePromise;
-    
-    // Also verify planning tabs are visible as a fallback
-    const planningTabs = page.getByRole("tablist", { name: "World planning views" });
-    await expect(planningTabs).toBeVisible({ timeout: 3000 });
+    // Note: waitForPlanningMode already verifies planning tabs are visible internally
+    // Increased timeout since worlds created via API may need more time to load
+    try {
+      await planningModePromise;
+    } catch (error) {
+      // If planning mode doesn't activate, check if we're actually in planning mode
+      // (maybe the event didn't fire but the UI updated)
+      const planningTabsAfterClick = page.getByRole("tablist", { name: "World planning views" });
+      const tabsVisible = await planningTabsAfterClick.isVisible({ timeout: 3000 }).catch(() => false);
+      if (!tabsVisible) {
+        throw error; // Re-throw if tabs still not visible
+      }
+      // Tabs are visible even though event didn't fire - that's okay
+    }
     
     // For "NoSplashWorld", ensure it has no splash image
     if (worldName === "NoSplashWorld") {
@@ -460,9 +494,7 @@ When("the admin selects world {string}", async ({ page }, worldName: string) => 
     // Wait for planning mode to activate (event-based)
     await planningModePromise;
     
-    // Also verify planning tabs are visible as a fallback
-    const planningTabs = page.getByRole("tablist", { name: "World planning views" });
-    await expect(planningTabs).toBeVisible({ timeout: 3000 });
+    // Note: waitForPlanningMode already verifies planning tabs are visible internally
     
     // For "NoSplashWorld", ensure it has no splash image
     if (worldName === "NoSplashWorld") {

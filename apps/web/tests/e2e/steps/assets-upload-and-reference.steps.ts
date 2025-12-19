@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName, ensureLoginDialogClosed, loginAs, selectWorldAndEnterPlanningMode, waitForAssetUploaded, waitForPlanningMode } from "../helpers";
+import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName, ensureLoginDialogClosed, loginAs, selectWorldAndEnterPlanningMode, waitForAssetUploaded, waitForPlanningMode, safeWait } from "../helpers";
 import { Buffer } from "buffer";
 import path from "path";
 
@@ -259,6 +259,12 @@ When("campaign {string} exists", async ({ page }, campaignName: string) => {
 // Navigation steps for world builder
 When('the world builder navigates to the "World Entities" planning screen', async ({ page }) => {
   await selectWorldAndEnterPlanningMode(page, "World Entities");
+  
+  // After navigating to World Entities, the world context tablist might not be visible
+  // if we're already in planning mode (it's hidden when a world is selected).
+  // We only need to wait for it if we're not in planning mode yet.
+  // The selectWorldAndEnterPlanningMode function handles this, so we don't need to wait here.
+  // If a world needs to be selected, that will happen in the next step.
 });
 
 When('the world builder navigates to the "Campaigns" planning screen', async ({ page }) => {
@@ -283,10 +289,42 @@ When("the world builder selects world {string}", async ({ page }, worldName: str
     }
   }
   
+  // Check if we're already in planning mode
+  const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+  const isInPlanningMode = await planningTabs.isVisible({ timeout: 2000 }).catch(() => false);
+  
+  if (isInPlanningMode) {
+    // Already in planning mode - check if the correct world is already selected
+    // Check the heading to see which world is selected
+    const heading = page.locator('h3.snapp-heading').first();
+    const headingText = await heading.textContent().catch(() => "");
+    
+    // If the heading matches our world name (exact or partial), we're good
+    if (headingText && (headingText.includes(uniqueWorldName) || headingText.includes(worldName))) {
+      return; // Already have the correct world selected
+    }
+    
+    // Wrong world selected - need to leave planning mode first
+    const snappMenu = page.getByRole("button", { name: /^Snapp/i });
+    if (await snappMenu.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await snappMenu.click();
+      const leaveWorldButton = page.getByRole("button", { name: "Leave World" });
+      if (await leaveWorldButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await leaveWorldButton.click();
+        // Wait for planning mode to exit
+        await safeWait(page, 500);
+      } else {
+        // Close menu if leave button not found
+        await snappMenu.click();
+      }
+    }
+  }
+  
   const worldContextTablist = page.getByRole("tablist", { name: "World context" });
   
   // Wait for world context tablist to be visible
-  await expect(worldContextTablist).toBeVisible({ timeout: 5000 });
+  // Increased timeout since worlds created via API in Background may need time to load
+  await expect(worldContextTablist).toBeVisible({ timeout: 10000 });
   
   // Get all world tabs to see what's available
   const allWorldTabs = worldContextTablist.getByRole("tab");

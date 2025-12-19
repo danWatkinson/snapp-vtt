@@ -6,11 +6,11 @@ Feature: World builder views all entities in a world
 
   Background:
     Given there is an admin user
+    And world "Eldoria" exists
 
   Scenario: World builder can view all entities associated with a World
     When the admin signs in to the system
     And the admin navigates to the "World Entities" planning screen
-    And world "Eldoria" exists
     And the admin selects world "Eldoria"
     And the admin navigates to the all entities view
     Then either entities are visible or an empty message is shown

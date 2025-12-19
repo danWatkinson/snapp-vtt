@@ -7,6 +7,7 @@ Feature: World builder uploads and references digital assets
   Background:
     Given there is an admin user
     And there is a world builder
+    And world "Eldoria" exists
 
   Scenario: World builder uploads an image asset for use in a world
     When the world builder signs in to the system
@@ -33,7 +34,6 @@ Feature: World builder uploads and references digital assets
   Scenario: World builder references an uploaded image asset in a world entity
     When the world builder signs in to the system
     And the world builder navigates to the "World Entities" planning screen
-    And world "Eldoria" exists
     And the world builder selects world "Eldoria"
     And the world builder navigates to the locations tab
     And the world builder ensures location "Whispering Woods" exists
