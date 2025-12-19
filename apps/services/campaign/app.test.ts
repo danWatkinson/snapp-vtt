@@ -197,6 +197,58 @@ describe("campaign REST API", () => {
     expect(response.body.error).toContain("Story arc name is required");
   });
 
+  it("returns 400 when creating story arc with invalid campaignId", async () => {
+    const { app } = createSeededCampaignApp();
+
+    const response = await request(app)
+      .post("/campaigns/non-existent/story-arcs")
+      .set("Authorization", `Bearer ${createTestToken(["gm"])}`)
+      .send({ name: "Arc", summary: "Summary" })
+      .expect(400);
+
+    expect(response.body.error).toContain("Campaign non-existent not found");
+  });
+
+  it("returns 400 when creating duplicate story arc in same campaign", async () => {
+    const { app, store } = createSeededCampaignApp();
+
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
+    store.createStoryArc(campaign.id, "Arc", "Summary");
+
+    const response = await request(app)
+      .post(`/campaigns/${campaign.id}/story-arcs`)
+      .set("Authorization", `Bearer ${createTestToken(["gm"])}`)
+      .send({ name: "Arc", summary: "Another summary" })
+      .expect(400);
+
+    expect(response.body.error).toContain("already exists in this campaign");
+  });
+
+  it("allows same story arc name in different campaigns", async () => {
+    const { app, store } = createSeededCampaignApp();
+
+    const campaign1 = store.createCampaign("Camp 1", "Summary", TEST_WORLD_ID);
+    const campaign2 = store.createCampaign("Camp 2", "Summary", TEST_WORLD_ID);
+
+    const response1 = await request(app)
+      .post(`/campaigns/${campaign1.id}/story-arcs`)
+      .set("Authorization", `Bearer ${createTestToken(["gm"])}`)
+      .send({ name: "Arc", summary: "Summary" })
+      .expect(201);
+
+    const response2 = await request(app)
+      .post(`/campaigns/${campaign2.id}/story-arcs`)
+      .set("Authorization", `Bearer ${createTestToken(["gm"])}`)
+      .send({ name: "Arc", summary: "Summary" })
+      .expect(201);
+
+    expect(response1.body.storyArc.name).toBe("Arc");
+    expect(response2.body.storyArc.name).toBe("Arc");
+    expect(response1.body.storyArc.campaignId).toBe(campaign1.id);
+    expect(response2.body.storyArc.campaignId).toBe(campaign2.id);
+    expect(response1.body.storyArc.id).not.toBe(response2.body.storyArc.id);
+  });
+
   it("manages events in story arcs", async () => {
     const { app, store } = createSeededCampaignApp();
 

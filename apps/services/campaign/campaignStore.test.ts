@@ -220,6 +220,28 @@ describe("InMemoryCampaignStore", () => {
     ).toThrow("Campaign non-existent not found");
   });
 
+  it("prevents creating duplicate story arcs by name in the same campaign", () => {
+    const store = new InMemoryCampaignStore();
+    const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);
+    store.createStoryArc(campaign.id, "Arc", "Summary");
+    expect(() => store.createStoryArc(campaign.id, "Arc", "Another"))
+      .toThrow("Story arc 'Arc' already exists in this campaign");
+  });
+
+  it("allows same story arc name in different campaigns", () => {
+    const store = new InMemoryCampaignStore();
+    const campaign1 = store.createCampaign("Camp 1", "Summary", TEST_WORLD_ID);
+    const campaign2 = store.createCampaign("Camp 2", "Summary", TEST_WORLD_ID);
+    
+    const arc1 = store.createStoryArc(campaign1.id, "Arc", "Summary");
+    const arc2 = store.createStoryArc(campaign2.id, "Arc", "Summary");
+    
+    expect(arc1.name).toBe(arc2.name);
+    expect(arc1.campaignId).toBe(campaign1.id);
+    expect(arc2.campaignId).toBe(campaign2.id);
+    expect(arc1.id).not.toBe(arc2.id);
+  });
+
   it("manages events in story arcs", () => {
     const store = new InMemoryCampaignStore();
     const campaign = store.createCampaign("Camp", "Summary", TEST_WORLD_ID);

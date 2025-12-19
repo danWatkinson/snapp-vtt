@@ -452,6 +452,10 @@ describe("campaignClient", () => {
       expect(result).toEqual(mockArc);
     });
 
+    it("should throw error when campaignId is missing", async () => {
+      await expect(createStoryArc("", "New Arc", "Sum", "token")).rejects.toThrow("campaignId is required");
+    });
+
     it("should throw error on failed request", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,

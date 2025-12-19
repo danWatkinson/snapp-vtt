@@ -214,6 +214,9 @@ export async function createStoryArc(
   summary: string,
   token?: string
 ): Promise<StoryArc> {
+  if (!campaignId || !campaignId.trim()) {
+    throw new Error("campaignId is required");
+  }
   const headers: HeadersInit = { "Content-Type": "application/json" };
   if (token) {
     headers.Authorization = `Bearer ${token}`;

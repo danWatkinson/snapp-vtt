@@ -169,6 +169,13 @@ export class InMemoryCampaignStore {
     if (!campaign) {
       throw new Error(`Campaign ${campaignId} not found`);
     }
+    // Check uniqueness per campaign: same name cannot exist twice in the same campaign
+    const existing = this.storyArcs.find(
+      (arc) => arc.name.toLowerCase() === name.toLowerCase() && arc.campaignId === campaignId
+    );
+    if (existing) {
+      throw new Error(`Story arc '${name}' already exists in this campaign`);
+    }
     const storyArc: StoryArc = {
       id: `arc-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       campaignId,
