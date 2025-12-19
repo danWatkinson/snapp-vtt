@@ -10,13 +10,11 @@ Feature: World builder uploads and references digital assets
     And world "Eldoria" exists
 
   Scenario: World builder uploads an asset and views it in a modal
-    When the world builder signs in to the system
-    And the world builder uploads an image asset "approaching-nuln.jpg"
+    When the world builder uploads an image asset "approaching-nuln.jpg"
     Then the image asset "approaching-nuln.jpg" appears in the assets list
 
   Scenario: World builder uploads an audio asset for use in a scene
-    When the world builder signs in to the system
-    And the world builder uploads an audio asset "forest-ambience.mp3"
+    When the world builder uploads an audio asset "forest-ambience.mp3"
     Then the audio asset "forest-ambience.mp3" appears in the assets list
 
   Scenario: World builder references an uploaded image asset in a world entity

@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName, ensureLoginDialogClosed, loginAs, selectWorldAndEnterPlanningMode, waitForAssetUploaded, waitForPlanningMode, safeWait } from "../helpers";
+import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName, ensureLoginDialogClosed, loginAs, selectWorldAndEnterPlanningMode, waitForAssetUploaded, waitForPlanningMode, safeWait, getUniqueUsername } from "../helpers";
 import { Buffer } from "buffer";
 import path from "path";
 
@@ -76,6 +76,10 @@ When("the world builder uploads an image asset {string}", async ({ page }, fileN
   const isOnAssetsScreen = await assetsHeading.isVisible({ timeout: 1000 }).catch(() => false);
   
   if (!isOnAssetsScreen) {
+    // Ensure we're on the page before checking login state
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    
     // Intercept image requests and return a valid 1x1 PNG
     await page.route("**/mock-assets/**", async (route) => {
       const pngBuffer = Buffer.from(
@@ -91,23 +95,28 @@ When("the world builder uploads an image asset {string}", async ({ page }, fileN
 
     await ensureLoginDialogClosed(page);
     
+    // Check if logged in, and sign in as world builder if not
     const logoutButton = page.getByRole("button", { name: "Log out" });
     const isLoggedIn = await logoutButton.isVisible({ timeout: 3000 }).catch(() => false);
     
     if (!isLoggedIn) {
-      const loginButton = page.getByRole("button", { name: "Login" });
-      const loginButtonVisible = await loginButton.isVisible({ timeout: 1000 }).catch(() => false);
-      
-      if (loginButtonVisible) {
-        throw new Error(
-          "User is not logged in. The 'When the world builder signs in to the system' step must run before this step."
-        );
-      } else {
-        throw new Error(
-          "Cannot determine login state. Logout button not visible and Login button not found. " +
-          "The page may be in an unexpected state. Ensure the login step completed successfully."
-        );
+      // Get the unique world builder username from page context
+      let uniqueUsername: string;
+      try {
+        const storedName = await page.evaluate(() => {
+          return (window as any).__testWorldBuilderUsername;
+        });
+        if (storedName) {
+          uniqueUsername = storedName;
+        } else {
+          uniqueUsername = getUniqueUsername("worldbuilder");
+        }
+      } catch {
+        uniqueUsername = getUniqueUsername("worldbuilder");
       }
+      
+      // Sign in as world builder
+      await loginAs(page, uniqueUsername, "worldbuilder123");
     }
     
     await page.getByRole("button", { name: "Snapp" }).click();
@@ -271,6 +280,10 @@ When("the world builder uploads an audio asset {string}", async ({ page }, fileN
   const isOnAssetsScreen = await assetsHeading.isVisible({ timeout: 1000 }).catch(() => false);
   
   if (!isOnAssetsScreen) {
+    // Ensure we're on the page before checking login state
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    
     // Intercept image requests and return a valid 1x1 PNG
     await page.route("**/mock-assets/**", async (route) => {
       const pngBuffer = Buffer.from(
@@ -286,23 +299,28 @@ When("the world builder uploads an audio asset {string}", async ({ page }, fileN
 
     await ensureLoginDialogClosed(page);
     
+    // Check if logged in, and sign in as world builder if not
     const logoutButton = page.getByRole("button", { name: "Log out" });
     const isLoggedIn = await logoutButton.isVisible({ timeout: 3000 }).catch(() => false);
     
     if (!isLoggedIn) {
-      const loginButton = page.getByRole("button", { name: "Login" });
-      const loginButtonVisible = await loginButton.isVisible({ timeout: 1000 }).catch(() => false);
-      
-      if (loginButtonVisible) {
-        throw new Error(
-          "User is not logged in. The 'When the world builder signs in to the system' step must run before this step."
-        );
-      } else {
-        throw new Error(
-          "Cannot determine login state. Logout button not visible and Login button not found. " +
-          "The page may be in an unexpected state. Ensure the login step completed successfully."
-        );
+      // Get the unique world builder username from page context
+      let uniqueUsername: string;
+      try {
+        const storedName = await page.evaluate(() => {
+          return (window as any).__testWorldBuilderUsername;
+        });
+        if (storedName) {
+          uniqueUsername = storedName;
+        } else {
+          uniqueUsername = getUniqueUsername("worldbuilder");
+        }
+      } catch {
+        uniqueUsername = getUniqueUsername("worldbuilder");
       }
+      
+      // Sign in as world builder
+      await loginAs(page, uniqueUsername, "worldbuilder123");
     }
     
     await page.getByRole("button", { name: "Snapp" }).click();
