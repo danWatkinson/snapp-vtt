@@ -8,12 +8,12 @@ import { waitForEventWithNameFilter } from "./utils";
  * 
  * @param page - Playwright page object
  * @param assetName - Optional asset name to wait for (if not provided, waits for any asset upload)
- * @param timeout - Maximum time to wait in milliseconds (default: 10000)
+ * @param timeout - Maximum time to wait in milliseconds (default: 8000, reduced from 10000 for better performance)
  */
 export async function waitForAssetUploaded(
   page: Page,
   assetName?: string,
-  timeout: number = 10000
+  timeout: number = 8000
 ): Promise<void> {
   if (assetName) {
     // Wait for specific asset with name filter
@@ -27,8 +27,9 @@ export async function waitForAssetUploaded(
       async () => {
         // Fallback: Wait for asset to appear in the assets table
         // Use .first() to avoid strict mode violations if multiple rows match
+        // Use shorter timeout since event should fire quickly, this is just a fallback
         const assetRow = page.getByRole("row").filter({ hasText: assetName }).first();
-        await expect(assetRow).toBeVisible({ timeout });
+        await expect(assetRow).toBeVisible({ timeout: Math.min(timeout, 5000) });
       }
     );
   } else {

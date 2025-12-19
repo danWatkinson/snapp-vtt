@@ -60,9 +60,9 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
     const dialog = page.getByRole("dialog", { name: "Create world" });
     try {
       await Promise.race([
-        waitForModalClose(page, "world", 8000),
-        expect(worldContextTablist.getByRole("tab", { name: uniqueWorldName })).toBeVisible({ timeout: 8000 }),
-        expect(dialog).toBeHidden({ timeout: 8000 })
+        waitForModalClose(page, "world", 5000),
+        expect(worldContextTablist.getByRole("tab", { name: uniqueWorldName })).toBeVisible({ timeout: 5000 }),
+        expect(dialog).toBeHidden({ timeout: 5000 })
       ]);
     } catch (raceError) {
       // Race timed out - continue to check state
@@ -226,9 +226,9 @@ When("world {string} exists", async ({ page }, worldName: string) => {
     const dialog = page.getByRole("dialog", { name: "Create world" });
     try {
       await Promise.race([
-        waitForModalClose(page, "world", 8000),
-        expect(worldContextTablist.getByRole("tab", { name: uniqueWorldName })).toBeVisible({ timeout: 8000 }),
-        expect(dialog).toBeHidden({ timeout: 8000 })
+        waitForModalClose(page, "world", 5000),
+        expect(worldContextTablist.getByRole("tab", { name: uniqueWorldName })).toBeVisible({ timeout: 5000 }),
+        expect(dialog).toBeHidden({ timeout: 5000 })
       ]);
     } catch (raceError) {
       // Race timed out - continue to check state

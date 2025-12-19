@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView } from "../helpers";
+import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView, safeWait } from "../helpers";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
 
 const { When, Then } = createBdd();
@@ -162,7 +162,7 @@ When(
       }
       
       // Campaign not visible yet - wait a bit more and check again
-      await page.waitForTimeout(500);
+      await safeWait(page, 500);
       const finalTabCheck = await campaignTab.isVisible({ timeout: 2000 }).catch(() => false);
       const finalHeadingCheck = await campaignHeading.isVisible({ timeout: 2000 }).catch(() => false);
       

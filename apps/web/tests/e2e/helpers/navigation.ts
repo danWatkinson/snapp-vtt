@@ -1652,7 +1652,7 @@ export async function waitForCampaignSelected(
       if (isSelected === "true") {
         return; // Tab is selected
       }
-      await page.waitForTimeout(STABILITY_WAIT_SHORT); // Small delay between polls
+      await safeWait(page, STABILITY_WAIT_SHORT); // Small delay between polls
     }
     // After polling, check one more time
     const finalSelected = await campaignTab.getAttribute("aria-selected");
@@ -1834,7 +1834,7 @@ export async function waitForPlanningSubTab(
       if (isSelected === "true") {
         return; // Tab is selected
       }
-      await page.waitForTimeout(STABILITY_WAIT_SHORT); // Small delay between polls
+      await safeWait(page, STABILITY_WAIT_SHORT); // Small delay between polls
     }
     // After polling, check one more time
     const finalSelected = await tab.getAttribute("aria-selected");
@@ -2130,7 +2130,7 @@ export async function waitForMainTab(
       if (isSelected === "true") {
         return; // Tab is selected
       }
-      await page.waitForTimeout(STABILITY_WAIT_SHORT); // Small delay between polls
+      await safeWait(page, STABILITY_WAIT_SHORT); // Small delay between polls
     }
     // After polling, check one more time
     const finalSelected = await tab.getAttribute("aria-selected");

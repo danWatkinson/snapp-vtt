@@ -74,8 +74,18 @@ When("the world builder uploads an image asset {string}", async ({ page }, fileN
   // Extract asset name from fileName (without extension) for matching
   const assetNameBase = fileName.replace(/\.(jpg|png|jpeg|gif)$/i, "");
   
+  // Check if asset already exists before uploading (optimization: skip upload if already present)
+  const assetRow = page.getByRole("row").filter({ hasText: fileName }).first();
+  const assetExists = await assetRow.isVisible({ timeout: 2000 }).catch(() => false);
+  
+  if (assetExists) {
+    // Asset already exists - no need to upload again
+    return;
+  }
+  
   // Set up event listener BEFORE uploading
-  const assetUploadedPromise = waitForAssetUploaded(page, assetNameBase, 15000);
+  // Reduced timeout from 15000ms to 10000ms for better performance
+  const assetUploadedPromise = waitForAssetUploaded(page, assetNameBase, 10000);
   
   const fileInput = page.getByLabel("Upload asset");
   const filePath = path.join(process.cwd(), "seeds", "assets", "images", fileName);
@@ -156,6 +166,18 @@ Then("the modal is no longer visible", async ({ page }) => {
 });
 
 When("the world builder uploads an audio asset {string}", async ({ page }, fileName: string) => {
+  // Extract asset name from fileName (without extension) for matching
+  const assetNameBase = fileName.replace(/\.(mp3|wav|ogg)$/i, "");
+  
+  // Check if asset already exists before uploading (optimization: skip upload if already present)
+  const assetRow = page.getByRole("row").filter({ hasText: fileName }).first();
+  const assetExists = await assetRow.isVisible({ timeout: 2000 }).catch(() => false);
+  
+  if (assetExists) {
+    // Asset already exists - no need to upload again
+    return;
+  }
+  
   const fileInput = page.getByLabel("Upload asset");
   await fileInput.setInputFiles({
     name: fileName,
@@ -164,7 +186,8 @@ When("the world builder uploads an audio asset {string}", async ({ page }, fileN
   });
   
   // Set up event listener BEFORE uploading
-  const assetUploadedPromise = waitForAssetUploaded(page, fileName.replace(/\.(mp3|wav|ogg)$/i, ""), 15000);
+  // Reduced timeout from 15000ms to 10000ms for better performance
+  const assetUploadedPromise = waitForAssetUploaded(page, assetNameBase, 10000);
   
   // Wait for the asset upload event
   await assetUploadedPromise;
