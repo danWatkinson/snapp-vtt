@@ -885,7 +885,9 @@ export async function selectWorldAndEnterPlanningMode(
     if (!planningTabsVisible) {
       // Planning mode not active - wait a bit more and check again
       // Sometimes the UI takes a moment to update even after events fire
-      await safeWait(page, STABILITY_WAIT_MAX);
+      // If world selection event fired, planning mode should activate - give it more time
+      const waitTime = worldSelectedSucceeded ? VISIBILITY_TIMEOUT_SHORT : STABILITY_WAIT_MAX;
+      await safeWait(page, waitTime);
       planningTabsVisible = await isPlanningModeActive(page);
       
       if (!planningTabsVisible) {
@@ -895,6 +897,19 @@ export async function selectWorldAndEnterPlanningMode(
       }
       
       if (!planningTabsVisible) {
+        // If world selection event fired but planning mode didn't, the world might still be selected
+        // Check if we can proceed anyway - sometimes planning mode activates without the event
+        if (worldSelectedSucceeded) {
+          // World was selected - wait a bit more for planning mode to catch up
+          await safeWait(page, VISIBILITY_TIMEOUT_SHORT);
+          planningTabsVisible = await isPlanningModeActive(page);
+          
+          if (planningTabsVisible) {
+            // Planning mode is now active - success!
+            return;
+          }
+        }
+        
         // Still not visible - provide helpful error with event status
         const currentUrl = page.url();
         const worldContextStillVisible = await isVisibleSafely(

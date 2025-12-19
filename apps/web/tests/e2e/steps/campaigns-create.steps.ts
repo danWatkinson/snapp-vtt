@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError } from "../helpers";
+import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView } from "../helpers";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
 
 const { When, Then } = createBdd();
@@ -23,6 +23,88 @@ When('the campaign "Rise of the Dragon King" exists', async ({ page }) => {
   await page.evaluate((name) => {
     (window as any).__testCampaignName = name;
   }, uniqueCampaignName);
+});
+
+// Combined steps for campaign exists + view navigation
+When('the campaign "Rise of the Dragon King" exists with sessions view', async ({ page }) => {
+  const uniqueCampaignName = getUniqueCampaignName("Rise of the Dragon King");
+  
+  await ensureCampaignExists(
+    page,
+    uniqueCampaignName,
+    "A long-running campaign about ancient draconic power returning."
+  );
+  
+  await page.evaluate((name) => {
+    (window as any).__testCampaignName = name;
+  }, uniqueCampaignName);
+  
+  // Navigate to sessions view
+  const campaignViewsTablist = page.getByRole("tablist", { name: "Campaign views" });
+  const sessionsTab = campaignViewsTablist.getByRole("tab", { name: "Sessions" });
+  await expect(sessionsTab).toBeVisible({ timeout: 3000 });
+  await sessionsTab.click();
+});
+
+When('the campaign "Rise of the Dragon King" exists with players view', async ({ page }) => {
+  const uniqueCampaignName = getUniqueCampaignName("Rise of the Dragon King");
+  
+  await ensureCampaignExists(
+    page,
+    uniqueCampaignName,
+    "A long-running campaign about ancient draconic power returning."
+  );
+  
+  await page.evaluate((name) => {
+    (window as any).__testCampaignName = name;
+  }, uniqueCampaignName);
+  
+  // Navigate to players view
+  const campaignViewsTablist = page.getByRole("tablist", { name: "Campaign views" });
+  const playersTab = campaignViewsTablist.getByRole("tab", { name: "Players" });
+  await expect(playersTab).toBeVisible({ timeout: 3000 });
+  await playersTab.click();
+});
+
+When('the campaign "Rise of the Dragon King" exists with story arcs view', async ({ page }) => {
+  const uniqueCampaignName = getUniqueCampaignName("Rise of the Dragon King");
+  
+  await ensureCampaignExists(
+    page,
+    uniqueCampaignName,
+    "A long-running campaign about ancient draconic power returning."
+  );
+  
+  await page.evaluate((name) => {
+    (window as any).__testCampaignName = name;
+  }, uniqueCampaignName);
+  
+  // Navigate to story arcs view
+  const campaignViewsTablist = page.getByRole("tablist", { name: "Campaign views" });
+  const storyArcsTab = campaignViewsTablist.getByRole("tab", { name: "Story arcs" });
+  await expect(storyArcsTab).toBeVisible({ timeout: 3000 });
+  await storyArcsTab.click();
+  await expect(page.getByRole("button", { name: "Add story arc" })).toBeVisible();
+});
+
+When('the campaign "Rise of the Dragon King" exists with timeline view', async ({ page }) => {
+  const uniqueCampaignName = getUniqueCampaignName("Rise of the Dragon King");
+  
+  await ensureCampaignExists(
+    page,
+    uniqueCampaignName,
+    "A long-running campaign about ancient draconic power returning."
+  );
+  
+  await page.evaluate((name) => {
+    (window as any).__testCampaignName = name;
+  }, uniqueCampaignName);
+  
+  // Navigate to timeline view
+  const campaignViewsTablist = page.getByRole("tablist", { name: "Campaign views" });
+  const timelineTab = campaignViewsTablist.getByRole("tab", { name: "Timeline" });
+  await expect(timelineTab).toBeVisible({ timeout: 3000 });
+  await timelineTab.click();
 });
 
 When(

@@ -1,9 +1,19 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { ensureWorldExistsAndSelected } from "./world-entities-create.steps";
 
 const { When, Then } = createBdd();
 // Note: "the admin navigates to the World Entities planning screen" is defined in world-create.steps.ts
 // Note: "world Eldoria exists" and "the admin selects world Eldoria" are defined in world-entities-create.steps.ts
+
+// Combined step: world exists and is selected with locations tab
+When("world {string} exists and is selected with locations tab", async ({ page }, worldName: string) => {
+  await ensureWorldExistsAndSelected(page, worldName);
+  
+  // Navigate to locations tab
+  await page.getByRole("tab", { name: "Locations" }).click();
+  await expect(page.getByRole("button", { name: "Add location" })).toBeVisible();
+});
 
 When("the admin navigates to the locations tab", async ({ page }) => {
   await page.getByRole("tab", { name: "Locations" }).click();

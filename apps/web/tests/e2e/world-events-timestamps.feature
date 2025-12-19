@@ -9,9 +9,6 @@ Feature: World builder adds timestamps to events
 
   Scenario: World builder can add beginning and ending timestamps to Events
     When the admin signs in to the system as "admin"
-    And the admin navigates to the "World Entities" planning screen
-    And world "Eldoria" exists
-    And the admin selects world "Eldoria"
-    And the admin navigates to the events tab
+    And world "Eldoria" exists and is selected with events tab
     And the admin ensures event "The Great War" exists with timestamps
     Then event "The Great War" appears in the events list

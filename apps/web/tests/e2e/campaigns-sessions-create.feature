@@ -9,7 +9,6 @@ Feature: Game master creates sessions within a campaign
 
   Scenario: Game master can create a Session within a Campaign
     When the admin signs in to the system as "admin"
-    And the campaign "Rise of the Dragon King" exists
-    And the admin navigates to the sessions view
+    And the campaign "Rise of the Dragon King" exists with sessions view
     And the admin ensures session "Session 1" exists in the campaign
     Then session "Session 1" appears in the sessions list

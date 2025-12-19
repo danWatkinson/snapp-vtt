@@ -9,7 +9,6 @@ Feature: World builder creates events in a world
 
   Scenario: World builder can add an Event to a World via popup
     When the admin signs in to the system as "admin"
-    And world "Eldoria" exists and is selected
-    And the admin navigates to the events tab
+    And world "Eldoria" exists and is selected with events tab
     And the admin ensures event "The Great Awakening" exists
     Then event "The Great Awakening" appears in the events list

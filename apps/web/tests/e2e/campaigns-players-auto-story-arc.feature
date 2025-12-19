@@ -9,8 +9,7 @@ Feature: Game master automatically gets story arcs for players
 
   Scenario: Game master automatically gets a Story Arc for each Player added to a Campaign
     When the admin signs in to the system as "admin"
-    And the campaign "Rise of the Dragon King" exists
-    And the admin navigates to the players view
+    And the campaign "Rise of the Dragon King" exists with players view
     And the admin ensures player "bob" is added to the campaign
     And the admin navigates to the story arcs view
     Then a story arc named "bob's Arc" is automatically created
