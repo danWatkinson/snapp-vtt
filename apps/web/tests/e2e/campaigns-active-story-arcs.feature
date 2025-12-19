@@ -5,9 +5,9 @@ Feature: Game master views active story arcs in campaign timeline
   So that I can track ongoing narrative threads
 
   Background:
-    Given there is an admin user
+    Given there is a game master user
 
   Scenario: Game master can see active Story Arcs in Campaign Timeline
-    When the admin signs in to the system
+    When the game master signs in to the system
     And the test campaign exists with timeline view
     Then the active story arcs section is visible

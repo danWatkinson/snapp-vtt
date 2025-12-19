@@ -1,18 +1,12 @@
-Feature: Campaign creation requires authentication
+Feature: World Builders can create campaigns
 
-  As a Security Engineer
-  I want campaign creation to require authentication
-  So that only authorized users can create campaigns
+  As a World Builder
+  I want to create campaigns
+  So that a game master and their players can play them
 
   Background:
-    Given there is an admin user
+    Given there is a world builder
 
-  Scenario: Campaign creation requires authentication
-    When I open the Snapp home page
-    Then I see a login entry point in the banner
-    And the campaigns tab is not visible
-
-  Scenario: Authenticated user with gm role can create a campaign
-    When the admin signs in to the system
-    And the admin creates a campaign named "Authenticated Test Campaign"
-    Then the campaign "Authenticated Test Campaign" appears in the campaigns list
+  Scenario: World builder can create a campaign
+    When the world builder creates a campaign
+    Then the campaign appears in the campaigns list

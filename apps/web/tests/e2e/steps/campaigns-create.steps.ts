@@ -383,6 +383,130 @@ When(
   }
 );
 
+When(
+  'the game master creates a campaign named {string} with summary {string}',
+  async ({ page }, campaignName: string, summary: string) => {
+    // Reuse the same implementation as admin step since both can create campaigns
+    // Navigate to Campaigns planning screen if not already there
+    const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+    const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (!isInPlanningMode) {
+      await selectWorldAndEnterPlanningMode(page, "Campaigns");
+    } else {
+      // Check if we're on the Campaigns sub-tab
+      const campaignsTab = planningTabs.getByRole("tab", { name: "Campaigns" });
+      const isOnCampaignsTab = await campaignsTab.getAttribute("aria-selected").then(attr => attr === "true").catch(() => false);
+      if (!isOnCampaignsTab) {
+        // Navigate to Campaigns sub-tab
+        await campaignsTab.click();
+        // Wait for Campaigns view to be ready
+        await safeWait(page, STABILITY_WAIT_SHORT);
+      }
+    }
+    
+    // Check if campaign already exists (from previous test run)
+    const hasCampaign = await page
+      .getByRole("tab", { name: campaignName })
+      .first()
+      .isVisible()
+      .catch(() => false);
+
+    if (hasCampaign) {
+      // Campaign already exists, skip creation
+      return;
+    }
+
+    // Open create campaign popup via Snapp menu
+    await page.getByRole("button", { name: /^Snapp/i }).click();
+    // Wait for menu to be visible and "New Campaign" button to appear
+    const newCampaignButton = page.getByRole("button", { name: "New Campaign" });
+    await expect(newCampaignButton).toBeVisible({ timeout: 3000 });
+    await newCampaignButton.click();
+    
+    // Wait for modal to open using transition event
+    await waitForModalOpen(page, "campaign", 5000);
+
+    // Fill in campaign details
+    await page.getByLabel("Campaign name").fill(campaignName);
+    await page.getByLabel("Summary").fill(summary);
+
+    // Set up event listener BEFORE clicking submit
+    // This ensures we don't miss the event if it fires quickly
+    // Reduced timeout from 10000ms to 5000ms for better performance
+    const campaignCreatedPromise = waitForCampaignCreated(page, campaignName, 5000);
+
+    // Submit the form
+    await page.getByRole("button", { name: "Save campaign" }).click();
+    
+    // Wait for campaign creation event (this fires after API success + state update)
+    // The helper includes multiple fallbacks (modal close, tab appearance, heading appearance)
+    try {
+      await campaignCreatedPromise;
+      // Campaign was created successfully - verify it's visible
+      // Check if campaign tab or heading is visible (campaign might be auto-selected)
+      const campaignTab = page.getByRole("tab", { name: campaignName }).first();
+      const campaignHeading = page.locator('h3.snapp-heading').filter({ hasText: campaignName }).first();
+      const tabVisible = await campaignTab.isVisible({ timeout: 2000 }).catch(() => false);
+      const headingVisible = await campaignHeading.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (tabVisible || headingVisible) {
+        // Campaign is visible - success! Close modal if still open
+        await closeModalIfOpen(page, "campaign", /create campaign/i);
+        return;
+      }
+      
+      // Campaign not visible yet - wait a bit more and check again
+      await safeWait(page, 500);
+      const finalTabCheck = await campaignTab.isVisible({ timeout: 2000 }).catch(() => false);
+      const finalHeadingCheck = await campaignHeading.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (finalTabCheck || finalHeadingCheck) {
+        // Campaign is visible now - close modal if still open
+        await closeModalIfOpen(page, "campaign", /create campaign/i);
+        return;
+      }
+      
+      // Campaign not visible - check for errors
+      const errorVisible = await page.getByTestId("error-message").isVisible({ timeout: 1000 }).catch(() => false);
+      if (errorVisible) {
+        const errorText = await page.getByTestId("error-message").textContent();
+        // Handle "already exists" errors gracefully
+        await handleAlreadyExistsError(page, errorText || null, "campaign", /create campaign/i);
+        return; // Campaign already exists, it should appear in the list
+      }
+      
+      // No error but campaign not visible - might be a timing issue
+      // Close modal and let the "Then" step verify campaign exists
+      await closeModalIfOpen(page, "campaign", /create campaign/i);
+    } catch (error) {
+      // Event/fallback didn't fire - check if campaign actually exists anyway
+      const campaignTab = page.getByRole("tab", { name: campaignName }).first();
+      const campaignHeading = page.locator('h3.snapp-heading').filter({ hasText: campaignName }).first();
+      const tabVisible = await campaignTab.isVisible({ timeout: 2000 }).catch(() => false);
+      const headingVisible = await campaignHeading.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (tabVisible || headingVisible) {
+        // Campaign exists - that's what matters, even if events didn't fire
+        await closeModalIfOpen(page, "campaign", /create campaign/i);
+        return;
+      }
+      
+      // Check for errors
+      const errorVisible = await page.getByTestId("error-message").isVisible({ timeout: 1000 }).catch(() => false);
+      if (errorVisible) {
+        const errorText = await page.getByTestId("error-message").textContent();
+        // Handle "already exists" errors gracefully
+        await handleAlreadyExistsError(page, errorText || null, "campaign", /create campaign/i);
+        return; // Campaign already exists, it should appear in the list
+      }
+      
+      // No error but event didn't fire and campaign not visible - rethrow original error
+      throw error;
+    }
+  }
+);
+
 Then(
   'the UI shows a campaign tab named {string}',
   async ({ page }, campaignName: string) => {

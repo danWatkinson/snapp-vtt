@@ -5,14 +5,14 @@ Feature: Game master views and advances campaign timeline
   So that I can track the passage of time in my campaign
 
   Background:
-    Given there is an admin user
+    Given there is a game master user
 
   Scenario: Game master can view and advance Campaign Timeline
-    When the admin signs in to the system
+    When the game master signs in to the system
     And the test campaign exists with timeline view
     Then the current moment is displayed
-    When the admin advances the timeline by 1 day
-    And the admin advances the timeline by 1 week
-    And the admin advances the timeline by 1 month
-    And the admin moves the timeline back by 1 day
+    When the game master advances the timeline by 1 day
+    And the game master advances the timeline by 1 week
+    And the game master advances the timeline by 1 month
+    And the game master moves the timeline back by 1 day
     Then the timeline reflects the changes

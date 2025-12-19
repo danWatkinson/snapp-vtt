@@ -5,9 +5,9 @@ Feature: Game master creates campaigns
   So that I can organize my game sessions and story arcs
 
   Background:
-    Given there is an admin user
+    Given there is a game master user
 
   Scenario: Game master creates a campaign via the UI
-    When the admin signs in to the system
-    And the admin creates a campaign named "Rise of the Dragon King" with summary "A long-running campaign about ancient draconic power returning"
+    When the game master signs in to the system
+    And the game master creates a campaign named "Rise of the Dragon King" with summary "A long-running campaign about ancient draconic power returning"
     Then the UI shows a campaign tab named "Rise of the Dragon King"

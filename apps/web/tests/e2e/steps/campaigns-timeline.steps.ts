@@ -25,6 +25,22 @@ When("the admin moves the timeline back by 1 day", async ({ page }) => {
   await page.getByRole("button", { name: "-1 day" }).click();
 });
 
+When("the game master advances the timeline by 1 day", async ({ page }) => {
+  await page.getByRole("button", { name: "+1 day" }).click();
+});
+
+When("the game master advances the timeline by 1 week", async ({ page }) => {
+  await page.getByRole("button", { name: "+1 week" }).click();
+});
+
+When("the game master advances the timeline by 1 month", async ({ page }) => {
+  await page.getByRole("button", { name: "+1 month" }).click();
+});
+
+When("the game master moves the timeline back by 1 day", async ({ page }) => {
+  await page.getByRole("button", { name: "-1 day" }).click();
+});
+
 Then("the timeline reflects the changes", async ({ page }) => {
   const currentMomentText = await page.getByText(/current moment/i).textContent();
   expect(currentMomentText).toBeTruthy();

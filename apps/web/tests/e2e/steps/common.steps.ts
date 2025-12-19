@@ -23,6 +23,22 @@ async function getStoredWorldBuilderUsername(page: any): Promise<string> {
   return getUniqueUsername("worldbuilder");
 }
 
+// Helper to get the unique game master username from page context
+async function getStoredGameMasterUsername(page: any): Promise<string> {
+  try {
+    const storedName = await page.evaluate(() => {
+      return (window as any).__testGameMasterUsername;
+    });
+    if (storedName) {
+      return storedName;
+    }
+  } catch {
+    // Can't retrieve - fall back to unique name generation
+  }
+  // Fall back to generating unique name if not stored
+  return getUniqueUsername("gamemaster");
+}
+
 const AUTH_SERVICE_URL =
   process.env.AUTH_SERVICE_URL ??
   process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ??
@@ -315,6 +331,108 @@ When('the world builder signs in to the system', async ({ page }) => {
   // Get the unique world builder username from page context
   const uniqueUsername = await getStoredWorldBuilderUsername(page);
   const password = "worldbuilder123";
+  
+  // Ensure we start with a clean page state
+  // Increase timeout to handle server load when running with multiple workers
+  await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+  
+  // loginAs already handles logout if user is logged in
+  // No need to clear storage or reload - let loginAs handle it
+  try {
+    await loginAs(page, uniqueUsername, password);
+  } catch (loginError) {
+    // loginAs should have already waited for logout button, but if it failed,
+    // check if we're actually logged in
+    const checkLogoutButton = page.getByRole("button", { name: "Log out" });
+    const isLoggedIn = await checkLogoutButton.isVisible({ timeout: 2000 }).catch(() => false);
+    
+    if (!isLoggedIn) {
+      // Login definitely failed - provide detailed error
+      throw new Error(
+        `Login failed for user ${uniqueUsername}. ` +
+        `The loginAs function reported an error: ${loginError instanceof Error ? loginError.message : String(loginError)}. ` +
+        `Please verify the user was created successfully and the credentials are correct.`
+      );
+    }
+    // If we're logged in, the error was likely just a timeout - continue
+  }
+  
+  // Double-check login succeeded (loginAs should have already verified this)
+  // This is a defensive check to ensure the UI has fully updated
+  // Wait for page to be in a stable state (no loading indicators)
+  await page.waitForLoadState("networkidle", { timeout: 3000 }).catch(() => {});
+  
+  // Verify login succeeded by checking for logout button
+  const logoutButton = page.getByRole("button", { name: "Log out" });
+  await expect(logoutButton).toBeVisible({ timeout: 3000 });
+});
+
+Given('there is a game master user', async ({ page, request }) => {
+  // Generate a unique username for this test to avoid conflicts
+  const uniqueUsername = getUniqueUsername("gamemaster");
+  const password = "gamemaster123";
+  
+  // Create the user via API using admin credentials
+  let userCreated = false;
+  try {
+    const adminToken = await getAdminToken(request);
+    
+    // Try to create the user with gm role
+    try {
+      await apiCall(request, "POST", "/users", {
+        token: adminToken,
+        body: { username: uniqueUsername, password, roles: ["gm"] }
+      });
+      userCreated = true;
+    } catch (createErr: any) {
+      // If user already exists (409), verify they have the gm role
+      if (createErr.message?.includes("409") || createErr.message?.includes("already exists")) {
+        try {
+          const user = await apiCall(request, "GET", `/users/${uniqueUsername}`, { token: adminToken });
+          if (!user.user.roles.includes("gm")) {
+            await apiCall(request, "PUT", `/users/${uniqueUsername}/roles`, {
+              token: adminToken,
+              body: { roles: ["gm"] }
+            });
+          }
+          userCreated = true; // User exists and has correct role
+        } catch (verifyErr) {
+          throw new Error(
+            `Failed to verify/update user ${uniqueUsername}: ${verifyErr instanceof Error ? verifyErr.message : String(verifyErr)}`
+          );
+        }
+      } else {
+        // Some other error creating user
+        throw new Error(
+          `Failed to create user ${uniqueUsername}: ${createErr.message || String(createErr)}`
+        );
+      }
+    }
+  } catch (err) {
+    const error = err as Error;
+    if (error.message.includes("Cannot connect") || error.message.includes("ECONNREFUSED")) {
+      throw new Error(
+        `Cannot connect to auth service at ${AUTH_SERVICE_URL}. Ensure the auth service is running (npm run dev:auth).`
+      );
+    }
+    throw err;
+  }
+  
+  if (!userCreated) {
+    throw new Error(`Failed to ensure user ${uniqueUsername} exists with gm role`);
+  }
+  
+  // Store the username in page context for other steps to use
+  await page.evaluate((username) => {
+    (window as any).__testGameMasterUsername = username;
+  }, uniqueUsername);
+});
+
+When('the game master signs in to the system', async ({ page }) => {
+  // Get the unique game master username from page context
+  const uniqueUsername = await getStoredGameMasterUsername(page);
+  const password = "gamemaster123";
   
   // Ensure we start with a clean page state
   // Increase timeout to handle server load when running with multiple workers
