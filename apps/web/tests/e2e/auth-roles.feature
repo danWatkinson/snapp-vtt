@@ -18,7 +18,6 @@ Feature: Admin manages user roles with token-based auth
 
   Scenario: Admin assigns a GM role to a user and the token reflects new permissions
     When the admin signs in to the system
-    And the admin navigates to the "Users" management screen
     And the admin assigns the "gm" role to the test user
     Then the UI shows that the test user has role "gm"
     When the test user signs in to the system

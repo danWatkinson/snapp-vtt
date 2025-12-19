@@ -560,6 +560,15 @@ When("world {string} exists and is selected with creatures tab", async ({ page }
 });
 
 When('the admin ensures creature "Dragon" exists', async ({ page }) => {
+  // Navigate to creatures tab first (if not already there)
+  const addCreatureButton = page.getByRole("button", { name: "Add creature" });
+  const isOnCreaturesTab = await addCreatureButton.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnCreaturesTab) {
+    await page.getByRole("tab", { name: "Creatures" }).click();
+    await expect(addCreatureButton).toBeVisible();
+  }
+  
   const hasDragon = await page
     .getByRole("listitem")
     .filter({ hasText: "Dragon" })
@@ -568,7 +577,7 @@ When('the admin ensures creature "Dragon" exists', async ({ page }) => {
     .catch(() => false);
 
   if (!hasDragon) {
-    await page.getByRole("button", { name: "Add creature" }).click();
+    await addCreatureButton.click();
     await expect(page.getByRole("dialog", { name: "Add creature" })).toBeVisible({ timeout: 3000 });
 
     await page.getByLabel("Creature name").fill("Dragon");
@@ -595,6 +604,15 @@ When("the admin navigates to the factions tab", async ({ page }) => {
 });
 
 When('the admin ensures faction "Order of the Flame" exists', async ({ page }) => {
+  // Navigate to factions tab first (if not already there)
+  const addFactionButton = page.getByRole("button", { name: "Add faction" });
+  const isOnFactionsTab = await addFactionButton.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnFactionsTab) {
+    await page.getByRole("tab", { name: "Factions" }).click();
+    await expect(addFactionButton).toBeVisible();
+  }
+  
   const hasFaction = await page
     .getByRole("listitem")
     .filter({ hasText: "Order of the Flame" })
@@ -603,7 +621,7 @@ When('the admin ensures faction "Order of the Flame" exists', async ({ page }) =
     .catch(() => false);
 
   if (!hasFaction) {
-    await page.getByRole("button", { name: "Add faction" }).click();
+    await addFactionButton.click();
     await expect(page.getByRole("dialog", { name: "Add faction" })).toBeVisible();
 
     await page.getByLabel("Faction name").fill("Order of the Flame");

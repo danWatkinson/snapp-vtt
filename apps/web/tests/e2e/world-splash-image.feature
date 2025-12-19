@@ -10,7 +10,6 @@ Feature: World builder sets a splash image for a world
 
   Scenario: World builder sets a splash image for a world from existing assets
     When the admin signs in to the system
-    And the admin navigates to the "Assets" library screen
     And the admin uploads an image asset "approaching-nuln.jpg"
     And the image asset "approaching-nuln.jpg" appears in the assets list
     And the admin navigates to the "World Entities" planning screen
@@ -21,7 +20,6 @@ Feature: World builder sets a splash image for a world
 
   Scenario: World splash image appears in the world selector
     When the admin signs in to the system
-    And the admin navigates to the "Assets" library screen
     And the admin uploads an image asset "approaching-nuln.jpg"
     And the image asset "approaching-nuln.jpg" appears in the assets list
     And the admin navigates to the "World Entities" planning screen

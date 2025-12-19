@@ -71,6 +71,51 @@ When('the world builder navigates to the "Assets" library screen', async ({ page
 });
 
 When("the world builder uploads an image asset {string}", async ({ page }, fileName: string) => {
+  // Navigate to Assets screen first (if not already there)
+  const assetsHeading = page.getByRole("heading", { name: "Assets" });
+  const isOnAssetsScreen = await assetsHeading.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnAssetsScreen) {
+    // Intercept image requests and return a valid 1x1 PNG
+    await page.route("**/mock-assets/**", async (route) => {
+      const pngBuffer = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "base64"
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        body: pngBuffer
+      });
+    });
+
+    await ensureLoginDialogClosed(page);
+    
+    const logoutButton = page.getByRole("button", { name: "Log out" });
+    const isLoggedIn = await logoutButton.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (!isLoggedIn) {
+      const loginButton = page.getByRole("button", { name: "Login" });
+      const loginButtonVisible = await loginButton.isVisible({ timeout: 1000 }).catch(() => false);
+      
+      if (loginButtonVisible) {
+        throw new Error(
+          "User is not logged in. The 'When the world builder signs in to the system' step must run before this step."
+        );
+      } else {
+        throw new Error(
+          "Cannot determine login state. Logout button not visible and Login button not found. " +
+          "The page may be in an unexpected state. Ensure the login step completed successfully."
+        );
+      }
+    }
+    
+    await page.getByRole("button", { name: "Snapp" }).click();
+    await expect(page.getByRole("button", { name: "Manage Assets" })).toBeVisible({ timeout: 3000 });
+    await page.getByRole("button", { name: "Manage Assets" }).click();
+    await expect(assetsHeading).toBeVisible({ timeout: 5000 });
+  }
+  
   // Extract asset name from fileName (without extension) for matching
   const assetNameBase = fileName.replace(/\.(jpg|png|jpeg|gif)$/i, "");
   
@@ -166,6 +211,51 @@ Then("the modal is no longer visible", async ({ page }) => {
 });
 
 When("the world builder uploads an audio asset {string}", async ({ page }, fileName: string) => {
+  // Navigate to Assets screen first (if not already there)
+  const assetsHeading = page.getByRole("heading", { name: "Assets" });
+  const isOnAssetsScreen = await assetsHeading.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnAssetsScreen) {
+    // Intercept image requests and return a valid 1x1 PNG
+    await page.route("**/mock-assets/**", async (route) => {
+      const pngBuffer = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "base64"
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        body: pngBuffer
+      });
+    });
+
+    await ensureLoginDialogClosed(page);
+    
+    const logoutButton = page.getByRole("button", { name: "Log out" });
+    const isLoggedIn = await logoutButton.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (!isLoggedIn) {
+      const loginButton = page.getByRole("button", { name: "Login" });
+      const loginButtonVisible = await loginButton.isVisible({ timeout: 1000 }).catch(() => false);
+      
+      if (loginButtonVisible) {
+        throw new Error(
+          "User is not logged in. The 'When the world builder signs in to the system' step must run before this step."
+        );
+      } else {
+        throw new Error(
+          "Cannot determine login state. Logout button not visible and Login button not found. " +
+          "The page may be in an unexpected state. Ensure the login step completed successfully."
+        );
+      }
+    }
+    
+    await page.getByRole("button", { name: "Snapp" }).click();
+    await expect(page.getByRole("button", { name: "Manage Assets" })).toBeVisible({ timeout: 3000 });
+    await page.getByRole("button", { name: "Manage Assets" }).click();
+    await expect(assetsHeading).toBeVisible({ timeout: 5000 });
+  }
+  
   // Extract asset name from fileName (without extension) for matching
   const assetNameBase = fileName.replace(/\.(mp3|wav|ogg)$/i, "");
   
@@ -373,7 +463,15 @@ When("the world builder selects world {string}", async ({ page }, worldName: str
 });
 
 When("the world builder ensures location {string} exists", async ({ page }, locationName: string) => {
+  // Navigate to locations tab first (if not already there)
   const addLocationButton = page.getByRole("button", { name: "Add location" });
+  const isOnLocationsTab = await addLocationButton.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnLocationsTab) {
+    await page.getByRole("tab", { name: "Locations" }).click();
+    await expect(addLocationButton).toBeVisible();
+  }
+  
   const hasLocation = await page
     .getByRole("listitem")
     .filter({ hasText: locationName })

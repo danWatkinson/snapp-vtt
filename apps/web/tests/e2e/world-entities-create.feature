@@ -12,6 +12,5 @@ Feature: World builder creates creatures and factions
     And world "Eldoria" exists and is selected with creatures tab
     And the admin ensures creature "Dragon" exists
     Then creature "Dragon" appears in the creatures list
-    When the admin navigates to the factions tab
     And the admin ensures faction "Order of the Flame" exists
     Then faction "Order of the Flame" appears in the factions list

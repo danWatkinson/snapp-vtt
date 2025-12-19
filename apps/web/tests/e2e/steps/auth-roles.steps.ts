@@ -208,6 +208,19 @@ When('the admin navigates to the "Users" management screen', async ({ page }) =>
 When(
   'the admin assigns the "gm" role to the test user',
   async ({ page }) => {
+    // Navigate to Users screen first (if not already there)
+    const usersTab = page.locator('[data-component="UsersTab"]');
+    const isOnUsersScreen = await usersTab.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (!isOnUsersScreen) {
+      await ensureLoginDialogClosed(page);
+      await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
+      await page.getByRole("button", { name: /^Snapp/i }).click();
+      await expect(page.getByRole("button", { name: "User Management" })).toBeVisible({ timeout: 3000 });
+      await page.getByRole("button", { name: "User Management" }).click();
+      await page.waitForSelector('[data-component="UsersTab"]', { timeout: 3000 });
+    }
+    
     // Get the unique alice username
     const uniqueAliceName = await getStoredAliceUsername(page);
     

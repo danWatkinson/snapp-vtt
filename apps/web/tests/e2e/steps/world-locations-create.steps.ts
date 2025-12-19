@@ -21,6 +21,15 @@ When("the admin navigates to the locations tab", async ({ page }) => {
 });
 
 When('the admin ensures location "Whispering Woods" exists', async ({ page }) => {
+  // Navigate to locations tab first (if not already there)
+  const addLocationButton = page.getByRole("button", { name: "Add location" });
+  const isOnLocationsTab = await addLocationButton.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnLocationsTab) {
+    await page.getByRole("tab", { name: "Locations" }).click();
+    await expect(addLocationButton).toBeVisible();
+  }
+  
   const hasLocation = await page
     .getByRole("listitem")
     .filter({ hasText: "Whispering Woods" })
@@ -29,7 +38,7 @@ When('the admin ensures location "Whispering Woods" exists', async ({ page }) =>
     .catch(() => false);
 
   if (!hasLocation) {
-    await page.getByRole("button", { name: "Add location" }).click();
+    await addLocationButton.click();
     await expect(page.getByRole("dialog", { name: "Add location" })).toBeVisible();
 
     await page.getByLabel("Location name").fill("Whispering Woods");

@@ -11,14 +11,12 @@ Feature: World builder uploads and references digital assets
 
   Scenario: World builder uploads an image asset for use in a world
     When the world builder signs in to the system
-    And the world builder navigates to the "Assets" library screen
     And the world builder uploads an image asset "approaching-nuln.jpg"
     Then the image asset "approaching-nuln.jpg" appears in the assets list
     And the image asset "approaching-nuln.jpg" displays a thumbnail in the assets list
 
   Scenario: World builder views an image asset in a modal
     When the world builder signs in to the system
-    And the world builder navigates to the "Assets" library screen
     And the world builder uploads an image asset "approaching-nuln.jpg"
     And the world builder clicks the thumbnail for image asset "approaching-nuln.jpg"
     Then a modal opens displaying the full image for "approaching-nuln.jpg"
@@ -27,7 +25,6 @@ Feature: World builder uploads and references digital assets
 
   Scenario: World builder uploads an audio asset for use in a scene
     When the world builder signs in to the system
-    And the world builder navigates to the "Assets" library screen
     And the world builder uploads an audio asset "forest-ambience.mp3"
     Then the audio asset "forest-ambience.mp3" appears in the assets list
 
@@ -35,7 +32,6 @@ Feature: World builder uploads and references digital assets
     When the world builder signs in to the system
     And the world builder navigates to the "World Entities" planning screen
     And the world builder selects world "Eldoria"
-    And the world builder navigates to the locations tab
     And the world builder ensures location "Whispering Woods" exists
     And the world builder sets the image asset for location "Whispering Woods" to "approaching-nuln.jpg"
     Then the location "Whispering Woods" shows image asset "approaching-nuln.jpg" in the UI
