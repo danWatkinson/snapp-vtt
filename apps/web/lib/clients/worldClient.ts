@@ -14,7 +14,9 @@ export type LocationRelationshipType =
   | "is contained by"
   | "borders against"
   | "is near"
-  | "is connected to";
+  | "is connected to"
+  | "has member"
+  | "is member of";
 
 export interface LocationRelationship {
   targetLocationId: string;
@@ -258,6 +260,125 @@ export async function getEventsForLocation(
   }
   const body = (await res.json()) as { events: WorldEntity[] };
   return body.events;
+}
+
+export async function addEventRelationship(
+  worldId: string,
+  sourceEventId: string,
+  targetEventId: string,
+  relationshipType: LocationRelationshipType,
+  token?: string
+): Promise<void> {
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const url = `${WORLD_SERVICE_URL}/worlds/${worldId}/events/${sourceEventId}/relationships`;
+  const body = JSON.stringify({ targetEventId, relationshipType });
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body
+  });
+
+  const responseBody = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
+    throw new Error(responseBody.error ?? "Failed to add event relationship");
+  }
+}
+
+export async function getSubEventsForEvent(
+  worldId: string,
+  eventId: string
+): Promise<WorldEntity[]> {
+  const res = await fetch(`${WORLD_SERVICE_URL}/worlds/${worldId}/events/${eventId}/sub-events`);
+  if (!res.ok) {
+    throw new Error("Failed to load sub-events for event");
+  }
+  const body = (await res.json()) as { subEvents: WorldEntity[] };
+  return body.subEvents;
+}
+
+export async function addFactionRelationship(
+  worldId: string,
+  sourceFactionId: string,
+  targetFactionId: string,
+  relationshipType: LocationRelationshipType,
+  token?: string
+): Promise<void> {
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const url = `${WORLD_SERVICE_URL}/worlds/${worldId}/factions/${sourceFactionId}/relationships`;
+  const body = JSON.stringify({ targetFactionId, relationshipType });
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body
+  });
+
+  const responseBody = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
+    throw new Error(responseBody.error ?? "Failed to add faction relationship");
+  }
+}
+
+export async function getSubFactionsForFaction(
+  worldId: string,
+  factionId: string
+): Promise<WorldEntity[]> {
+  const res = await fetch(`${WORLD_SERVICE_URL}/worlds/${worldId}/factions/${factionId}/sub-factions`);
+  if (!res.ok) {
+    throw new Error("Failed to load sub-factions for faction");
+  }
+  const body = (await res.json()) as { subFactions: WorldEntity[] };
+  return body.subFactions;
+}
+
+export async function addFactionMember(
+  worldId: string,
+  factionId: string,
+  creatureId: string,
+  token?: string
+): Promise<void> {
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const url = `${WORLD_SERVICE_URL}/worlds/${worldId}/factions/${factionId}/members`;
+  const body = JSON.stringify({ creatureId });
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body
+  });
+
+  const responseBody = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
+    throw new Error(responseBody.error ?? "Failed to add faction member");
+  }
+}
+
+export async function getMembersForFaction(
+  worldId: string,
+  factionId: string
+): Promise<WorldEntity[]> {
+  const res = await fetch(`${WORLD_SERVICE_URL}/worlds/${worldId}/factions/${factionId}/members`);
+  if (!res.ok) {
+    throw new Error("Failed to load members for faction");
+  }
+  const body = (await res.json()) as { members: WorldEntity[] };
+  return body.members;
 }
 
 

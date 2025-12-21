@@ -34,6 +34,8 @@ import {
   createWorldEntity,
   updateWorldSplashImage,
   addLocationRelationship,
+  addEventRelationship,
+  addFactionRelationship,
   fetchWorldEntities
 } from "../clients/worldClient";
 import {
@@ -513,12 +515,12 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
       
       // Read relationship info BEFORE the async action so it's accessible to onSuccess callback
       // We'll re-read it inside the async action to get the latest values after React state updates
-      let relationshipTargetId = 
-        selectedEntityType === "location" && entityForm.form.relationshipTargetId
+      let relationshipTargetId =
+        (selectedEntityType === "location" || selectedEntityType === "event" || selectedEntityType === "faction") && entityForm.form.relationshipTargetId
           ? entityForm.form.relationshipTargetId
           : undefined;
-      let relationshipType = 
-        selectedEntityType === "location" && entityForm.form.relationshipType && entityForm.form.relationshipType.trim() !== ""
+      let relationshipType =
+        (selectedEntityType === "location" || selectedEntityType === "event" || selectedEntityType === "faction") && entityForm.form.relationshipType && entityForm.form.relationshipType.trim() !== ""
           ? entityForm.form.relationshipType as "contains" | "is contained by" | "borders against" | "is near" | "is connected to"
           : undefined;
       
@@ -526,13 +528,13 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         async () => {
           // Re-read relationship info INSIDE the async action to ensure we get the latest form values
           // This is important because React state updates are asynchronous
-          relationshipTargetId = 
-            selectedEntityType === "location" && entityForm.form.relationshipTargetId
+          relationshipTargetId =
+            (selectedEntityType === "location" || selectedEntityType === "event" || selectedEntityType === "faction") && entityForm.form.relationshipTargetId
               ? entityForm.form.relationshipTargetId
               : undefined;
           // Check for both truthy value AND non-empty string (empty string is falsy but we want to be explicit)
-          relationshipType = 
-            selectedEntityType === "location" && entityForm.form.relationshipType && entityForm.form.relationshipType.trim() !== ""
+          relationshipType =
+            (selectedEntityType === "location" || selectedEntityType === "event" || selectedEntityType === "faction") && entityForm.form.relationshipType && entityForm.form.relationshipType.trim() !== ""
               ? entityForm.form.relationshipType as "contains" | "is contained by" | "borders against" | "is near" | "is connected to"
               : undefined;
           
@@ -544,8 +546,8 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
               formRelationshipTargetId: entityForm.form.relationshipTargetId
             });
             await new Promise(resolve => setTimeout(resolve, 200));
-            relationshipType = 
-              selectedEntityType === "location" && entityForm.form.relationshipType && entityForm.form.relationshipType.trim() !== ""
+            relationshipType =
+              (selectedEntityType === "location" || selectedEntityType === "event" || selectedEntityType === "faction") && entityForm.form.relationshipType && entityForm.form.relationshipType.trim() !== ""
                 ? entityForm.form.relationshipType as "contains" | "is contained by" | "borders against" | "is near" | "is connected to"
                 : undefined;
             if (!relationshipType) {
@@ -585,19 +587,25 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
             relationshipType,
             formRelationshipTargetId: entityForm.form.relationshipTargetId,
             formRelationshipType: entityForm.form.relationshipType,
-            willCreateRelationship: selectedEntityType === "location" && relationshipTargetId && relationshipType,
+            willCreateLocationRelationship: selectedEntityType === "location" && relationshipTargetId && relationshipType,
+            willCreateEventRelationship: selectedEntityType === "event" && relationshipTargetId && relationshipType,
+            willCreateFactionRelationship: selectedEntityType === "faction" && relationshipTargetId && relationshipType,
             conditionCheck: {
               isLocation: selectedEntityType === "location",
+              isEvent: selectedEntityType === "event",
+              isFaction: selectedEntityType === "faction",
               hasTargetId: !!relationshipTargetId,
               hasType: !!relationshipType,
-              allTrue: selectedEntityType === "location" && relationshipTargetId && relationshipType
+              allTrueLocation: selectedEntityType === "location" && relationshipTargetId && relationshipType,
+              allTrueEvent: selectedEntityType === "event" && relationshipTargetId && relationshipType,
+              allTrueFaction: selectedEntityType === "faction" && relationshipTargetId && relationshipType
             }
           });
           
           // If creating a location with a relationship, add it
           if (selectedEntityType === "location" && relationshipTargetId && relationshipType) {
-            console.log('[useHomePageHandlers] Condition passed - will create relationship');
-            console.log('[useHomePageHandlers] Creating relationship:', {
+            console.log('[useHomePageHandlers] Condition passed - will create location relationship');
+            console.log('[useHomePageHandlers] Creating location relationship:', {
               worldId: selectedIds.worldId,
               sourceLocationId: entity.id,
               sourceLocationName: entity.name,
@@ -610,9 +618,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
                 entity.id,
                 relationshipTargetId,
                 relationshipType,
-          currentUser?.token
+                currentUser?.token
               );
-              console.log('[useHomePageHandlers] Relationship created successfully');
+              console.log('[useHomePageHandlers] Location relationship created successfully');
               
               // Add the entity immediately so it appears in the UI
               setEntities((prev) => {
@@ -630,35 +638,19 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
                   await new Promise(resolve => setTimeout(resolve, 500));
                   // Fetch all locations to get updated relationships
                   const allLocations = await fetchWorldEntities(selectedIds.worldId!, "location");
-                  // If we're on the location tab, also fetch events
-                  if (selectedEntityType === "location") {
-                    const allEvents = await fetchWorldEntities(selectedIds.worldId!, "event");
-                    // Combine locations and events, ensuring no duplicates
-                    const entityMap = new Map<string, typeof allLocations[0] | typeof allEvents[0]>();
-                    [...allLocations, ...allEvents].forEach(e => entityMap.set(e.id, e));
-                    // Preserve any newly created entities that might not be in the fetched list yet
-                    setEntities((prev) => {
-                      prev.forEach(existingEntity => {
-                        if (!entityMap.has(existingEntity.id)) {
-                          entityMap.set(existingEntity.id, existingEntity);
-                        }
-                      });
-                      return Array.from(entityMap.values());
+                  const allEvents = await fetchWorldEntities(selectedIds.worldId!, "event");
+                  // Combine locations and events, ensuring no duplicates
+                  const entityMap = new Map<string, typeof allLocations[0] | typeof allEvents[0]>();
+                  [...allLocations, ...allEvents].forEach(e => entityMap.set(e.id, e));
+                  // Preserve any newly created entities that might not be in the fetched list yet
+                  setEntities((prev) => {
+                    prev.forEach(existingEntity => {
+                      if (!entityMap.has(existingEntity.id)) {
+                        entityMap.set(existingEntity.id, existingEntity);
+                      }
                     });
-                  } else {
-                    // Just update locations
-                    setEntities((prev) => {
-                      const entityMap = new Map<string, typeof allLocations[0]>();
-                      allLocations.forEach(e => entityMap.set(e.id, e));
-                      // Preserve non-location entities and newly created locations
-                      prev.forEach(existingEntity => {
-                        if (existingEntity.type !== "location" || !entityMap.has(existingEntity.id)) {
-                          entityMap.set(existingEntity.id, existingEntity);
-                        }
-                      });
-                      return Array.from(entityMap.values());
-                    });
-                  }
+                    return Array.from(entityMap.values());
+                  });
                   // After entities are set, dispatch the event and update cache
                   const cacheKey = `${selectedIds.worldId}-location`;
                   setEntitiesLoadedFor(cacheKey);
@@ -684,7 +676,163 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
               }, 100);
             } catch (relErr) {
               // Log error but don't fail the entity creation
-              console.error("Failed to create relationship:", relErr);
+              console.error("Failed to create location relationship:", relErr);
+            }
+          // If creating an event with a relationship (parent event), add it
+          } else if (selectedEntityType === "event" && relationshipTargetId && relationshipType) {
+            console.log('[useHomePageHandlers] Condition passed - will create event relationship');
+            console.log('[useHomePageHandlers] Creating event relationship:', {
+              worldId: selectedIds.worldId,
+              sourceEventId: entity.id,
+              sourceEventName: entity.name,
+              targetEventId: relationshipTargetId,
+              relationshipType
+            });
+            try {
+              // For events, the relationship should be "is contained by" (sub-event is contained by parent)
+              // But we need to create it from the parent's perspective: parent "contains" sub-event
+              // So we reverse the relationship: if user selected "is contained by", we create "contains" from parent
+              const actualRelationshipType = relationshipType === "is contained by" ? "contains" : relationshipType;
+              await addEventRelationship(
+                selectedIds.worldId!,
+                relationshipTargetId, // Parent event (target)
+                entity.id, // Sub-event (source)
+                actualRelationshipType,
+                currentUser?.token
+              );
+              console.log('[useHomePageHandlers] Event relationship created successfully');
+              
+              // Add the entity immediately so it appears in the UI
+              setEntities((prev) => {
+                const exists = prev.some(e => e.id === entity.id);
+                if (exists) {
+                  return prev.map(e => e.id === entity.id ? entity : e);
+                }
+                return [...prev, entity];
+              });
+              
+              // Reload entities to get updated relationships from the backend
+              setTimeout(async () => {
+                try {
+                  // Wait for backend to process the relationship
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                  // Fetch all events to get updated relationships
+                  const allEvents = await fetchWorldEntities(selectedIds.worldId!, "event");
+                  const allLocations = await fetchWorldEntities(selectedIds.worldId!, "location");
+                  // Combine events and locations, ensuring no duplicates
+                  const entityMap = new Map<string, typeof allEvents[0] | typeof allLocations[0]>();
+                  [...allEvents, ...allLocations].forEach(e => entityMap.set(e.id, e));
+                  // Preserve any newly created entities that might not be in the fetched list yet
+                  setEntities((prev) => {
+                    prev.forEach(existingEntity => {
+                      if (!entityMap.has(existingEntity.id)) {
+                        entityMap.set(existingEntity.id, existingEntity);
+                      }
+                    });
+                    return Array.from(entityMap.values());
+                  });
+                  // After entities are set, dispatch the event and update cache
+                  const cacheKey = `${selectedIds.worldId}-event`;
+                  setEntitiesLoadedFor(cacheKey);
+                  // Also mark cross-reference as loaded since we fetched locations
+                  setCrossRefEntitiesLoadedFor(`${selectedIds.worldId}-crossref-event`);
+                  // Dispatch ENTITIES_LOADED_EVENT after reload completes
+                  setEntities((currentEntities) => {
+                    setTimeout(() => {
+                      dispatchTransitionEvent(ENTITIES_LOADED_EVENT, {
+                        worldId: selectedIds.worldId,
+                        entityType: selectedEntityType,
+                        count: currentEntities.length,
+                        cacheKey: cacheKey,
+                        crossRefLoaded: true,
+                        reloaded: true
+                      });
+                    }, 100);
+                    return currentEntities;
+                  });
+                } catch (reloadErr) {
+                  console.error("Failed to reload entities after relationship creation:", reloadErr);
+                }
+              }, 100);
+            } catch (relErr) {
+              // Log error but don't fail the entity creation
+              console.error("Failed to create event relationship:", relErr);
+            }
+          // If creating a faction with a relationship (parent faction), add it
+          } else if (selectedEntityType === "faction" && relationshipTargetId && relationshipType) {
+            console.log('[useHomePageHandlers] Condition passed - will create faction relationship');
+            console.log('[useHomePageHandlers] Creating faction relationship:', {
+              worldId: selectedIds.worldId,
+              sourceFactionId: entity.id,
+              sourceFactionName: entity.name,
+              targetFactionId: relationshipTargetId,
+              relationshipType
+            });
+            try {
+              // For factions, the relationship should be "is contained by" (sub-faction is contained by parent)
+              // But we need to create it from the parent's perspective: parent "contains" sub-faction
+              // So we reverse the relationship: if user selected "is contained by", we create "contains" from parent
+              const actualRelationshipType = relationshipType === "is contained by" ? "contains" : relationshipType;
+              await addFactionRelationship(
+                selectedIds.worldId!,
+                relationshipTargetId, // Parent faction (target)
+                entity.id, // Sub-faction (source)
+                actualRelationshipType,
+                currentUser?.token
+              );
+              console.log('[useHomePageHandlers] Faction relationship created successfully');
+              
+              // Add the entity immediately so it appears in the UI
+              setEntities((prev) => {
+                const exists = prev.some(e => e.id === entity.id);
+                if (exists) {
+                  return prev.map(e => e.id === entity.id ? entity : e);
+                }
+                return [...prev, entity];
+              });
+              
+              // Reload entities to get updated relationships from the backend
+              setTimeout(async () => {
+                try {
+                  // Wait for backend to process the relationship
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                  // Fetch all factions to get updated relationships
+                  const allFactions = await fetchWorldEntities(selectedIds.worldId!, "faction");
+                  // Combine factions, ensuring no duplicates
+                  const entityMap = new Map<string, typeof allFactions[0]>();
+                  allFactions.forEach(e => entityMap.set(e.id, e));
+                  // Preserve any newly created entities that might not be in the fetched list yet
+                  setEntities((prev) => {
+                    prev.forEach(existingEntity => {
+                      if (!entityMap.has(existingEntity.id)) {
+                        entityMap.set(existingEntity.id, existingEntity);
+                      }
+                    });
+                    return Array.from(entityMap.values());
+                  });
+                  // After entities are set, dispatch the event and update cache
+                  const cacheKey = `${selectedIds.worldId}-faction`;
+                  setEntitiesLoadedFor(cacheKey);
+                  // Dispatch ENTITIES_LOADED_EVENT after reload completes
+                  setEntities((currentEntities) => {
+                    setTimeout(() => {
+                      dispatchTransitionEvent(ENTITIES_LOADED_EVENT, {
+                        worldId: selectedIds.worldId,
+                        entityType: selectedEntityType,
+                        count: currentEntities.length,
+                        cacheKey: cacheKey,
+                        reloaded: true
+                      });
+                    }, 100);
+                    return currentEntities;
+                  });
+                } catch (reloadErr) {
+                  console.error("Failed to reload entities after relationship creation:", reloadErr);
+                }
+              }, 100);
+            } catch (relErr) {
+              // Log error but don't fail the entity creation
+              console.error("Failed to create faction relationship:", relErr);
             }
           }
           
@@ -695,9 +843,9 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
           setError,
           onAuthError: handleLogout,
           onSuccess: async (entity) => {
-            // If we created a location with a relationship, the reload already happened above
+            // If we created a location, event, or faction with a relationship, the reload already happened above
             // Otherwise, add the entity to state
-            if (!(selectedEntityType === "location" && relationshipTargetId && relationshipType)) {
+            if (!((selectedEntityType === "location" || selectedEntityType === "event" || selectedEntityType === "faction") && relationshipTargetId && relationshipType)) {
             setEntities((prev) => [...prev, entity]);
             }
             entityForm.resetForm();

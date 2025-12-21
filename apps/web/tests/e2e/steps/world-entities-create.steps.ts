@@ -682,7 +682,17 @@ When("world {string} exists and is selected with creatures tab", async ({ page }
   await expect(page.getByRole("button", { name: "Add creature" })).toBeVisible({ timeout: 3000 });
 });
 
-When('the admin ensures creature "Dragon" exists', async ({ page }) => {
+// Combined step: world exists and is selected with factions tab
+When("world {string} exists and is selected with factions tab", async ({ page }, worldName: string) => {
+  await ensureWorldExistsAndSelected(page, worldName);
+  
+  // Navigate to factions tab
+  await expect(page.getByRole("tab", { name: "Factions" })).toBeVisible({ timeout: 3000 });
+  await page.getByRole("tab", { name: "Factions" }).click();
+  await expect(page.getByRole("button", { name: "Add faction" })).toBeVisible({ timeout: 3000 });
+});
+
+When('the admin ensures creature {string} exists', async ({ page }, creatureName: string) => {
   // Navigate to creatures tab first (if not already there)
   const addCreatureButton = page.getByRole("button", { name: "Add creature" });
   const isOnCreaturesTab = await addCreatureButton.isVisible({ timeout: 1000 }).catch(() => false);
@@ -692,25 +702,25 @@ When('the admin ensures creature "Dragon" exists', async ({ page }) => {
     await expect(addCreatureButton).toBeVisible();
   }
   
-  const hasDragon = await page
+  const hasCreature = await page
     .getByRole("listitem")
-    .filter({ hasText: "Dragon" })
+    .filter({ hasText: creatureName })
     .first()
     .isVisible()
     .catch(() => false);
 
-  if (!hasDragon) {
+  if (!hasCreature) {
     await addCreatureButton.click();
     await expect(page.getByRole("dialog", { name: "Add creature" })).toBeVisible({ timeout: 3000 });
 
-    await page.getByLabel("Creature name").fill("Dragon");
-    await page.getByLabel("Summary").fill("A fearsome fire-breathing beast.");
+    await page.getByLabel("Creature name").fill(creatureName);
+    await page.getByLabel("Summary").fill(`A creature named ${creatureName}.`);
     await page.getByRole("button", { name: "Save creature" }).click();
     
     // Wait for modal to close and creature to appear
     await expect(page.getByRole("dialog", { name: "Add creature" })).toBeHidden({ timeout: 3000 });
     await expect(
-      page.getByRole("listitem").filter({ hasText: "Dragon" }).first()
+      page.getByRole("listitem").filter({ hasText: creatureName }).first()
     ).toBeVisible({ timeout: 3000 });
   }
 });
@@ -726,7 +736,7 @@ When("the admin navigates to the factions tab", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Add faction" })).toBeVisible();
 });
 
-When('the admin ensures faction "Order of the Flame" exists', async ({ page }) => {
+When('the admin ensures faction {string} exists', async ({ page }, factionName: string) => {
   // Navigate to factions tab first (if not already there)
   const addFactionButton = page.getByRole("button", { name: "Add faction" });
   const isOnFactionsTab = await addFactionButton.isVisible({ timeout: 1000 }).catch(() => false);
@@ -738,7 +748,7 @@ When('the admin ensures faction "Order of the Flame" exists', async ({ page }) =
   
   const hasFaction = await page
     .getByRole("listitem")
-    .filter({ hasText: "Order of the Flame" })
+    .filter({ hasText: factionName })
     .first()
     .isVisible()
     .catch(() => false);
@@ -747,10 +757,63 @@ When('the admin ensures faction "Order of the Flame" exists', async ({ page }) =
     await addFactionButton.click();
     await expect(page.getByRole("dialog", { name: "Add faction" })).toBeVisible();
 
-    await page.getByLabel("Faction name").fill("Order of the Flame");
-    await page.getByLabel("Summary").fill("A secretive order of mages.");
+    await page.getByLabel("Faction name").fill(factionName);
+    await page.getByLabel("Summary").fill("A faction.");
     await page.getByRole("button", { name: "Save faction" }).click();
+    
+    // Wait for the dialog to close
+    await expect(page.getByRole("dialog", { name: "Add faction" })).not.toBeVisible({ timeout: 3000 });
+    
+    // Wait for the faction to appear in the list
+    await expect(
+      page.getByRole("listitem").filter({ hasText: factionName }).first()
+    ).toBeVisible({ timeout: 3000 });
   }
+});
+
+
+When('the admin creates faction {string}', async ({ page }, factionName: string) => {
+  // Check if faction already exists
+  const hasFaction = await page
+    .getByRole("listitem")
+    .filter({ hasText: factionName })
+    .first()
+    .isVisible()
+    .catch(() => false);
+  
+  if (hasFaction) {
+    // Faction already exists, skip creation
+    return;
+  }
+  
+  // Navigate to factions tab if not already there
+  const addFactionButton = page.getByRole("button", { name: "Add faction" });
+  const isOnFactionsTab = await addFactionButton.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnFactionsTab) {
+    await page.getByRole("tab", { name: "Factions" }).click();
+    await expect(addFactionButton).toBeVisible();
+  }
+  
+  // Open the create faction dialog
+  await addFactionButton.click();
+  const dialog = page.getByRole("dialog", { name: "Add faction" });
+  await expect(dialog).toBeVisible();
+  
+  // Fill in faction name
+  await dialog.getByLabel("Faction name").fill(factionName);
+  await dialog.getByLabel("Summary").fill("A faction.");
+  
+  // Save the faction
+  await dialog.getByRole("button", { name: "Save faction" }).click();
+  
+  // Wait for the dialog to close
+  await expect(dialog).not.toBeVisible({ timeout: 3000 });
+  
+  // Wait for the faction to appear in the list
+  await expect(
+    page.getByRole("listitem").filter({ hasText: factionName }).first()
+  ).toBeVisible({ timeout: 3000 });
 });
 
 Then('faction "Order of the Flame" appears in the factions list', async ({ page }) => {

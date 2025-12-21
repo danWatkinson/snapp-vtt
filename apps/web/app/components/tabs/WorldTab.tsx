@@ -153,8 +153,10 @@ export default function WorldTab() {
     
     const needsLocations = selectedEntityType === "event";
     const needsEvents = selectedEntityType === "location";
+    const needsCreaturesForFactions = selectedEntityType === "faction";
+    const needsFactionsForCreatures = selectedEntityType === "creature";
     
-    if (needsLocations || needsEvents) {
+    if (needsLocations || needsEvents || needsCreaturesForFactions || needsFactionsForCreatures) {
       const cacheKey = `${currentWorldId}-crossref-${selectedEntityType}`;
       
       // Always fetch cross-referenced entities when needed, even if some already exist
@@ -202,6 +204,54 @@ export default function WorldTab() {
                   // This ensures we have the latest event data and prevents duplicates
                   events.forEach((event) => {
                     entityMap.set(event.id, event);
+                  });
+                  
+                  return Array.from(entityMap.values());
+                });
+              })
+          );
+        }
+        
+        if (needsCreaturesForFactions) {
+          // Always fetch creatures when viewing factions (even if some already exist)
+          // This ensures we have all creatures for the "Members:" display
+          // Use a Map to deduplicate creatures by ID to prevent duplicates
+          promises.push(
+            fetchWorldEntities(currentWorldId, "creature")
+              .then((creatures) => {
+                setEntities((prev) => {
+                  // Create a Map of existing entities by ID for deduplication
+                  const entityMap = new Map<string, typeof prev[0]>();
+                  prev.forEach((e) => entityMap.set(e.id, e));
+                  
+                  // Add fetched creatures, replacing any existing creatures with the same ID
+                  // This ensures we have the latest creature data and prevents duplicates
+                  creatures.forEach((creature) => {
+                    entityMap.set(creature.id, creature);
+                  });
+                  
+                  return Array.from(entityMap.values());
+                });
+              })
+          );
+        }
+        
+        if (needsFactionsForCreatures) {
+          // Always fetch factions when viewing creatures (even if some already exist)
+          // This ensures we have all factions for the "Member of:" display
+          // Use a Map to deduplicate factions by ID to prevent duplicates
+          promises.push(
+            fetchWorldEntities(currentWorldId, "faction")
+              .then((factions) => {
+                setEntities((prev) => {
+                  // Create a Map of existing entities by ID for deduplication
+                  const entityMap = new Map<string, typeof prev[0]>();
+                  prev.forEach((e) => entityMap.set(e.id, e));
+                  
+                  // Add fetched factions, replacing any existing factions with the same ID
+                  // This ensures we have the latest faction data and prevents duplicates
+                  factions.forEach((faction) => {
+                    entityMap.set(faction.id, faction);
                   });
                   
                   return Array.from(entityMap.values());
@@ -556,6 +606,112 @@ export default function WorldTab() {
                                   </div>
                                 );
                               })()}
+                              {entity.type === "event" && entity.relationships && (() => {
+                                // Show sub-events (events that are contained by this event)
+                                const subEvents = entity.relationships
+                                  .filter(rel => rel.relationshipType === "contains")
+                                  .map(rel => {
+                                    const subEvent = entities.find(e => e.type === "event" && e.id === rel.targetLocationId);
+                                    return subEvent;
+                                  })
+                                  .filter((e): e is typeof entities[0] => e !== undefined);
+                                
+                                if (subEvents.length > 0) {
+                                  return (
+                                    <div className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                      Sub-events: {subEvents.map(e => e.name).join(", ")}
+                                    </div>
+                                  );
+                                }
+                                
+                                // Show parent event (if this event is part of a composite event)
+                                const parentEventRel = entity.relationships.find(rel => rel.relationshipType === "is contained by");
+                                if (parentEventRel) {
+                                  const parentEvent = entities.find(e => e.type === "event" && e.id === parentEventRel.targetLocationId);
+                                  if (parentEvent) {
+                                    return (
+                                      <div className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                        Part of: {parentEvent.name}
+                                      </div>
+                                    );
+                                  }
+                                }
+                                
+                                return null;
+                              })()}
+                              {entity.type === "creature" && entity.relationships && (() => {
+                                // Show factions this creature is a member of
+                                const allFactionsInContext = entities.filter(e => e.type === "faction");
+                                const factions = entity.relationships
+                                  .filter(rel => rel.relationshipType === "is member of")
+                                  .map(rel => {
+                                    const faction = allFactionsInContext.find(e => e.id === rel.targetLocationId);
+                                    return faction;
+                                  })
+                                  .filter((e): e is typeof entities[0] => e !== undefined);
+                                
+                                if (factions.length > 0) {
+                                  return (
+                                    <div className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                      Member of: {factions.map(e => e.name).join(", ")}
+                                    </div>
+                                  );
+                                }
+                                
+                                return null;
+                              })()}
+                              {entity.type === "faction" && entity.relationships && (() => {
+                                // Show sub-factions (factions that are contained by this faction)
+                                const subFactions = entity.relationships
+                                  .filter(rel => rel.relationshipType === "contains")
+                                  .map(rel => {
+                                    const subFaction = entities.find(e => e.type === "faction" && e.id === rel.targetLocationId);
+                                    return subFaction;
+                                  })
+                                  .filter((e): e is typeof entities[0] => e !== undefined);
+                                
+                                // Show members (creatures that are members of this faction)
+                                const members = entity.relationships
+                                  .filter(rel => rel.relationshipType === "has member")
+                                  .map(rel => {
+                                    const member = entities.find(e => e.type === "creature" && e.id === rel.targetLocationId);
+                                    return member;
+                                  })
+                                  .filter((e): e is typeof entities[0] => e !== undefined);
+                                
+                                // Show parent faction (if this faction is part of a nested faction)
+                                const parentFactionRel = entity.relationships.find(rel => rel.relationshipType === "is contained by");
+                                const parentFaction = parentFactionRel ? entities.find(e => e.type === "faction" && e.id === parentFactionRel.targetLocationId) : null;
+                                
+                                // Build display elements
+                                const displayElements: JSX.Element[] = [];
+                                
+                                if (subFactions.length > 0) {
+                                  displayElements.push(
+                                    <div key="sub-factions" className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                      Sub-factions: {subFactions.map(e => e.name).join(", ")}
+                                    </div>
+                                  );
+                                }
+                                
+                                if (members.length > 0) {
+                                  displayElements.push(
+                                    <div key="members" className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                      Members: {members.map(e => e.name).join(", ")}
+                                    </div>
+                                  );
+                                }
+                                
+                                if (parentFaction) {
+                                  displayElements.push(
+                                    <div key="parent" className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                      Part of: {parentFaction.name}
+                                    </div>
+                                  );
+                                }
+                                
+                                return displayElements.length > 0 ? <>{displayElements}</> : null;
+                              })()}
                     </div>
                   </div>
                 </ListItem>
@@ -567,9 +723,12 @@ export default function WorldTab() {
                 // For non-location types or when showing all, render flat list
                 // When viewing events, we need locations for "At:" display
                 // When viewing locations, we need events for "Events:" display
+                // When viewing factions, we need all factions for nested faction display and creatures for members display
                 // The useEffect should have loaded cross-referenced entities, but ensure we check all entities
                 const allLocations = entities.filter(e => e.type === "location");
                 const allEvents = entities.filter(e => e.type === "event");
+                const allFactions = entities.filter(e => e.type === "faction");
+                const allCreatures = entities.filter(e => e.type === "creature");
                 
                 return filteredEntities.map((entity) => (
                   <ListItem key={entity.id}>
@@ -600,6 +759,122 @@ export default function WorldTab() {
                             })}
                           </div>
                         )}
+                        {entity.type === "event" && entity.locationId && (() => {
+                          const eventLocation = allLocations.find(e => e.id === entity.locationId);
+                          if (eventLocation) {
+                            return (
+                              <div className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                At: {eventLocation.name}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                        {entity.type === "event" && entity.relationships && (() => {
+                          // Show sub-events (events that are contained by this event)
+                          const subEvents = entity.relationships
+                            .filter(rel => rel.relationshipType === "contains")
+                            .map(rel => {
+                              const subEvent = allEvents.find(e => e.id === rel.targetLocationId);
+                              return subEvent;
+                            })
+                            .filter((e): e is typeof allEvents[0] => e !== undefined);
+                          
+                          if (subEvents.length > 0) {
+                            return (
+                              <div className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                Sub-events: {subEvents.map(e => e.name).join(", ")}
+                              </div>
+                            );
+                          }
+                          
+                          // Show parent event (if this event is part of a composite event)
+                          const parentEventRel = entity.relationships.find(rel => rel.relationshipType === "is contained by");
+                          if (parentEventRel) {
+                            const parentEvent = allEvents.find(e => e.id === parentEventRel.targetLocationId);
+                            if (parentEvent) {
+                              return (
+                                <div className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                  Part of: {parentEvent.name}
+                                </div>
+                              );
+                            }
+                          }
+                          
+                          return null;
+                        })()}
+                        {entity.type === "creature" && entity.relationships && (() => {
+                          // Show factions this creature is a member of
+                          const factions = entity.relationships
+                            .filter(rel => rel.relationshipType === "is member of")
+                            .map(rel => {
+                              const faction = allFactions.find(e => e.id === rel.targetLocationId);
+                              return faction;
+                            })
+                            .filter((e): e is typeof allFactions[0] => e !== undefined);
+                          
+                          if (factions.length > 0) {
+                            return (
+                              <div className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                Member of: {factions.map(e => e.name).join(", ")}
+                              </div>
+                            );
+                          }
+                          
+                          return null;
+                        })()}
+                        {entity.type === "faction" && entity.relationships && (() => {
+                          // Show sub-factions (factions that are contained by this faction)
+                          const subFactions = entity.relationships
+                            .filter(rel => rel.relationshipType === "contains")
+                            .map(rel => {
+                              const subFaction = allFactions.find(e => e.id === rel.targetLocationId);
+                              return subFaction;
+                            })
+                            .filter((e): e is typeof allFactions[0] => e !== undefined);
+                          
+                          // Show members (creatures that are members of this faction)
+                          const members = entity.relationships
+                            .filter(rel => rel.relationshipType === "has member")
+                            .map(rel => {
+                              const member = allCreatures.find(e => e.id === rel.targetLocationId);
+                              return member;
+                            })
+                            .filter((e): e is typeof allCreatures[0] => e !== undefined);
+                          
+                          // Show parent faction (if this faction is part of a nested faction)
+                          const parentFactionRel = entity.relationships.find(rel => rel.relationshipType === "is contained by");
+                          const parentFaction = parentFactionRel ? allFactions.find(e => e.id === parentFactionRel.targetLocationId) : null;
+                          
+                          // Build display elements
+                          const displayElements: JSX.Element[] = [];
+                          
+                          if (subFactions.length > 0) {
+                            displayElements.push(
+                              <div key="sub-factions" className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                Sub-factions: {subFactions.map(e => e.name).join(", ")}
+                              </div>
+                            );
+                          }
+                          
+                          if (members.length > 0) {
+                            displayElements.push(
+                              <div key="members" className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                Members: {members.map(e => e.name).join(", ")}
+                              </div>
+                            );
+                          }
+                          
+                          if (parentFaction) {
+                            displayElements.push(
+                              <div key="parent" className="mt-1 text-xs" style={{ color: "#8b6f47" }}>
+                                Part of: {parentFaction.name}
+                              </div>
+                            );
+                          }
+                          
+                          return displayElements.length > 0 ? <>{displayElements}</> : null;
+                        })()}
                         {entity.type === "location" && (() => {
                           // Show events for this location
                           const locationEvents = allEvents.filter(e => e.locationId === entity.id);
@@ -788,7 +1063,7 @@ export default function WorldTab() {
                       onInput={(e) => {
                         // Also log input events in case React is using those
                         console.log('[WorldTab] Input event on relationship target:', {
-                          value: e.target.value,
+                          value: (e.target as HTMLSelectElement).value,
                           eventType: e.type
                         });
                       }}
@@ -850,7 +1125,7 @@ export default function WorldTab() {
                       onInput={(e) => {
                         // Also log input events in case React is using those
                         console.log('[WorldTab] Input event on relationship type:', {
-                          value: e.target.value,
+                          value: (e.target as HTMLSelectElement).value,
                           eventType: e.type
                         });
                       }}
@@ -891,6 +1166,47 @@ export default function WorldTab() {
                     </select>
                   </label>
                   <label className="block text-sm">
+                    Link to Event (optional)
+                    <select
+                      className="mt-1 w-full rounded border px-2 py-1 text-sm"
+                      style={{
+                        borderColor: "#8b6f47",
+                        backgroundColor: "#faf8f3",
+                        color: "#2c1810",
+                      }}
+                      value={entityRelationshipTargetId || ""}
+                      onChange={(e) => setEntityRelationshipTargetId(e.target.value)}
+                    >
+                      <option value="">None</option>
+                      {(() => {
+                        const allEvents = entities.filter(e => e.type === "event");
+                        return allEvents.map((event) => (
+                          <option key={event.id} value={event.id}>
+                            {event.name}
+                          </option>
+                        ));
+                      })()}
+                    </select>
+                  </label>
+                  {entityRelationshipTargetId && (
+                    <label className="block text-sm">
+                      Relationship Type
+                      <select
+                        className="mt-1 w-full rounded border px-2 py-1 text-sm"
+                        style={{
+                          borderColor: "#8b6f47",
+                          backgroundColor: "#faf8f3",
+                          color: "#2c1810",
+                        }}
+                        value={entityRelationshipType || ""}
+                        onChange={(e) => setEntityRelationshipType(e.target.value as any)}
+                      >
+                        <option value="">Select relationship type</option>
+                        <option value="is contained by">Is Part Of (sub-event)</option>
+                      </select>
+                    </label>
+                  )}
+                  <label className="block text-sm">
                     Beginning timestamp
                     <input
                       type="datetime-local"
@@ -922,6 +1238,51 @@ export default function WorldTab() {
                       }
                     />
                   </label>
+                </>
+              )}
+              {selectedEntityType === "faction" && (
+                <>
+                  <label className="block text-sm">
+                    Link to Faction (optional)
+                    <select
+                      className="mt-1 w-full rounded border px-2 py-1 text-sm"
+                      style={{
+                        borderColor: "#8b6f47",
+                        backgroundColor: "#faf8f3",
+                        color: "#2c1810",
+                      }}
+                      value={entityRelationshipTargetId || ""}
+                      onChange={(e) => setEntityRelationshipTargetId(e.target.value)}
+                    >
+                      <option value="">None</option>
+                      {(() => {
+                        const allFactions = entities.filter(e => e.type === "faction");
+                        return allFactions.map((faction) => (
+                          <option key={faction.id} value={faction.id}>
+                            {faction.name}
+                          </option>
+                        ));
+                      })()}
+                    </select>
+                  </label>
+                  {entityRelationshipTargetId && (
+                    <label className="block text-sm">
+                      Relationship Type
+                      <select
+                        className="mt-1 w-full rounded border px-2 py-1 text-sm"
+                        style={{
+                          borderColor: "#8b6f47",
+                          backgroundColor: "#faf8f3",
+                          color: "#2c1810",
+                        }}
+                        value={entityRelationshipType || ""}
+                        onChange={(e) => setEntityRelationshipType(e.target.value as any)}
+                      >
+                        <option value="">Select relationship type</option>
+                        <option value="is contained by">Is Part Of (sub-faction)</option>
+                      </select>
+                    </label>
+                  )}
                 </>
               )}
             <FormActions

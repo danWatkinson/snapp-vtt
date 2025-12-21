@@ -76,14 +76,12 @@ When('the admin creates location {string} with parent {string}', async ({ page }
     // If it exists and appears to be a child (indented), assume it has a parent relationship
     // We can't easily verify the exact parent, but if it's indented, it likely has the relationship
     if (isChild) {
-      console.log(`[Test] Location "${locationName}" already exists and appears to have a parent relationship, skipping creation`);
       return;
     }
     
     // Location exists but doesn't appear to have a parent relationship
     // Since we can't easily edit existing locations to add relationships,
     // we'll proceed with creation attempt - the form/backend will handle the duplicate name
-    console.log(`[Test] Location "${locationName}" exists but doesn't appear to have parent relationship, proceeding with creation attempt`);
   }
   
   // Navigate to locations tab if not already there
@@ -125,10 +123,6 @@ When('the admin creates location {string} with parent {string}', async ({ page }
       const optionToUse = count === 1 ? parentLocationOption : parentLocationOption.first();
       parentLocationValue = await optionToUse.getAttribute('value');
       if (parentLocationValue) {
-        if (count > 1) {
-          console.log(`[Test] Found ${count} locations named "${parentName}", using first one`);
-        }
-        console.log(`[Test] Found parent location "${parentName}" after ${attempts} attempts`);
         break;
       }
     }
