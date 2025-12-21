@@ -14,8 +14,22 @@ export function useFormState<T extends Record<string, any>>(initialState: T) {
   const [form, setForm] = useState<T>(initialState);
 
   const setField = useCallback(<K extends keyof T>(field: K, value: T[K]) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }, []);
+    console.log('[useFormState] setField called:', {
+      field: String(field),
+      value,
+      currentFormValue: form[field]
+    });
+    setForm((prev) => {
+      const updated = { ...prev, [field]: value };
+      console.log('[useFormState] setField updating form:', {
+        field: String(field),
+        prevValue: prev[field],
+        newValue: value,
+        updatedFormValue: updated[field]
+      });
+      return updated;
+    });
+  }, [form]);
 
   const resetForm = useCallback((newState?: Partial<T>) => {
     if (newState) {

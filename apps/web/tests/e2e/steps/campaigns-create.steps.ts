@@ -1,6 +1,8 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView, safeWait, STABILITY_WAIT_SHORT } from "../helpers";
+import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView } from "../helpers";
+import { STABILITY_WAIT_SHORT } from "../helpers/constants";
+import { safeWait } from "../helpers/utils";
 import type { APIRequestContext, Page } from "@playwright/test";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
 
@@ -201,10 +203,10 @@ When('the test campaign exists', async ({ page, request }) => {
         if (existingCampaign) {
           // Campaign exists - store the name and world name for other steps to use
         try {
-          await page.evaluate((name, world) => {
+          await page.evaluate(({ name, world }: { name: string; world: string }) => {
             (window as any).__testCampaignName = name;
             (window as any).__testWorldName = world;
-          }, uniqueCampaignName, worldName);
+          }, { name: uniqueCampaignName, world: worldName });
         } catch {
           // Page might not be ready - that's okay
         }
@@ -229,10 +231,10 @@ When('the test campaign exists', async ({ page, request }) => {
       // Store the unique name and world name in page context for other steps to use
       // Use try-catch since page might not be ready yet in Background
       try {
-        await page.evaluate((name, world) => {
+          await page.evaluate(({ name, world }: { name: string; world: string }) => {
           (window as any).__testCampaignName = name;
           (window as any).__testWorldName = world;
-        }, uniqueCampaignName, worldName);
+          }, { name: uniqueCampaignName, world: worldName });
       } catch {
         // Page might not be ready - that's okay, we'll regenerate the name in the select step
         // The name is deterministic (based on worker index), so it will match

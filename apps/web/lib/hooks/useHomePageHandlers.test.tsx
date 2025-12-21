@@ -446,6 +446,8 @@ describe("useHomePageHandlers", () => {
       "Sum",
       expect.any(Number),
       expect.any(Number),
+      undefined,
+      undefined,
       undefined
     );
     expect(props.setEntities).toHaveBeenCalled();
@@ -472,6 +474,8 @@ describe("useHomePageHandlers", () => {
       "location",
       "Entity",
       "Sum",
+      undefined,
+      undefined,
       undefined,
       undefined,
       undefined

@@ -17,7 +17,7 @@ interface UseTabHelpersConfig {
   forms: Record<string, FormConfig<any>>;
   selections?: ("worldId" | "campaignId" | "storyArcId" | "sessionId" | "eventId")[];
   modals?: string[];
-  setSelectionField: ReturnType<typeof useSelection>["setSelectionField"];
+  setSelectionField: ReturnType<typeof useSelection>["setField"];
   openModal: (key: string) => void;
   closeModal: (key: string) => void;
   selectedIds?: Record<string, string | null>;

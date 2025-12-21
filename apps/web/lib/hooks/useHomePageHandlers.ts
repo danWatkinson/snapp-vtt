@@ -15,7 +15,8 @@ import {
   USER_CREATED_EVENT,
   USER_DELETED_EVENT,
   ROLE_ASSIGNED_EVENT,
-  ROLE_REVOKED_EVENT
+  ROLE_REVOKED_EVENT,
+  ENTITIES_LOADED_EVENT
 } from "../auth/authEvents";
 import { AUTH_USERNAME_KEY } from "../auth/authStorage";
 import { dispatchTransitionEvent } from "../utils/eventDispatcher";
@@ -31,7 +32,9 @@ import {
   createWorld,
   fetchWorlds,
   createWorldEntity,
-  updateWorldSplashImage
+  updateWorldSplashImage,
+  addLocationRelationship,
+  fetchWorldEntities
 } from "../clients/worldClient";
 import {
   createCampaign,
@@ -53,7 +56,7 @@ interface UseHomePageHandlersProps {
   userManagementForm: ReturnType<typeof useFormState<{ username: string; role: string }>>;
   createUserForm: ReturnType<typeof useFormState<{ username: string; password: string; roles: string[] }>>;
   worldForm: ReturnType<typeof useFormState<{ name: string; description: string }>>;
-  entityForm: ReturnType<typeof useFormState<{ name: string; summary: string; beginningTimestamp: string; endingTimestamp: string }>>;
+  entityForm: ReturnType<typeof useFormState<{ name: string; summary: string; beginningTimestamp: string; endingTimestamp: string; relationshipTargetId: string; relationshipType: "" | "contains" | "is contained by" | "borders against" | "is near" | "is connected to"; locationId: string }>>;
   campaignForm: ReturnType<typeof useFormState<{ name: string; summary: string }>>;
   sessionForm: ReturnType<typeof useFormState<{ name: string }>>;
   playerForm: ReturnType<typeof useFormState<{ username: string }>>;
@@ -88,6 +91,7 @@ interface UseHomePageHandlersProps {
   setCampaignsLoaded: (loaded: boolean) => void;
   setAssetsLoaded: (loaded: boolean) => void;
   setEntitiesLoadedFor: (key: string | null) => void;
+  setCrossRefEntitiesLoadedFor: (key: string | null) => void;
   setSessionsLoadedFor: (key: string | null) => void;
   setPlayersLoadedFor: (key: string | null) => void;
   setStoryArcsLoadedFor: (key: string | null) => void;
@@ -151,6 +155,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     setCampaignsLoaded,
     setAssetsLoaded,
     setEntitiesLoadedFor,
+    setCrossRefEntitiesLoadedFor,
     setSessionsLoadedFor,
     setPlayersLoadedFor,
     setStoryArcsLoadedFor,
@@ -185,7 +190,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     userManagementForm.resetForm({ username: "alice", role: "gm" });
     createUserForm.resetForm({ username: "", password: "", roles: [] });
     worldForm.resetForm({ name: "", description: "" });
-    entityForm.resetForm({ name: "", summary: "", beginningTimestamp: "", endingTimestamp: "" });
+    entityForm.resetForm({ name: "", summary: "", beginningTimestamp: "", endingTimestamp: "", relationshipTargetId: "", relationshipType: "", locationId: "" });
     campaignForm.resetForm({ name: "", summary: "" });
     sessionForm.resetForm({ name: "" });
     playerForm.resetForm({ username: "" });
@@ -482,7 +487,15 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
 
   async function handleCreateEntity(e: FormEvent) {
     e.preventDefault();
-    if (!selectedIds.worldId || selectedEntityType === "all") return;
+    console.log('[useHomePageHandlers] handleCreateEntity called:', {
+      selectedIdsWorldId: selectedIds.worldId,
+      selectedEntityType,
+      willReturnEarly: !selectedIds.worldId || selectedEntityType === "all"
+    });
+    if (!selectedIds.worldId || selectedEntityType === "all") {
+      console.log('[useHomePageHandlers] handleCreateEntity returning early');
+      return;
+    }
     try {
       const beginningTimestamp =
         selectedEntityType === "event" && entityForm.form.beginningTimestamp
@@ -492,26 +505,205 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
         selectedEntityType === "event" && entityForm.form.endingTimestamp
           ? new Date(entityForm.form.endingTimestamp).getTime()
           : undefined;
+      // parentLocationId removed - use relationships instead
+      const locationId =
+        selectedEntityType === "event" && entityForm.form.locationId
+          ? entityForm.form.locationId
+          : undefined;
+      
+      // Read relationship info BEFORE the async action so it's accessible to onSuccess callback
+      // We'll re-read it inside the async action to get the latest values after React state updates
+      let relationshipTargetId = 
+        selectedEntityType === "location" && entityForm.form.relationshipTargetId
+          ? entityForm.form.relationshipTargetId
+          : undefined;
+      let relationshipType = 
+        selectedEntityType === "location" && entityForm.form.relationshipType && entityForm.form.relationshipType.trim() !== ""
+          ? entityForm.form.relationshipType as "contains" | "is contained by" | "borders against" | "is near" | "is connected to"
+          : undefined;
+      
       await withAsyncAction(
-        () => createWorldEntity(
-          selectedIds.worldId!,
-          selectedEntityType,
-          entityForm.form.name,
-          entityForm.form.summary,
-          beginningTimestamp,
-          endingTimestamp,
+        async () => {
+          // Re-read relationship info INSIDE the async action to ensure we get the latest form values
+          // This is important because React state updates are asynchronous
+          relationshipTargetId = 
+            selectedEntityType === "location" && entityForm.form.relationshipTargetId
+              ? entityForm.form.relationshipTargetId
+              : undefined;
+          // Check for both truthy value AND non-empty string (empty string is falsy but we want to be explicit)
+          relationshipType = 
+            selectedEntityType === "location" && entityForm.form.relationshipType && entityForm.form.relationshipType.trim() !== ""
+              ? entityForm.form.relationshipType as "contains" | "is contained by" | "borders against" | "is near" | "is connected to"
+              : undefined;
+          
+          // If we have a relationship target but no type, wait a moment and re-read (handles timing issues)
+          if (relationshipTargetId && !relationshipType) {
+            console.warn('[useHomePageHandlers] Relationship target set but type is missing, waiting and re-reading...', {
+              relationshipTargetId,
+              formRelationshipType: entityForm.form.relationshipType,
+              formRelationshipTargetId: entityForm.form.relationshipTargetId
+            });
+            await new Promise(resolve => setTimeout(resolve, 200));
+            relationshipType = 
+              selectedEntityType === "location" && entityForm.form.relationshipType && entityForm.form.relationshipType.trim() !== ""
+                ? entityForm.form.relationshipType as "contains" | "is contained by" | "borders against" | "is near" | "is connected to"
+                : undefined;
+            if (!relationshipType) {
+              console.error('[useHomePageHandlers] Relationship type still missing after wait!', {
+                relationshipTargetId,
+                formRelationshipType: entityForm.form.relationshipType,
+                formRelationshipTargetId: entityForm.form.relationshipTargetId,
+                allFormValues: entityForm.form
+              });
+            }
+          }
+          
+          console.log('[useHomePageHandlers] Form values before entity creation:', {
+            selectedEntityType,
+            relationshipTargetId,
+            relationshipType,
+            formRelationshipTargetId: entityForm.form.relationshipTargetId,
+            formRelationshipType: entityForm.form.relationshipType,
+            hasRelationshipTargetId: !!entityForm.form.relationshipTargetId,
+            hasRelationshipType: !!entityForm.form.relationshipType
+          });
+          
+          const entity = await createWorldEntity(
+            selectedIds.worldId!,
+            selectedEntityType,
+            entityForm.form.name,
+            entityForm.form.summary,
+            beginningTimestamp,
+            endingTimestamp,
+            locationId,
+            currentUser?.token
+          );
+          
+          console.log('[useHomePageHandlers] Entity created, checking relationship:', {
+            selectedEntityType,
+            relationshipTargetId,
+            relationshipType,
+            formRelationshipTargetId: entityForm.form.relationshipTargetId,
+            formRelationshipType: entityForm.form.relationshipType,
+            willCreateRelationship: selectedEntityType === "location" && relationshipTargetId && relationshipType,
+            conditionCheck: {
+              isLocation: selectedEntityType === "location",
+              hasTargetId: !!relationshipTargetId,
+              hasType: !!relationshipType,
+              allTrue: selectedEntityType === "location" && relationshipTargetId && relationshipType
+            }
+          });
+          
+          // If creating a location with a relationship, add it
+          if (selectedEntityType === "location" && relationshipTargetId && relationshipType) {
+            console.log('[useHomePageHandlers] Condition passed - will create relationship');
+            console.log('[useHomePageHandlers] Creating relationship:', {
+              worldId: selectedIds.worldId,
+              sourceLocationId: entity.id,
+              sourceLocationName: entity.name,
+              targetLocationId: relationshipTargetId,
+              relationshipType
+            });
+            try {
+              await addLocationRelationship(
+                selectedIds.worldId!,
+                entity.id,
+                relationshipTargetId,
+                relationshipType,
           currentUser?.token
-        ),
+              );
+              console.log('[useHomePageHandlers] Relationship created successfully');
+              
+              // Add the entity immediately so it appears in the UI
+              setEntities((prev) => {
+                const exists = prev.some(e => e.id === entity.id);
+                if (exists) {
+                  return prev.map(e => e.id === entity.id ? entity : e);
+                }
+                return [...prev, entity];
+              });
+              
+              // Reload entities to get updated relationships from the backend
+              setTimeout(async () => {
+                try {
+                  // Wait for backend to process the relationship
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                  // Fetch all locations to get updated relationships
+                  const allLocations = await fetchWorldEntities(selectedIds.worldId!, "location");
+                  // If we're on the location tab, also fetch events
+                  if (selectedEntityType === "location") {
+                    const allEvents = await fetchWorldEntities(selectedIds.worldId!, "event");
+                    // Combine locations and events, ensuring no duplicates
+                    const entityMap = new Map<string, typeof allLocations[0] | typeof allEvents[0]>();
+                    [...allLocations, ...allEvents].forEach(e => entityMap.set(e.id, e));
+                    // Preserve any newly created entities that might not be in the fetched list yet
+                    setEntities((prev) => {
+                      prev.forEach(existingEntity => {
+                        if (!entityMap.has(existingEntity.id)) {
+                          entityMap.set(existingEntity.id, existingEntity);
+                        }
+                      });
+                      return Array.from(entityMap.values());
+                    });
+                  } else {
+                    // Just update locations
+                    setEntities((prev) => {
+                      const entityMap = new Map<string, typeof allLocations[0]>();
+                      allLocations.forEach(e => entityMap.set(e.id, e));
+                      // Preserve non-location entities and newly created locations
+                      prev.forEach(existingEntity => {
+                        if (existingEntity.type !== "location" || !entityMap.has(existingEntity.id)) {
+                          entityMap.set(existingEntity.id, existingEntity);
+                        }
+                      });
+                      return Array.from(entityMap.values());
+                    });
+                  }
+                  // After entities are set, dispatch the event and update cache
+                  const cacheKey = `${selectedIds.worldId}-location`;
+                  setEntitiesLoadedFor(cacheKey);
+                  // Also mark cross-reference as loaded since we fetched events
+                  setCrossRefEntitiesLoadedFor(`${selectedIds.worldId}-crossref-location`);
+                  // Dispatch ENTITIES_LOADED_EVENT after reload completes
+                  setEntities((currentEntities) => {
+                    setTimeout(() => {
+                      dispatchTransitionEvent(ENTITIES_LOADED_EVENT, {
+                        worldId: selectedIds.worldId,
+                        entityType: selectedEntityType,
+                        count: currentEntities.length,
+                        cacheKey: cacheKey,
+                        crossRefLoaded: true,
+                        reloaded: true
+                      });
+                    }, 100);
+                    return currentEntities;
+                  });
+                } catch (reloadErr) {
+                  console.error("Failed to reload entities after relationship creation:", reloadErr);
+                }
+              }, 100);
+            } catch (relErr) {
+              // Log error but don't fail the entity creation
+              console.error("Failed to create relationship:", relErr);
+            }
+          }
+          
+          return entity;
+        },
         {
           setIsLoading,
           setError,
           onAuthError: handleLogout,
-          onSuccess: (entity) => {
+          onSuccess: async (entity) => {
+            // If we created a location with a relationship, the reload already happened above
+            // Otherwise, add the entity to state
+            if (!(selectedEntityType === "location" && relationshipTargetId && relationshipType)) {
             setEntities((prev) => [...prev, entity]);
+            }
             entityForm.resetForm();
             closeModal("entity");
             // Don't reset entitiesLoadedFor - keep the cache so the entity stays in the list
-            // The entity is already added to state above, so it will appear in the UI
+            // The entity is already added to state above (or reloaded if relationship was created), so it will appear in the UI
             // Dispatch type-specific entity creation event after a microtask
             const eventMap: Record<string, string> = {
               creature: CREATURE_CREATED_EVENT,

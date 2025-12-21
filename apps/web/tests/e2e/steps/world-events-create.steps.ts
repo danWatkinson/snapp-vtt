@@ -34,8 +34,8 @@ When('the admin ensures event "The Great Awakening" exists', async ({ page }) =>
   }
 });
 
-Then('event "The Great Awakening" appears in the events list', async ({ page }) => {
+Then('event {string} appears in the events list', async ({ page }, eventName: string) => {
   await expect(
-    page.getByRole("listitem").filter({ hasText: "The Great Awakening" }).first()
-  ).toBeVisible();
+    page.getByRole("listitem").filter({ hasText: eventName }).first()
+  ).toBeVisible({ timeout: 3000 });
 });

@@ -1,8 +1,8 @@
 "use client";
 
-import type { ReactNode, SectionHTMLAttributes, FormHTMLAttributes } from "react";
+import type { ReactNode, HTMLAttributes, FormHTMLAttributes } from "react";
 
-interface SectionProps extends SectionHTMLAttributes<HTMLElement> {
+interface SectionProps extends HTMLAttributes<HTMLElement> {
   children: ReactNode;
   variant?: "default" | "styled" | "secondary"; // "default" uses snapp-panel, "styled" uses inline styles, "secondary" uses snapp-panel-secondary
   className?: string;

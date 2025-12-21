@@ -1,7 +1,8 @@
 import { Page, expect } from "@playwright/test";
 import { waitForModalOpen, waitForModalClose } from "./modals";
-import { isVisibleSafely, isHiddenSafely, waitForLoadStateSafely, createTimeoutPromise, awaitSafely, safeWait, isPageClosedSafely } from "./utils";
+import { isVisibleSafely, isHiddenSafely, waitForLoadStateSafely, createTimeoutPromise, awaitSafely, safeWait, isPageClosedSafely, waitForSimpleEvent } from "./utils";
 import { STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM, STABILITY_WAIT_LONG, STABILITY_WAIT_EXTRA, STABILITY_WAIT_MAX, VISIBILITY_TIMEOUT_SHORT, VISIBILITY_TIMEOUT_MEDIUM, VISIBILITY_TIMEOUT_LONG, VISIBILITY_TIMEOUT_EXTRA } from "./constants";
+import { GUEST_VIEW_READY_EVENT, BANNER_READY_EVENT } from "../../../lib/auth/authEvents";
 
 /**
  * Check if user is currently logged in by checking for logout button.
@@ -116,6 +117,37 @@ export async function loginAs(page: Page, username: string, password: string) {
   // The page might need time to re-render and make the Login button available
   try {
     await waitForLoadStateSafely(page, "domcontentloaded", VISIBILITY_TIMEOUT_MEDIUM);
+    // Wait for the guest view and banner to be ready (new state transition events)
+    // These events ensure the UI components are fully mounted and ready
+    // Use DOM fallbacks in case events already fired before we set up listeners
+    try {
+      await waitForSimpleEvent(
+        page, 
+        GUEST_VIEW_READY_EVENT, 
+        VISIBILITY_TIMEOUT_MEDIUM,
+        async () => {
+          // Fallback: check if guest view is rendered
+          const guestView = page.locator('[data-component="GuestView"]').or(page.locator('section:has-text("Welcome")'));
+          await expect(guestView.first()).toBeVisible({ timeout: VISIBILITY_TIMEOUT_SHORT });
+        }
+      );
+    } catch {
+      // Event might have already fired or not needed - continue
+    }
+    try {
+      await waitForSimpleEvent(
+        page, 
+        BANNER_READY_EVENT, 
+        VISIBILITY_TIMEOUT_MEDIUM,
+        async () => {
+          // Fallback: check if banner/auth controls are rendered
+          const bannerAuth = page.locator('[data-component="HeaderAuth"]');
+          await expect(bannerAuth).toBeVisible({ timeout: VISIBILITY_TIMEOUT_SHORT });
+        }
+      );
+    } catch {
+      // Event might have already fired or not needed - continue
+    }
     // Small additional wait to ensure React has rendered and buttons are interactive
     await safeWait(page, STABILITY_WAIT_LONG);
   } catch {
@@ -393,6 +425,23 @@ export async function loginAs(page: Page, username: string, password: string) {
         `Please verify the user "${username}" was created successfully with password "${password.substring(0, 3)}...".`
       );
     }
+  }
+  
+  // Wait for banner to be ready after login (it should fire with isAuthenticated=true)
+  // This ensures the logout button is rendered
+  try {
+    await waitForSimpleEvent(
+      page,
+      BANNER_READY_EVENT,
+      VISIBILITY_TIMEOUT_MEDIUM,
+      async () => {
+        // Fallback: check if logout button is visible
+        const logoutButton = page.getByRole("button", { name: "Log out" });
+        await expect(logoutButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_SHORT });
+      }
+    );
+  } catch {
+    // Event might have already fired or not needed - continue
   }
   
   // Verify we're logged in by checking for logout button

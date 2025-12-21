@@ -169,9 +169,14 @@ When(
     // Navigate to home page
     await page.goto("/");
     
+    // Wait for page to be ready and Login button to be visible and enabled
+    const loginButton = page.getByRole("button", { name: "Login" });
+    await expect(loginButton).toBeVisible({ timeout: 5000 });
+    await expect(loginButton).toBeEnabled({ timeout: 3000 });
+    
     // Open login dialog
     const modalPromise = waitForModalOpen(page, "login", 5000);
-    await page.getByRole("button", { name: "Login" }).click();
+    await loginButton.click();
     await modalPromise;
     
     // Attempt login without password

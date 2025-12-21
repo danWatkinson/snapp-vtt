@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName, ensureLoginDialogClosed, loginAs, selectWorldAndEnterPlanningMode, waitForAssetUploaded, waitForPlanningMode, safeWait, getUniqueUsername } from "../helpers";
+import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName, ensureLoginDialogClosed, loginAs, selectWorldAndEnterPlanningMode, waitForAssetUploaded, waitForPlanningMode, getUniqueUsername } from "../helpers";
+import { safeWait } from "../helpers/utils";
 import { Buffer } from "buffer";
 import path from "path";
 
@@ -668,7 +669,7 @@ When("the world builder selects campaign {string}", async ({ page }, campaignNam
 
 When(
   "the world builder ensures session {string} exists for campaign {string}",
-  async ({ page }, sessionName: string) => {
+  async ({ page }, sessionName: string, campaignName: string) => {
     // Check page state before interacting
     if (page.isClosed()) {
       throw new Error("Page was closed before ensuring session exists");

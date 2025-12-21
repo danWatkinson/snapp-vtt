@@ -62,6 +62,7 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
     setCampaignsLoaded: state.setCampaignsLoaded,
     setAssetsLoaded: state.setAssetsLoaded,
     setEntitiesLoadedFor: state.setEntitiesLoadedFor,
+    setCrossRefEntitiesLoadedFor: state.setCrossRefEntitiesLoadedFor,
     setSessionsLoadedFor: state.setSessionsLoadedFor,
     setPlayersLoadedFor: state.setPlayersLoadedFor,
     setStoryArcsLoadedFor: state.setStoryArcsLoadedFor,

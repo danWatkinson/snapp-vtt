@@ -9,6 +9,18 @@ export interface World {
   splashImageAssetId?: string;
 }
 
+export type LocationRelationshipType = 
+  | "contains"
+  | "is contained by"
+  | "borders against"
+  | "is near"
+  | "is connected to";
+
+export interface LocationRelationship {
+  targetLocationId: string;
+  relationshipType: LocationRelationshipType;
+}
+
 export interface WorldEntity {
   id: string;
   worldId: string;
@@ -17,6 +29,8 @@ export interface WorldEntity {
   summary: string;
   beginningTimestamp?: number;
   endingTimestamp?: number;
+  relationships?: LocationRelationship[];
+  locationId?: string;
 }
 
 export interface WorldLocation extends WorldEntity {
@@ -109,6 +123,7 @@ export async function createWorldEntity(
   summary: string,
   beginningTimestamp?: number,
   endingTimestamp?: number,
+  locationId?: string,
   token?: string
 ): Promise<WorldEntity> {
   const body: {
@@ -117,6 +132,7 @@ export async function createWorldEntity(
     summary: string;
     beginningTimestamp?: number;
     endingTimestamp?: number;
+    locationId?: string;
   } = {
     type,
     name,
@@ -128,6 +144,9 @@ export async function createWorldEntity(
     }
     if (endingTimestamp !== undefined) {
       body.endingTimestamp = endingTimestamp;
+    }
+    if (locationId !== undefined && locationId !== null) {
+      body.locationId = locationId;
     }
   }
   const headers: HeadersInit = { "Content-Type": "application/json" };
@@ -169,6 +188,76 @@ export async function createWorldLocation(
     name,
     summary
   )) as WorldLocation;
+}
+
+export async function addLocationRelationship(
+  worldId: string,
+  sourceLocationId: string,
+  targetLocationId: string,
+  relationshipType: LocationRelationshipType,
+  token?: string
+): Promise<void> {
+  console.log('[worldClient] addLocationRelationship called:', {
+    worldId,
+    sourceLocationId,
+    targetLocationId,
+    relationshipType,
+    hasToken: !!token
+  });
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const url = `${WORLD_SERVICE_URL}/worlds/${worldId}/locations/${sourceLocationId}/relationships`;
+  const body = JSON.stringify({ targetLocationId, relationshipType });
+  console.log('[worldClient] POST request:', { url, body });
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body
+  });
+
+  const responseBody = await res.json().catch(() => ({}));
+  console.log('[worldClient] addLocationRelationship response:', {
+    status: res.status,
+    ok: res.ok,
+    body: responseBody
+  });
+  if (!res.ok) {
+    if (isAuthenticationError(res)) {
+      throw new AuthenticationError("Authentication failed", res.status);
+    }
+    throw new Error(responseBody.error ?? "Failed to add location relationship");
+  }
+  console.log('[worldClient] Relationship created successfully');
+}
+
+export async function getLocationRelationships(
+  worldId: string,
+  locationId: string,
+  relationshipType?: LocationRelationshipType
+): Promise<LocationRelationship[]> {
+  const url = relationshipType
+    ? `${WORLD_SERVICE_URL}/worlds/${worldId}/locations/${locationId}/relationships?type=${relationshipType}`
+    : `${WORLD_SERVICE_URL}/worlds/${worldId}/locations/${locationId}/relationships`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error("Failed to load relationships");
+  }
+  const body = (await res.json()) as { relationships: LocationRelationship[] };
+  return body.relationships;
+}
+
+export async function getEventsForLocation(
+  worldId: string,
+  locationId: string
+): Promise<WorldEntity[]> {
+  const res = await fetch(`${WORLD_SERVICE_URL}/worlds/${worldId}/locations/${locationId}/events`);
+  if (!res.ok) {
+    throw new Error("Failed to load events for location");
+  }
+  const body = (await res.json()) as { events: WorldEntity[] };
+  return body.events;
 }
 
 

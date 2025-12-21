@@ -3,7 +3,8 @@ import cors from "cors";
 import { InMemoryWorldStore } from "./worldStore";
 import {
   InMemoryWorldEntityStore,
-  type WorldEntityType
+  type WorldEntityType,
+  type LocationRelationshipType
 } from "./worldEntitiesStore";
 import { authenticate } from "../../../packages/auth-middleware";
 
@@ -106,12 +107,13 @@ export function createWorldApp(deps: WorldAppDependencies = {}) {
 
   app.post("/worlds/:worldId/entities", authenticate("gm"), (req: Request, res: Response) => {
     const { worldId } = req.params;
-    const { type, name, summary, beginningTimestamp, endingTimestamp } = req.body as {
+    const { type, name, summary, beginningTimestamp, endingTimestamp, locationId } = req.body as {
       type?: WorldEntityType;
       name?: string;
       summary?: string;
       beginningTimestamp?: number;
       endingTimestamp?: number;
+      locationId?: string;
     };
     try {
       const entity = entityStore.createEntity(
@@ -120,9 +122,59 @@ export function createWorldApp(deps: WorldAppDependencies = {}) {
         name ?? "",
         summary ?? "",
         beginningTimestamp,
-        endingTimestamp
+        endingTimestamp,
+        locationId
       );
       res.status(201).json({ entity });
+    } catch (err) {
+      res.status(400).json({ error: (err as Error).message });
+    }
+  });
+
+  // Add relationship between two locations
+  app.post("/worlds/:worldId/locations/:sourceLocationId/relationships", authenticate("gm"), (req: Request, res: Response) => {
+    const { worldId, sourceLocationId } = req.params;
+    const { targetLocationId, relationshipType } = req.body as {
+      targetLocationId?: string;
+      relationshipType?: LocationRelationshipType;
+    };
+    try {
+      if (!targetLocationId) {
+        res.status(400).json({ error: "targetLocationId is required" });
+        return;
+      }
+      if (!relationshipType) {
+        res.status(400).json({ error: "relationshipType is required" });
+        return;
+      }
+      entityStore.addRelationship(sourceLocationId, targetLocationId, relationshipType);
+      res.status(201).json({ success: true });
+    } catch (err) {
+      res.status(400).json({ error: (err as Error).message });
+    }
+  });
+
+  // Get relationships for a location
+  app.get("/worlds/:worldId/locations/:locationId/relationships", (req: Request, res: Response) => {
+    const { locationId } = req.params;
+    const { type } = req.query as { type?: LocationRelationshipType };
+    try {
+      const relationships = entityStore.getRelationships(locationId);
+      const filtered = type
+        ? relationships.filter((r) => r.relationshipType === type)
+        : relationships;
+      res.json({ relationships: filtered });
+    } catch (err) {
+      res.status(400).json({ error: (err as Error).message });
+    }
+  });
+
+  // Get events for a location (including events from parent locations)
+  app.get("/worlds/:worldId/locations/:locationId/events", (req: Request, res: Response) => {
+    const { locationId } = req.params;
+    try {
+      const events = entityStore.getEventsForLocation(locationId);
+      res.json({ events });
     } catch (err) {
       res.status(400).json({ error: (err as Error).message });
     }

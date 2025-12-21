@@ -20,7 +20,7 @@ When("the admin navigates to the locations tab", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Add location" })).toBeVisible();
 });
 
-When('the admin ensures location "Whispering Woods" exists', async ({ page }) => {
+When('the admin ensures location {string} exists', async ({ page }, locationName: string) => {
   // Navigate to locations tab first (if not already there)
   const addLocationButton = page.getByRole("button", { name: "Add location" });
   const isOnLocationsTab = await addLocationButton.isVisible({ timeout: 1000 }).catch(() => false);
@@ -32,26 +32,35 @@ When('the admin ensures location "Whispering Woods" exists', async ({ page }) =>
   
   const hasLocation = await page
     .getByRole("listitem")
-    .filter({ hasText: "Whispering Woods" })
+    .filter({ hasText: locationName })
     .first()
     .isVisible()
     .catch(() => false);
 
   if (!hasLocation) {
     await addLocationButton.click();
-    await expect(page.getByRole("dialog", { name: "Add location" })).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: "Add location" });
+    await expect(dialog).toBeVisible();
 
-    await page.getByLabel("Location name").fill("Whispering Woods");
-    await page
+    await dialog.getByLabel("Location name").fill(locationName);
+    await dialog
       .getByLabel("Summary")
       .fill("An ancient forest filled with secret paths and spirits.");
 
-    await page.getByRole("button", { name: "Save location" }).click();
+    await dialog.getByRole("button", { name: "Save location" }).click();
+    
+    // Wait for the dialog to close
+    await expect(dialog).not.toBeVisible({ timeout: 3000 });
+
+    // Wait for the location to appear in the list
+    await expect(
+      page.getByRole("listitem").filter({ hasText: locationName }).first()
+    ).toBeVisible({ timeout: 3000 });
   }
 });
 
-Then('location "Whispering Woods" appears in the locations list', async ({ page }) => {
+Then('location {string} appears in the locations list', async ({ page }, locationName: string) => {
   await expect(
-    page.getByRole("listitem").filter({ hasText: "Whispering Woods" }).first()
-  ).toBeVisible();
+    page.getByRole("listitem").filter({ hasText: locationName }).first()
+  ).toBeVisible({ timeout: 3000 });
 });

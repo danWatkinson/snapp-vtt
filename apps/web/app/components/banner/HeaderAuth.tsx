@@ -1,17 +1,28 @@
 "use client";
 
+import { useEffect } from "react";
 import { OPEN_LOGIN_EVENT } from "../../../lib/auth/authEvents";
 import { useAuthUser } from "../../../lib/auth/useAuthUser";
 import { useHomePage } from "../../../lib/contexts/HomePageContext";
+import { dispatchTransitionEvent } from "../../../lib/utils/eventDispatcher";
+import { BANNER_READY_EVENT } from "../../../lib/auth/authEvents";
 
 export default function HeaderAuth() {
   const usernameFromStorage = useAuthUser();
   const { currentUser, handlers } = useHomePage();
 
   // Use actual currentUser state as source of truth, not just localStorage
-  // If currentUser is null, user is not authenticated regardless of localStorage
-  const isAuthenticated = currentUser !== null;
+  // If currentUser is null or undefined, user is not authenticated regardless of localStorage
+  const isAuthenticated = currentUser !== null && currentUser !== undefined;
   const displayUsername = isAuthenticated ? (currentUser?.user.username ?? usernameFromStorage) : null;
+
+  // Fire event when banner/auth controls are ready (after initial render)
+  useEffect(() => {
+    dispatchTransitionEvent(BANNER_READY_EVENT, {
+      timestamp: Date.now(),
+      isAuthenticated: isAuthenticated
+    });
+  }, [isAuthenticated]);
 
   const handleLogout = () => {
     handlers.handleLogout();

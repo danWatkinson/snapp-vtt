@@ -382,7 +382,23 @@ export async function selectWorldAndEnterPlanningMode(
 ) {
   // First verify we're logged in and authenticated view is ready
   // Wait for logout button to be visible (indicates authenticated state)
-  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
+  // Use a more defensive check - if logout button isn't visible, check if we're on guest view
+  const logoutButton = page.getByRole("button", { name: "Log out" });
+  const logoutVisible = await isVisibleSafely(logoutButton, VISIBILITY_TIMEOUT_MEDIUM);
+  if (!logoutVisible) {
+    // Logout button not visible - check if we're on guest view
+    const guestView = await isVisibleSafely(page.getByText("Welcome to Snapp"), 1000);
+    if (guestView) {
+      throw new Error("Cannot navigate to planning screen: user is not logged in. Guest view is visible.");
+    }
+    // Not on guest view but logout button not visible - might be a timing issue
+    // Wait a bit more and check again
+    await safeWait(page, STABILITY_WAIT_MEDIUM);
+    const logoutVisibleRetry = await isVisibleSafely(logoutButton, VISIBILITY_TIMEOUT_SHORT);
+    if (!logoutVisibleRetry) {
+      throw new Error("Cannot navigate to planning screen: logout button is not visible and user does not appear to be logged in.");
+    }
+  }
   
   // Also verify we're not on guest view (AuthenticatedView should be rendering)
   // Wait for page to be in a ready state after login - use domcontentloaded instead of networkidle
@@ -390,8 +406,17 @@ export async function selectWorldAndEnterPlanningMode(
   await waitForLoadStateSafely(page, "domcontentloaded", VISIBILITY_TIMEOUT_LONG);
   
   // Wait for authenticated view to be ready - check for logout button or mode selector
-  const logoutButton = page.getByRole("button", { name: "Log out" });
+  // logoutButton was already declared above, so just verify it's visible
+  // Use expect() for better error messages, but wrap in try-catch to provide context
+  try {
   await expect(logoutButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
+  } catch (error) {
+    const guestViewCheck = await isVisibleSafely(page.getByText("Welcome to Snapp"), 1000);
+    if (guestViewCheck) {
+      throw new Error("Cannot navigate to planning screen: user is not logged in. Guest view is visible after waiting for authentication.");
+    }
+    throw new Error(`Cannot navigate to planning screen: logout button is not visible after waiting ${VISIBILITY_TIMEOUT_LONG}ms. User may not be logged in or page may not be in authenticated state. Original error: ${error instanceof Error ? error.message : String(error)}`);
+  }
   
   const guestView = await isVisibleSafely(page.getByText("Welcome to Snapp"));
   if (guestView) {
@@ -560,6 +585,25 @@ export async function selectWorldAndEnterPlanningMode(
 
   // For other tabs, world selection is required
   // Check if any world exists in the World context selector
+  // Before proceeding, verify we're still logged in
+  // The logout button check earlier might have passed, but we need to verify again
+  // before trying to select a world, as the page state might have changed
+  // Use a longer timeout and be more strict about this check
+  const logoutButtonBeforeWorldSelect = page.getByRole("button", { name: "Log out" });
+  const stillLoggedInBeforeWorldSelect = await isVisibleSafely(logoutButtonBeforeWorldSelect, VISIBILITY_TIMEOUT_MEDIUM);
+  if (!stillLoggedInBeforeWorldSelect) {
+    // Wait a bit and check again - sometimes there's a brief moment where the button isn't visible
+    await safeWait(page, STABILITY_WAIT_SHORT);
+    const retryCheck = await isVisibleSafely(logoutButtonBeforeWorldSelect, VISIBILITY_TIMEOUT_SHORT);
+    if (!retryCheck) {
+      const guestViewCheck = await isVisibleSafely(page.getByText("Welcome to Snapp"), 1000);
+      if (guestViewCheck) {
+        throw new Error("Cannot select world: user appears to have been logged out. Guest view is visible. Ensure the login step completed successfully.");
+      }
+      throw new Error("Cannot select world: logout button is not visible after retry. User may not be logged in. Ensure the login step completed successfully before selecting a world.");
+    }
+  }
+
   // The tablist should be visible after ensureModeSelectorVisible, but handle case where it's not
   // Try to get the tablist - it might not be visible if we're in an unexpected state
   const worldContextTablist = page.getByRole("tablist", { name: "World context" });
@@ -837,6 +881,18 @@ export async function selectWorldAndEnterPlanningMode(
     }
   }
   
+  // Before clicking the world tab, verify we're still logged in
+  // This is critical - if the user isn't logged in, clicking won't work
+  const logoutButtonBeforeClick = page.getByRole("button", { name: "Log out" });
+  const loggedInBeforeClick = await isVisibleSafely(logoutButtonBeforeClick, VISIBILITY_TIMEOUT_SHORT);
+  if (!loggedInBeforeClick) {
+    const guestViewCheck = await isVisibleSafely(page.getByText("Welcome to Snapp"), 1000);
+    if (guestViewCheck) {
+      throw new Error("Cannot click world tab: user appears to have been logged out. Guest view is visible. Ensure the login step completed successfully.");
+    }
+    throw new Error("Cannot click world tab: logout button is not visible. User may not be logged in. Ensure the login step completed successfully before selecting a world.");
+  }
+  
   // Ensure the tab is visible and clickable
   try {
     await expect(worldTab).toBeVisible({ timeout: 5000 });
@@ -1005,6 +1061,12 @@ export async function selectWorldAndEnterPlanningMode(
         
         // Still not visible - provide helpful error with event status
         const currentUrl = page.url();
+        const logoutButtonStillVisible = await isVisibleSafely(
+          page.getByRole("button", { name: "Log out" })
+        );
+        const guestViewVisible = await isVisibleSafely(
+          page.getByText("Welcome to Snapp")
+        );
         const worldContextStillVisible = await isVisibleSafely(
           page.getByRole("tablist", { name: "World context" })
         );
@@ -1022,13 +1084,27 @@ export async function selectWorldAndEnterPlanningMode(
         const worldEventFired = worldSelectedSucceeded ? "yes" : "no";
         const planningEventFired = planningModeSucceeded ? "yes" : "no";
         
-        throw new Error(
-          `Planning mode did not activate after selecting world "${worldName}". ` +
-          `URL: ${currentUrl}, World context visible: ${worldContextStillVisible}, ` +
-          `World tab visible: ${worldTabStillVisible}, World tab selected: ${worldTabSelected}. ` +
-          `World selection event fired: ${worldEventFired}, Planning mode event fired: ${planningEventFired}. ` +
-          `This may indicate the click did not register, the events did not fire, or planning mode did not activate.`
-        );
+        // Build a more detailed error message
+        let errorMessage = `Planning mode did not activate after selecting world "${worldName}". `;
+        errorMessage += `URL: ${currentUrl}, `;
+        errorMessage += `Logout button visible: ${logoutButtonStillVisible}, `;
+        errorMessage += `Guest view visible: ${guestViewVisible}, `;
+        errorMessage += `World context visible: ${worldContextStillVisible}, `;
+        errorMessage += `World tab visible: ${worldTabStillVisible}, World tab selected: ${worldTabSelected}. `;
+        errorMessage += `World selection event fired: ${worldEventFired}, Planning mode event fired: ${planningEventFired}. `;
+        
+        // Add specific guidance based on what we found
+        if (!logoutButtonStillVisible && guestViewVisible) {
+          errorMessage += `User appears to have been logged out (guest view is visible). `;
+        } else if (!logoutButtonStillVisible) {
+          errorMessage += `User may not be logged in (logout button not visible). `;
+        } else if (!worldContextStillVisible) {
+          errorMessage += `World context tablist is not visible - ensureModeSelectorVisible may have failed. `;
+        }
+        
+        errorMessage += `This may indicate the click did not register, the events did not fire, or planning mode did not activate.`;
+        
+        throw new Error(errorMessage);
       }
     }
   } catch (error) {
@@ -2067,110 +2143,8 @@ export async function waitForCampaignView(
   });
 }
 
-/**
- * Wait for an error to occur using transition events.
- * Returns the error message when the error appears.
- * 
- * @param page - Playwright page object
- * @param expectedMessage - Optional partial message to match (if not provided, waits for any error)
- * @param timeout - Maximum time to wait in milliseconds (default: 5000)
- * @returns The error message that occurred
- */
-export async function waitForError(
-  page: Page,
-  expectedMessage?: string,
-  timeout: number = DEFAULT_EVENT_TIMEOUT
-): Promise<string> {
-  // Set up event listener first
-  const eventPromise = page.evaluate(
-    ({ timeout, eventName, expectedMessage }) => {
-      return new Promise<string>((resolve, reject) => {
-        let resolved = false;
-
-        const handler = (e: Event) => {
-          const customEvent = e as CustomEvent;
-          const errorMessage = (customEvent.detail?.message || "").trim();
-          
-          // If expectedMessage is provided, check if it's contained in the error message
-          // Otherwise, accept any error
-          if (errorMessage && (!expectedMessage || errorMessage.toLowerCase().includes(expectedMessage.toLowerCase())) && !resolved) {
-            resolved = true;
-            clearTimeout(timer);
-            window.removeEventListener(eventName, handler);
-            resolve(errorMessage);
-          }
-        };
-
-        window.addEventListener(eventName, handler);
-
-        const timer = setTimeout(() => {
-          if (!resolved) {
-            resolved = true;
-            window.removeEventListener(eventName, handler);
-            reject(new Error(`Timeout waiting for error${expectedMessage ? ` containing "${expectedMessage}"` : ""} after ${timeout}ms`));
-          }
-        }, timeout);
-      });
-    },
-    { timeout, eventName: ERROR_OCCURRED_EVENT, expectedMessage }
-  );
-
-  // Fallback: Wait for error message element to appear in DOM
-  const domPromise = (async () => {
-    const errorElement = page.getByTestId("error-message");
-    await expect(errorElement).toBeVisible({ timeout });
-    const errorText = await errorElement.textContent();
-    return errorText?.trim() || "";
-  })();
-
-  // Wait for EITHER the event OR the DOM element
-  return await Promise.race([
-    eventPromise,
-    domPromise
-  ]).catch(async (error) => {
-    // If both failed, check if error element exists anyway
-    const errorElement = page.getByTestId("error-message");
-    const isVisible = await isVisibleSafely(errorElement);
-    if (isVisible) {
-      const errorText = await errorElement.textContent();
-      const message = errorText?.trim() || "";
-      if (!expectedMessage || message.toLowerCase().includes(expectedMessage.toLowerCase())) {
-        return message; // Error is visible and matches, that's good enough
-      }
-    }
-    throw error; // Neither event nor DOM, rethrow
-  });
-}
-
-/**
- * Wait for an error to be cleared using transition events.
- * 
- * @param page - Playwright page object
- * @param timeout - Maximum time to wait in milliseconds (default: 5000)
- */
-export async function waitForErrorCleared(
-  page: Page,
-  timeout: number = DEFAULT_EVENT_TIMEOUT
-): Promise<void> {
-  await waitForSimpleEvent(
-    page,
-    ERROR_CLEARED_EVENT,
-    timeout,
-    async () => {
-      // Fallback: Wait for error message element to be hidden
-      const errorElement = page.getByTestId("error-message");
-      await expect(errorElement).toBeHidden({ timeout });
-    }
-  ).catch(async (error) => {
-    // If both failed, check if error element is hidden anyway
-    const errorElement = page.getByTestId("error-message");
-    const isHidden = await isHiddenSafely(errorElement);
-    if (isHidden) {
-      return; // Error is hidden, that's good enough
-    }
-    throw error; // Neither event nor DOM, rethrow
-  });
-}
+// Note: waitForError and waitForErrorCleared are exported from "./errors" instead
+// to avoid duplicate exports. Import them from "./errors" or "../helpers" (which re-exports from errors).
 
 /**
  * Wait for a main tab to be activated using transition events.

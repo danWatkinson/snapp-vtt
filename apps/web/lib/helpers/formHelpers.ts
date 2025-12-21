@@ -1,20 +1,35 @@
-import type { ReturnType } from "../hooks/useFormState";
+import type { useFormState } from "../hooks/useFormState";
 
 /**
  * Creates a setter function for a form field
  */
 export function createFormFieldSetter<T extends Record<string, any>>(
-  form: ReturnType<T>,
+  form: ReturnType<typeof useFormState<T>>,
   fieldName: keyof T
 ) {
-  return (value: T[keyof T]) => form.setField(fieldName, value);
+  return (value: T[keyof T]) => {
+    console.log('[formHelpers] Setting form field:', {
+      fieldName: String(fieldName),
+      value,
+      currentFormValue: form.form[fieldName]
+    });
+    form.setField(fieldName, value);
+    // Verify it was set
+    setTimeout(() => {
+      console.log('[formHelpers] Form field after set:', {
+        fieldName: String(fieldName),
+        newFormValue: form.form[fieldName],
+        value
+      });
+    }, 0);
+  };
 }
 
 /**
  * Creates multiple form field setters at once
  */
 export function createFormFieldSetters<T extends Record<string, any>>(
-  form: ReturnType<T>,
+  form: ReturnType<typeof useFormState<T>>,
   fields: (keyof T)[]
 ) {
   const setters: Record<string, (value: any) => void> = {};
@@ -92,7 +107,7 @@ export function createModalHandlers(
  * Gets a form field value
  */
 export function getFormField<T extends Record<string, any>>(
-  form: ReturnType<T>,
+  form: ReturnType<typeof useFormState<T>>,
   fieldName: keyof T
 ): T[keyof T] {
   return form.form[fieldName];
@@ -102,7 +117,7 @@ export function getFormField<T extends Record<string, any>>(
  * Gets all form field values as an object
  */
 export function getFormValues<T extends Record<string, any>>(
-  form: ReturnType<T>
+  form: ReturnType<typeof useFormState<T>>
 ): T {
   return form.form;
 }

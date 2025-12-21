@@ -63,7 +63,10 @@ export function useHomePageState() {
     name: "", 
     summary: "", 
     beginningTimestamp: "", 
-    endingTimestamp: "" 
+    endingTimestamp: "",
+    relationshipTargetId: "",
+    relationshipType: "" as "" | "contains" | "is contained by" | "borders against" | "is near" | "is connected to",
+    locationId: ""
   });
   const campaignForm = useFormState({ name: "", summary: "" });
   const sessionForm = useFormState({ name: "" });
@@ -89,6 +92,7 @@ export function useHomePageState() {
   const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [entities, setEntities] = useState<WorldEntity[]>([]);
   const [entitiesLoadedFor, setEntitiesLoadedFor] = useState<string | null>(null);
+  const [crossRefEntitiesLoadedFor, setCrossRefEntitiesLoadedFor] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoadedFor, setSessionsLoadedFor] = useState<string | null>(null);
   const [players, setPlayers] = useState<string[]>([]);
@@ -131,6 +135,7 @@ export function useHomePageState() {
   const prevWorldsLoadedRef = useRef(worldsLoaded);
   const prevCampaignsLoadedRef = useRef(campaignsLoaded);
   const prevEntitiesLoadedForRef = useRef(entitiesLoadedFor);
+  const prevCrossRefLoadedForRef = useRef(crossRefEntitiesLoadedFor);
   const prevSessionsLoadedForRef = useRef(sessionsLoadedFor);
   const prevPlayersLoadedForRef = useRef(playersLoadedFor);
   const prevStoryArcsLoadedForRef = useRef(storyArcsLoadedFor);
@@ -285,15 +290,43 @@ export function useHomePageState() {
   useEffect(() => {
     const prevEntitiesLoadedFor = prevEntitiesLoadedForRef.current;
     if (entitiesLoadedFor && entitiesLoadedFor !== prevEntitiesLoadedFor) {
+      // Check if we need cross-referenced entities
+      const needsCrossRef = (selectedEntityType === "event") || (selectedEntityType === "location");
+      
+      if (needsCrossRef) {
+        // Wait for cross-referenced entities to load before firing event
+        // The event will be fired when crossRefEntitiesLoadedFor matches
+      } else {
+        // No cross-referenced entities needed, fire event immediately
       dispatchTransitionEvent(ENTITIES_LOADED_EVENT, {
         worldId: selectedIds.worldId,
         entityType: selectedEntityType,
         count: entities.length,
         cacheKey: entitiesLoadedFor
       });
+      }
     }
     prevEntitiesLoadedForRef.current = entitiesLoadedFor;
   }, [entitiesLoadedFor, selectedIds.worldId, selectedEntityType, entities.length]);
+
+  // Fire ENTITIES_LOADED_EVENT when cross-referenced entities are loaded
+  useEffect(() => {
+    const prevCrossRefLoadedFor = prevCrossRefLoadedForRef.current;
+    if (crossRefEntitiesLoadedFor && crossRefEntitiesLoadedFor !== prevCrossRefLoadedFor) {
+      // Only fire if primary entities are also loaded
+      const expectedCacheKey = `${selectedIds.worldId}-${selectedEntityType}`;
+      if (entitiesLoadedFor === expectedCacheKey) {
+        dispatchTransitionEvent(ENTITIES_LOADED_EVENT, {
+          worldId: selectedIds.worldId,
+          entityType: selectedEntityType,
+          count: entities.length,
+          cacheKey: entitiesLoadedFor,
+          crossRefLoaded: true
+        });
+      }
+    }
+    prevCrossRefLoadedForRef.current = crossRefEntitiesLoadedFor;
+  }, [crossRefEntitiesLoadedFor, entitiesLoadedFor, selectedIds.worldId, selectedEntityType, entities.length]);
 
   useEffect(() => {
     const prevSessionsLoadedFor = prevSessionsLoadedForRef.current;
@@ -451,6 +484,8 @@ export function useHomePageState() {
     setEntities,
     entitiesLoadedFor,
     setEntitiesLoadedFor,
+    crossRefEntitiesLoadedFor,
+    setCrossRefEntitiesLoadedFor,
     sessions,
     setSessions,
     sessionsLoadedFor,

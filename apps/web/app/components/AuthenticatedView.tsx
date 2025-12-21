@@ -14,7 +14,6 @@ export default function AuthenticatedView() {
     activeMode,
     selectedIds,
     currentUser,
-    status,
     error,
     isLoading,
     setError

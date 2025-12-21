@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, selectWorldAndEnterPlanningModeWithWorldName, getUniqueCampaignName, ensureCampaignExists } from "../helpers";
+import { selectWorldAndEnterPlanningMode, getUniqueCampaignName, ensureCampaignExists } from "../helpers";
 import { safeWait } from "../helpers/utils";
 import { STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 // Note: "the campaign \"Rise of the Dragon King\" exists" is defined in campaigns-create.steps.ts

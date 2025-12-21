@@ -1,8 +1,8 @@
 "use client";
 
-import type { ReactNode, NavHTMLAttributes } from "react";
+import type { ReactNode, HTMLAttributes } from "react";
 
-interface TabListProps extends Omit<NavHTMLAttributes<HTMLElement>, "role" | "aria-label"> {
+interface TabListProps extends Omit<HTMLAttributes<HTMLElement>, "role" | "aria-label"> {
   children: ReactNode;
   "aria-label": string;
   variant?: "default" | "planning" | "filter"; // Different tab container styles

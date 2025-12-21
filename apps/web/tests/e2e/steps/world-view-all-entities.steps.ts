@@ -1,6 +1,8 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, safeWait, STABILITY_WAIT_SHORT } from "../helpers";
+import { selectWorldAndEnterPlanningMode } from "../helpers";
+import { STABILITY_WAIT_SHORT } from "../helpers/constants";
+import { safeWait } from "../helpers/utils";
 
 const { When, Then } = createBdd();
 // Note: "world Eldoria exists" is defined in world-entities-create.steps.ts
