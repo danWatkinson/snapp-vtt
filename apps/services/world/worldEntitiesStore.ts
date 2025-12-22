@@ -48,25 +48,6 @@ export class InMemoryWorldEntityStore {
     const filtered = this.entities.filter(
       (e) => e.worldId === worldId && (!type || e.type === type)
     );
-    // Log all locations for debugging
-    const allLocations = filtered.filter(e => e.type === "location");
-    const locationsWithRelationships = allLocations.filter(e => e.relationships && e.relationships.length > 0);
-    console.log('[worldEntitiesStore] listByWorld:', {
-      worldId,
-      type,
-      totalEntities: filtered.length,
-      allLocations: allLocations.map(e => ({
-        id: e.id,
-        name: e.name,
-        hasRelationships: !!e.relationships && e.relationships.length > 0,
-        relationshipCount: e.relationships?.length || 0
-      })),
-      locationsWithRelationships: locationsWithRelationships.map(e => ({
-        id: e.id,
-        name: e.name,
-        relationships: e.relationships
-      }))
-    });
     return filtered;
   }
 
@@ -251,15 +232,6 @@ export class InMemoryWorldEntityStore {
     target.relationships.push({
       targetLocationId: sourceLocationId,
       relationshipType: inverseType
-    });
-
-    console.log('[worldEntitiesStore] Added relationship:', {
-      sourceId: source.id,
-      sourceName: source.name,
-      targetId: target.id,
-      targetName: target.name,
-      relationshipType,
-      inverseType
     });
   }
 

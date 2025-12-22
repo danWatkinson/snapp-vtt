@@ -8,20 +8,7 @@ export function createFormFieldSetter<T extends Record<string, any>>(
   fieldName: keyof T
 ) {
   return (value: T[keyof T]) => {
-    console.log('[formHelpers] Setting form field:', {
-      fieldName: String(fieldName),
-      value,
-      currentFormValue: form.form[fieldName]
-    });
     form.setField(fieldName, value);
-    // Verify it was set
-    setTimeout(() => {
-      console.log('[formHelpers] Form field after set:', {
-        fieldName: String(fieldName),
-        newFormValue: form.form[fieldName],
-        value
-      });
-    }, 0);
   };
 }
 

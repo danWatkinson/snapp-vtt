@@ -26,12 +26,6 @@ export function useWorldEntities(
         // Preserve entities of types that aren't being fetched (e.g., events when fetching locations)
         // This ensures cross-referenced entities aren't lost when switching tabs
         setEntities((prev) => {
-          console.log('[useDataFetching] Fetching entities:', {
-            entityType: selectedEntityType,
-            fetchedCount: loaded.length,
-            prevCount: prev.length
-          });
-          
           // Create a Map of fetched entities by ID
           const entityMap = new Map<string, typeof loaded[0]>();
           loaded.forEach(entity => entityMap.set(entity.id, entity));
@@ -49,12 +43,7 @@ export function useWorldEntities(
             }
           });
           
-          const finalEntities = Array.from(entityMap.values());
-          console.log('[useDataFetching] Final entities:', {
-            totalCount: finalEntities.length
-          });
-          
-          return finalEntities;
+          return Array.from(entityMap.values());
         });
         
         setEntitiesLoadedFor(cacheKey);
