@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
 
-import yargs from "yargs";
+import yargs, { Argv } from "yargs";
 import { hideBin } from "yargs/helpers";
 import https from "https";
 import fs from "fs";
@@ -31,7 +31,7 @@ async function authenticate(
 
   if (response.status !== 200) {
     throw new Error(
-      `Authentication failed: ${response.body?.error || "Unknown error"}`
+      `Authentication failed: ${getErrorMessage(response)}`
     );
   }
 
@@ -92,6 +92,25 @@ async function makeRequest(
 }
 
 /**
+ * Check if an error response indicates the resource already exists
+ */
+function isAlreadyExistsError(response: { status: number; body: any }): boolean {
+  return response.status === 400 && 
+    (response.body?.error?.includes("already exists") || 
+     response.body?.error?.includes("already"));
+}
+
+/**
+ * Extract error message from response or error object
+ */
+function getErrorMessage(responseOrError: { status?: number; body?: any; message?: string } | Error): string {
+  if (responseOrError instanceof Error) {
+    return responseOrError.message;
+  }
+  return responseOrError.body?.error || "Unknown error";
+}
+
+/**
  * Look up an asset ID by filename from the asset service
  */
 async function lookupAssetByFileName(
@@ -102,7 +121,7 @@ async function lookupAssetByFileName(
   const response = await makeRequest(assetUrl, "/assets", "GET", token);
 
   if (response.status !== 200) {
-    console.warn(`Failed to fetch assets: ${response.body?.error || "Unknown error"}`);
+    console.warn(`Failed to fetch assets: ${getErrorMessage(response)}`);
     return undefined;
   }
 
@@ -200,11 +219,11 @@ async function seedAssets(
           console.log(`  ✓ Created asset: ${fileName} (${asset.id})`);
           createdCount++;
         }
-      } else if (createResponse.status === 400 && (createResponse.body as any).error?.includes("already exists")) {
+      } else if (isAlreadyExistsError(createResponse)) {
         console.log(`  Asset '${fileName}' already exists, skipping`);
         skippedCount++;
       } else {
-        console.error(`  ✗ Failed to create asset ${fileName}: ${(createResponse.body as any).error || "Unknown error"}`);
+        console.error(`  ✗ Failed to create asset ${fileName}: ${getErrorMessage(createResponse)}`);
       }
     } catch (err) {
       console.error(`  ✗ Failed to seed asset ${fileName}:`, (err as Error).message);
@@ -357,13 +376,13 @@ async function seedWorlds(filePath: string, options: SeedOptions, token: string)
             console.log(`✓ Created world: ${world.name}`);
             createdCount++;
           }
-        } else if (createResponse.status === 400 && (createResponse.body as any).error?.includes("already exists")) {
+        } else if (isAlreadyExistsError(createResponse)) {
           // World exists but wasn't in our list (case sensitivity or timing)
           console.log(`  World '${world.name}' already exists, skipping creation`);
           skippedCount++;
           continue;
         } else {
-          throw new Error((createResponse.body as any).error || "Unknown error");
+          throw new Error(getErrorMessage(createResponse));
         }
       } catch (err) {
         console.error(`Failed to create world ${world.name}:`, (err as Error).message);
@@ -468,7 +487,7 @@ async function seedWorlds(filePath: string, options: SeedOptions, token: string)
                 });
               }
             }
-          } else if (entityResponse.status === 400 && (entityResponse.body as any).error?.includes("already exists")) {
+          } else if (isAlreadyExistsError(entityResponse)) {
             console.log(`    Entity '${entity.name}' already exists, skipping`);
             // Still try to get the ID for relationship creation
             const existingEntitiesResponse = await makeRequest(
@@ -485,7 +504,7 @@ async function seedWorlds(filePath: string, options: SeedOptions, token: string)
               }
             }
           } else {
-            throw new Error((entityResponse.body as any).error || "Unknown error");
+            throw new Error(getErrorMessage(entityResponse));
           }
         } catch (err) {
           console.error(`    Failed to create ${entity.type} ${entity.name}:`, (err as Error).message);
@@ -558,10 +577,10 @@ async function seedWorlds(filePath: string, options: SeedOptions, token: string)
 
             if (relResponse.status === 201) {
               console.log(`      ✓ Created relationship: ${entityName} --[${rel.relationshipType}]--> ${rel.targetEntityName}`);
-            } else if (relResponse.status === 400 && (relResponse.body as any).error?.includes("already")) {
+            } else if (isAlreadyExistsError(relResponse)) {
               console.log(`      Relationship from '${entityName}' to '${rel.targetEntityName}' already exists, skipping`);
             } else {
-              throw new Error((relResponse.body as any).error || "Unknown error");
+              throw new Error(getErrorMessage(relResponse));
             }
           } catch (err) {
             console.error(`      Failed to create relationship from '${entityName}' to '${rel.targetEntityName}':`, (err as Error).message);
@@ -615,10 +634,10 @@ async function seedWorlds(filePath: string, options: SeedOptions, token: string)
               // Continue with sessions, scenes, players, story arcs (reuse logic from seedCampaigns)
               await seedCampaignRelatedData(campaignId, campaignData, options, token);
             }
-          } else if (createResponse.status === 400 && (createResponse.body as any).error?.includes("already exists")) {
+          } else if (isAlreadyExistsError(createResponse)) {
             console.log(`  Campaign '${campaignData.name}' already exists, skipping creation`);
           } else {
-            throw new Error((createResponse.body as any).error || "Unknown error");
+            throw new Error(getErrorMessage(createResponse));
           }
         } catch (err) {
           console.error(`  Failed to create campaign ${campaignData.name}:`, (err as Error).message);
@@ -670,13 +689,13 @@ async function seedCampaignRelatedData(
 
         if (playerResponse.status === 201) {
           console.log(`    ✓ Added player: ${playerId}`);
-        } else if (playerResponse.status === 400 && (playerResponse.body as any).error?.includes("already")) {
+        } else if (isAlreadyExistsError(playerResponse)) {
           console.log(`    Player '${playerId}' already in campaign, skipping`);
         } else {
-          throw new Error((playerResponse.body as any).error || "Unknown error");
+          throw new Error(getErrorMessage(playerResponse));
         }
       } catch (err) {
-        const errorMsg = (err as Error).message;
+        const errorMsg = getErrorMessage(err);
         if (errorMsg.includes("already")) {
           console.log(`    Player '${playerId}' already in campaign, skipping`);
         } else {
@@ -717,13 +736,13 @@ async function seedCampaignRelatedData(
           if (sessionId) {
             console.log(`    ✓ Created session: ${sessionData.name}`);
           }
-        } else if (sessionResponse.status === 400 && (sessionResponse.body as any).error?.includes("already exists")) {
+        } else if (isAlreadyExistsError(sessionResponse)) {
           console.log(`    Session '${sessionData.name}' already exists, skipping`);
         } else {
-          throw new Error((sessionResponse.body as any).error || "Unknown error");
+          throw new Error(getErrorMessage(sessionResponse));
         }
       } catch (err) {
-        const errorMsg = (err as Error).message;
+        const errorMsg = getErrorMessage(err);
         if (errorMsg.includes("already")) {
           console.log(`    Session '${sessionData.name}' already exists, skipping`);
         } else {
@@ -770,13 +789,13 @@ async function seedCampaignRelatedData(
 
             if (sceneResponse.status === 201) {
               console.log(`      ✓ Created scene: ${sceneData.name}`);
-            } else if (sceneResponse.status === 400 && (sceneResponse.body as any).error?.includes("already exists")) {
+            } else if (isAlreadyExistsError(sceneResponse)) {
               console.log(`      Scene '${sceneData.name}' already exists, skipping`);
             } else {
-              throw new Error((sceneResponse.body as any).error || "Unknown error");
+              throw new Error(getErrorMessage(sceneResponse));
             }
           } catch (err) {
-            const errorMsg = (err as Error).message;
+            const errorMsg = getErrorMessage(err);
             if (errorMsg.includes("already")) {
               console.log(`      Scene '${sceneData.name}' already exists, skipping`);
             } else {
@@ -811,13 +830,13 @@ async function seedCampaignRelatedData(
           if (storyArcId) {
             console.log(`    ✓ Created story arc: ${arcData.name}`);
           }
-        } else if (arcResponse.status === 400 && (arcResponse.body as any).error?.includes("already exists")) {
+        } else if (isAlreadyExistsError(arcResponse)) {
           console.log(`    Story arc '${arcData.name}' already exists, skipping`);
         } else {
-          throw new Error((arcResponse.body as any).error || "Unknown error");
+          throw new Error(getErrorMessage(arcResponse));
         }
       } catch (err) {
-        const errorMsg = (err as Error).message;
+        const errorMsg = getErrorMessage(err);
         if (errorMsg.includes("already")) {
           console.log(`    Story arc '${arcData.name}' already exists, skipping`);
         } else {
@@ -841,13 +860,13 @@ async function seedCampaignRelatedData(
 
           if (eventResponse.status === 201) {
             console.log(`      ✓ Added event: ${eventId}`);
-          } else if (eventResponse.status === 400 && (eventResponse.body as any).error?.includes("already")) {
+          } else if (isAlreadyExistsError(eventResponse)) {
             console.log(`      Event '${eventId}' already in story arc, skipping`);
           } else {
-            throw new Error((eventResponse.body as any).error || "Unknown error");
+            throw new Error(getErrorMessage(eventResponse));
           }
         } catch (err) {
-          const errorMsg = (err as Error).message;
+          const errorMsg = getErrorMessage(err);
           if (errorMsg.includes("already")) {
             console.log(`      Event '${eventId}' already in story arc, skipping`);
           } else {
@@ -1010,6 +1029,45 @@ async function seedAll(options: SeedAllOptions): Promise<void> {
   console.log("\n✓ SeedAll complete!");
 }
 
+/**
+ * Common CLI options for seed commands
+ */
+function addCommonSeedOptions(yargsBuilder: yargs.Argv) {
+  return yargsBuilder
+    .option("username", {
+      alias: "u",
+      type: "string",
+      demandOption: true,
+      describe: "Username for authentication"
+    })
+    .option("password", {
+      alias: "p",
+      type: "string",
+      demandOption: true,
+      describe: "Password for authentication"
+    })
+    .option("auth-url", {
+      type: "string",
+      default: "https://localhost:3001",
+      describe: "Auth service URL"
+    })
+    .option("world-url", {
+      type: "string",
+      default: "https://localhost:3002",
+      describe: "World service URL"
+    })
+    .option("campaign-url", {
+      type: "string",
+      default: "https://localhost:3003",
+      describe: "Campaign service URL"
+    })
+    .option("asset-url", {
+      type: "string",
+      default: "https://localhost:3004",
+      describe: "Asset service URL"
+    });
+}
+
 // CLI setup
 void yargs(hideBin(process.argv))
   .scriptName("snapp-seed")
@@ -1017,39 +1075,7 @@ void yargs(hideBin(process.argv))
     "seed",
     "Seed worlds or campaigns from a JSON file via HTTP APIs (auto-detects file type)",
     (yargsBuilder) =>
-      yargsBuilder
-        .option("username", {
-          alias: "u",
-          type: "string",
-          demandOption: true,
-          describe: "Username for authentication"
-        })
-        .option("password", {
-          alias: "p",
-          type: "string",
-          demandOption: true,
-          describe: "Password for authentication"
-        })
-        .option("auth-url", {
-          type: "string",
-          default: "https://localhost:3001",
-          describe: "Auth service URL"
-        })
-        .option("world-url", {
-          type: "string",
-          default: "https://localhost:3002",
-          describe: "World service URL"
-        })
-        .option("campaign-url", {
-          type: "string",
-          default: "https://localhost:3003",
-          describe: "Campaign service URL"
-        })
-        .option("asset-url", {
-          type: "string",
-          default: "https://localhost:3004",
-          describe: "Asset service URL"
-        })
+      addCommonSeedOptions(yargsBuilder)
         .option("file", {
           alias: "f",
           type: "string",
@@ -1072,39 +1098,7 @@ void yargs(hideBin(process.argv))
     "seedAll",
     "Seed all worlds and campaigns from subfolders (looks for worlds.json in each subfolder; campaigns are nested within worlds.json)",
     (yargsBuilder) =>
-      yargsBuilder
-        .option("username", {
-          alias: "u",
-          type: "string",
-          demandOption: true,
-          describe: "Username for authentication"
-        })
-        .option("password", {
-          alias: "p",
-          type: "string",
-          demandOption: true,
-          describe: "Password for authentication"
-        })
-        .option("auth-url", {
-          type: "string",
-          default: "https://localhost:3001",
-          describe: "Auth service URL"
-        })
-        .option("world-url", {
-          type: "string",
-          default: "https://localhost:3002",
-          describe: "World service URL"
-        })
-        .option("campaign-url", {
-          type: "string",
-          default: "https://localhost:3003",
-          describe: "Campaign service URL"
-        })
-        .option("asset-url", {
-          type: "string",
-          default: "https://localhost:3004",
-          describe: "Asset service URL"
-        })
+      addCommonSeedOptions(yargsBuilder)
         .option("folder", {
           alias: "f",
           type: "string",

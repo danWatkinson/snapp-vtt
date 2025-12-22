@@ -3,11 +3,10 @@ import {
 } from "express";
 import { createServiceApp } from "../../../packages/express-app";
 import { authenticate, AuthedRequest, requireSelfOrAdmin } from "../../../packages/auth-middleware";
-import { createGetRoute, createDeleteRoute, createPatchRoute, createPostRoute, createPutRoute } from "../../../packages/express-routes";
+import { createGetRoute, createDeleteRoute, createPatchRoute, createPostRoute, createPutRoute, requireFields } from "../../../packages/express-routes";
 import { AuthService, AuthServiceConfig } from "./authService";
 import { InMemoryUserStore, Role } from "./userStore";
 import { auth as authConfig } from "../../../packages/config";
-import { requireFields } from "../../../packages/express-routes";
 
 export interface AppDependencies {
   userStore?: InMemoryUserStore;
@@ -75,21 +74,19 @@ export function createApp(deps: AppDependencies = {}) {
   );
 
   // POST /users – create a new user (admin-only)
-  app.post("/users", authenticate("admin"), async (req: AuthedRequest, res: Response) => {
-    requireFields(req, ["username", "password"]);
-    const { username, roles, password } = req.body as {
-      username: string;
-      roles?: Role[];
-      password: string;
-    };
-    try {
+  app.post("/users", authenticate("admin"), createPostRoute(
+    async (req: AuthedRequest) => {
+      requireFields(req, ["username", "password"]);
+      const { username, roles, password } = req.body as {
+        username: string;
+        roles?: Role[];
+        password: string;
+      };
       const passwordHash = await authService.hashPassword(password);
-      const user = userStore.createUser(username, roles ?? [], passwordHash);
-      return res.status(201).json({ user });
-    } catch (err) {
-      return res.status(400).json({ error: (err as Error).message });
-    }
-  });
+      return userStore.createUser(username, roles ?? [], passwordHash);
+    },
+    { responseProperty: "user" }
+  ));
 
   // DELETE /users/:username – delete user (admin-only)
   app.delete(
@@ -105,16 +102,15 @@ export function createApp(deps: AppDependencies = {}) {
   );
 
   // POST /auth/login – authenticate user and issue token
-  app.post("/auth/login", async (req: ExpressRequest, res: Response) => {
-    requireFields(req, ["username", "password"]);
-    const { username, password } = req.body as { username: string; password: string };
-    try {
+  app.post("/auth/login", createPostRoute(
+    async (req: ExpressRequest) => {
+      requireFields(req, ["username", "password"]);
+      const { username, password } = req.body as { username: string; password: string };
       const { user, token } = await authService.login(username, password);
-      return res.status(200).json({ user, token });
-    } catch (err) {
-      return res.status(401).json({ error: (err as Error).message });
-    }
-  });
+      return { user, token };
+    },
+    { statusCode: 200, responseProperty: undefined }
+  ));
 
   // GET /users/:username/roles – get user's roles (self or admin)
   app.get(

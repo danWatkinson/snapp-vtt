@@ -80,6 +80,8 @@ export function createPostRoute<T>(
         statusCode = 404;
       } else if (message.includes("Forbidden")) {
         statusCode = 403;
+      } else if (message.includes("Invalid username or password") || message.includes("Unauthorized") || message.includes("authentication")) {
+        statusCode = 401;
       }
       return res.status(statusCode).json({ error: message });
     }

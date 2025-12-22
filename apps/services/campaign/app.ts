@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request } from "express";
 import { createServiceApp } from "../../../packages/express-app";
 import {
   InMemoryCampaignStore,
