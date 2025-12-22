@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode } from "../helpers";
+import { selectWorldAndEnterMode } from "../helpers";
 import { STABILITY_WAIT_SHORT } from "../helpers/constants";
 import { safeWait, isVisibleSafely } from "../helpers/utils";
 
@@ -21,20 +21,20 @@ When("the admin navigates to the all entities view", async ({ page }) => {
   }
   
   // Check if we're in planning mode with a world selected
-  const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+  const planningTabs = page.getByRole("tablist", { name: "World views" });
   const isInPlanningMode = await isVisibleSafely(planningTabs, 1000);
   
   if (!isInPlanningMode) {
-    // Navigate to World Entities planning screen and select world
+    // Navigate to World Entities screen and select world
     try {
-      await selectWorldAndEnterPlanningMode(page, "World Entities");
+      await selectWorldAndEnterMode(page, "World Entities");
     } catch (error) {
       // If planning mode activation failed, check if we're actually in planning mode anyway
       // Retry multiple times with delays - planning mode might activate shortly after the error
       let isActuallyInPlanningMode = false;
       for (let retry = 0; retry < 5; retry++) {
         await safeWait(page, STABILITY_WAIT_SHORT);
-        const planningTabsCheck = page.getByRole("tablist", { name: "World planning views" });
+        const planningTabsCheck = page.getByRole("tablist", { name: "World views" });
         isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 2000 }).catch(() => false);
         if (isActuallyInPlanningMode) {
           break; // Planning mode is active, continue

@@ -10,7 +10,7 @@ When("an unidentified user visits the site", async ({ page }) => {
 });
 
 Then("they see the guest view", async ({ page }) => {
-  // Verify the world planning UI is not visible (authenticated content)
+  // Verify the world UI is not visible (authenticated content)
   await expect(
     page.getByRole("heading", { name: "World context and mode" })
   ).not.toBeVisible({ timeout: 3000 });

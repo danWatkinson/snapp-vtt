@@ -45,7 +45,7 @@ export default function ModeSelector() {
     setEntitiesLoadedFor,
     setActiveMode,
     setActiveTab,
-    setPlanningSubTab
+    setSubTab
   } = useHomePage();
 
   const selectedWorldId = selectedIds.worldId;
@@ -60,7 +60,7 @@ export default function ModeSelector() {
       setEntitiesLoadedFor(null);
       setActiveMode("plan");
       setActiveTab("World");
-      setPlanningSubTab("World Entities");
+      setSubTab("World Entities");
     });
   };
 
@@ -72,13 +72,13 @@ export default function ModeSelector() {
 
       {worlds.length === 0 ? (
         <div className="space-y-2">
-          <EmptyState message="No worlds have been created yet. Use the Snapp menu to create a world and start planning or running a session." />
+          <EmptyState message="No worlds have been created yet. Use the Snapp menu to create a world and start working or running a session." />
         </div>
       ) : (
         <>
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm snapp-muted">
-              Choose a world to work in. All planning and live play will use
+              Choose a world to work in. All work and live play will use
               this world as context.
             </p>
           </div>

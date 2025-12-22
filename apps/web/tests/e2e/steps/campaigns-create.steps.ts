@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView, getErrorMessage } from "../helpers";
+import { selectWorldAndEnterMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView, getErrorMessage } from "../helpers";
 import { createApiClient } from "../helpers/api";
 import { STABILITY_WAIT_SHORT } from "../helpers/constants";
 import { safeWait } from "../helpers/utils";
@@ -51,8 +51,8 @@ async function getOrCreateTestWorld(request: APIRequestContext, adminToken: stri
   throw new Error(`Failed to get or create test world "${worldName}"`);
 }
 
-When('the admin navigates to the "Campaigns" planning screen', async ({ page }) => {
-  await selectWorldAndEnterPlanningMode(page, "Campaigns");
+When('the admin navigates to the "Campaigns" screen', async ({ page }) => {
+  await selectWorldAndEnterMode(page, "Campaigns");
 });
 
 When('the test campaign exists', async ({ page, request }) => {
@@ -259,12 +259,12 @@ When('the test campaign exists with timeline view', async ({ page }) => {
 When(
   'the admin creates a campaign named {string} with summary {string}',
   async ({ page }, campaignName: string, summary: string) => {
-    // Navigate to Campaigns planning screen if not already there
-    const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+    // Navigate to Campaigns screen if not already there
+    const planningTabs = page.getByRole("tablist", { name: "World views" });
     const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
     
     if (!isInPlanningMode) {
-      await selectWorldAndEnterPlanningMode(page, "Campaigns");
+      await selectWorldAndEnterMode(page, "Campaigns");
     } else {
       // Check if we're on the Campaigns sub-tab
       const campaignsTab = planningTabs.getByRole("tab", { name: "Campaigns" });
@@ -381,12 +381,12 @@ When(
   'the game master creates a campaign named {string} with summary {string}',
   async ({ page }, campaignName: string, summary: string) => {
     // Reuse the same implementation as admin step since both can create campaigns
-    // Navigate to Campaigns planning screen if not already there
-    const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+    // Navigate to Campaigns screen if not already there
+    const planningTabs = page.getByRole("tablist", { name: "World views" });
     const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
     
     if (!isInPlanningMode) {
-      await selectWorldAndEnterPlanningMode(page, "Campaigns");
+      await selectWorldAndEnterMode(page, "Campaigns");
     } else {
       // Check if we're on the Campaigns sub-tab
       const campaignsTab = planningTabs.getByRole("tab", { name: "Campaigns" });

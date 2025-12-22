@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, getStoredCampaignName } from "../helpers";
+import { selectWorldAndEnterMode, getStoredCampaignName } from "../helpers";
 import { STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 // Note: "the admin navigates to the Campaigns planning screen" and "the campaign Rise of the Dragon King exists" 
 // are defined in campaigns-create.steps.ts
@@ -40,8 +40,8 @@ Then('a story arc named "bob\'s Arc" is automatically created', async ({ page })
     const isCampaignSelected = await campaignViews.isVisible({ timeout: 1000 }).catch(() => false);
     
     if (!isCampaignSelected) {
-      // Navigate to Campaigns planning screen
-      await selectWorldAndEnterPlanningMode(page, "Campaigns");
+      // Navigate to Campaigns screen
+      await selectWorldAndEnterMode(page, "Campaigns");
       
       // Get test campaign name
       const campaignName = await getStoredCampaignName(page, "Rise of the Dragon King");

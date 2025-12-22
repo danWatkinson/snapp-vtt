@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, getStoredCampaignName, ensureCampaignExists } from "../helpers";
+import { selectWorldAndEnterMode, getStoredCampaignName, ensureCampaignExists } from "../helpers";
 import { navigateToCampaignView, isOnCampaignView } from "../helpers/navigation";
 import { createStoryArc } from "../helpers/entityCreation";
 import { STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM } from "../helpers/constants";
@@ -66,7 +66,7 @@ When('the admin views events for story arc "The Ancient Prophecy"', async ({ pag
 });
 
 When('world event "The Prophecy Revealed" exists', async ({ page }) => {
-  await selectWorldAndEnterPlanningMode(page, "World Entities");
+  await selectWorldAndEnterMode(page, "World Entities");
   await page
     .getByRole("tablist", { name: "Entity types" })
     .getByRole("tab", { name: "Events" })
@@ -93,7 +93,7 @@ When('world event "The Prophecy Revealed" exists', async ({ page }) => {
 
   // Return to Story Arcs planning view
   await page
-    .getByRole("tablist", { name: "World planning views" })
+    .getByRole("tablist", { name: "World views" })
     .getByRole("tab", { name: "Story Arcs" })
     .click();
   await page

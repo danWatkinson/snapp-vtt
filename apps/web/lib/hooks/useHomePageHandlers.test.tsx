@@ -54,7 +54,7 @@ describe("useHomePageHandlers", () => {
       setCurrentUser: vi.fn(),
       setActiveTab: vi.fn(),
       setActiveMode: vi.fn(),
-      setPlanningSubTab: vi.fn(),
+      setSubTab: vi.fn(),
       setSelectedEntityType: vi.fn(),
       setWorlds: vi.fn(),
       setCampaigns: vi.fn(),

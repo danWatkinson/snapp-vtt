@@ -12,7 +12,7 @@ import Section from "../ui/Section";
 import SectionHeader from "../ui/SectionHeader";
 import ListContainer from "../ui/ListContainer";
 import Form from "../ui/Form";
-import WorldPlanningHeader from "../navigation/WorldPlanningHeader";
+import WorldHeaderWithTabs from "../navigation/WorldHeaderWithTabs";
 
 export default function UsersTab() {
   const {
@@ -155,7 +155,7 @@ export default function UsersTab() {
 
   return (
     <div data-component="UsersTab" className="space-y-6">
-      <WorldPlanningHeader />
+      <WorldHeaderWithTabs />
 
       <div className="flex items-center justify-between mb-4">
         <Heading>User Management</Heading>

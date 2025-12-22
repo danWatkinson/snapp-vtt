@@ -5,7 +5,7 @@
  * from the refactored modules. The original monolithic file (2444 lines) has been
  * broken down into:
  * 
- * - worldNavigation.ts: World selection and planning mode functions
+ * - worldNavigation.ts: World selection and mode functions
  * - campaignNavigation.ts: Campaign selection and view navigation
  * - screenNavigation.ts: Screen-level navigation (Users, Assets)
  * - eventWaiting.ts: Event-based waiting utilities
@@ -15,11 +15,11 @@
 // World navigation functions
 export {
   ensureModeSelectorVisible,
-  selectWorldAndEnterPlanningModeWithWorldName,
-  selectWorldAndEnterPlanningMode,
+  selectWorldAndEnterModeWithWorldName,
+  selectWorldAndEnterMode,
   waitForWorldSelected,
-  waitForPlanningMode,
-  waitForPlanningSubTab
+  waitForMode,
+  waitForSubTab
 } from "./navigation/worldNavigation";
 
 // Campaign navigation functions

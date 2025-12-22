@@ -6,12 +6,12 @@ import {
 import { DEFAULT_EVENT_TIMEOUT, STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM, STABILITY_WAIT_EXTRA, STABILITY_WAIT_MAX, VISIBILITY_TIMEOUT_SHORT, VISIBILITY_TIMEOUT_MEDIUM } from "../constants";
 import { isVisibleSafely, getAttributeSafely, awaitSafely, safeWait, isPageClosedSafely, waitForStateSafely, waitForLocatorSafely } from "../utils";
 import { waitForModalOpen, waitForModalClose } from "../modals";
-import { selectWorldAndEnterPlanningMode, selectWorldAndEnterPlanningModeWithWorldName, waitForPlanningSubTab } from "./worldNavigation";
+import { selectWorldAndEnterMode, selectWorldAndEnterModeWithWorldName, waitForSubTab } from "./worldNavigation";
 
-// Import isPlanningModeActive - it's not exported, so we need to check planning tabs directly
-async function isPlanningModeActive(page: Page): Promise<boolean> {
+// Import isModeActive - it's not exported, so we need to check tabs directly
+async function isModeActive(page: Page): Promise<boolean> {
   return await isVisibleSafely(
-    page.getByRole("tablist", { name: "World planning views" })
+    page.getByRole("tablist", { name: "World views" })
   );
 }
 
@@ -40,12 +40,12 @@ export async function isCampaignSelectedByName(page: Page, campaignName: string)
  */
 export async function navigateToCampaignsTab(page: Page): Promise<void> {
   const campaignsTab = page
-    .getByRole("tablist", { name: "World planning views" })
+    .getByRole("tablist", { name: "World views" })
     .getByRole("tab", { name: "Campaigns" });
   
   const isOnCampaignsTab = await isVisibleSafely(campaignsTab);
   if (!isOnCampaignsTab) {
-    const campaignsPromise = waitForPlanningSubTab(page, "Campaigns", 5000);
+    const campaignsPromise = waitForSubTab(page, "Campaigns", 5000);
     await campaignsTab.click();
     await awaitSafely(campaignsPromise);
   }
@@ -115,13 +115,13 @@ export async function ensureCampaignExists(
     // Page might not be ready - that's okay, we'll use default behavior
   }
 
-  // Ensure we're in planning mode with a world selected
-  if (!(await isPlanningModeActive(page))) {
+  // Ensure we're in the appropriate mode with a world selected
+  if (!(await isModeActive(page))) {
     // Need to select a world first
     if (storedWorldName) {
-      await selectWorldAndEnterPlanningModeWithWorldName(page, "Campaigns", storedWorldName);
+      await selectWorldAndEnterModeWithWorldName(page, "Campaigns", storedWorldName);
     } else {
-      await selectWorldAndEnterPlanningMode(page, "Campaigns");
+      await selectWorldAndEnterMode(page, "Campaigns");
     }
   }
 
@@ -137,19 +137,19 @@ export async function ensureCampaignExists(
     
     // A different campaign is selected - we need to deselect it
     const worldEntitiesTab = page
-      .getByRole("tablist", { name: "World planning views" })
+      .getByRole("tablist", { name: "World views" })
       .getByRole("tab", { name: "World Entities" });
     
     if (await isVisibleSafely(worldEntitiesTab)) {
-      const worldEntitiesPromise = waitForPlanningSubTab(page, "World Entities", 5000);
+      const worldEntitiesPromise = waitForSubTab(page, "World Entities", 5000);
       await worldEntitiesTab.click();
       await awaitSafely(worldEntitiesPromise);
       
       // Now navigate back to Campaigns
       const campaignsTab = page
-        .getByRole("tablist", { name: "World planning views" })
+        .getByRole("tablist", { name: "World views" })
         .getByRole("tab", { name: "Campaigns" });
-      const campaignsPromise = waitForPlanningSubTab(page, "Campaigns", 5000);
+      const campaignsPromise = waitForSubTab(page, "Campaigns", 5000);
       await campaignsTab.click();
       await awaitSafely(campaignsPromise);
       
@@ -159,7 +159,7 @@ export async function ensureCampaignExists(
       );
       
       if (stillSelected) {
-        const campaignsPromise2 = waitForPlanningSubTab(page, "Campaigns", 5000);
+        const campaignsPromise2 = waitForSubTab(page, "Campaigns", 5000);
         await campaignsTab.click();
         await awaitSafely(campaignsPromise2);
       }
@@ -168,7 +168,7 @@ export async function ensureCampaignExists(
 
   // Wait for UI to settle
   const campaignsTab = page
-    .getByRole("tablist", { name: "World planning views" })
+    .getByRole("tablist", { name: "World views" })
     .getByRole("tab", { name: "Campaigns" });
   await expect(campaignsTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_SHORT });
   

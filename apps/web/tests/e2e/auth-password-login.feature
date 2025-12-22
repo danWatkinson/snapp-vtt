@@ -2,7 +2,7 @@ Feature: Password-based login behaviour
 
   As a Visitor
   I want to authenticate with a username and password
-  So that I can access the planning tools securely
+  So that I can access the tools securely
 
   Background:
     Given there is an admin user

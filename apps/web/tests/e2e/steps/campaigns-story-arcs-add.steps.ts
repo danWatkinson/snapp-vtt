@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, getStoredCampaignName, ensureCampaignExists } from "../helpers";
+import { selectWorldAndEnterMode, getStoredCampaignName, ensureCampaignExists } from "../helpers";
 import { navigateToCampaignView, isOnCampaignView } from "../helpers/navigation";
 import { createStoryArc } from "../helpers/entityCreation";
 import { verifyEntityInList } from "../helpers/verification";
@@ -8,8 +8,8 @@ import { verifyEntityInList } from "../helpers/verification";
 
 const { When, Then } = createBdd();
 
-When('the admin navigates to the "Story Arcs" planning screen', async ({ page }) => {
-  await selectWorldAndEnterPlanningMode(page, "Story Arcs");
+When('the admin navigates to the "Story Arcs" screen', async ({ page }) => {
+  await selectWorldAndEnterMode(page, "Story Arcs");
 });
 
 When("the admin navigates to the story arcs view", async ({ page }) => {

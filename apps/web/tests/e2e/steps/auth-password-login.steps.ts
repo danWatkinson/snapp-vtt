@@ -207,7 +207,7 @@ Then("the user is shown an error stating that they need to provide a password an
     timeout: 2000
   });
   
-  // Verify world planning UI is not visible
+  // Verify world UI is not visible
   await expect(
     page.getByRole("heading", { name: "World context and mode" })
   ).not.toBeVisible({ timeout: 3000 });
@@ -242,7 +242,7 @@ Then("the user is not logged in", async ({ page }) => {
     timeout: 2000
   });
   
-  // Verify world planning UI is not visible
+  // Verify world UI is not visible
   await expect(
     page.getByRole("heading", { name: "World context and mode" })
   ).not.toBeVisible({ timeout: 3000 });
@@ -254,13 +254,13 @@ Then("the login dialog remains open", async ({ page }) => {
   ).toBeVisible({ timeout: 3000 });
 });
 
-Then("the login dialog remains open and the world planning UI is not visible", async ({ page }) => {
+Then("the login dialog remains open and the world UI is not visible", async ({ page }) => {
   // Verify login dialog is still open
   await expect(
     page.getByRole("dialog", { name: "Login" })
   ).toBeVisible({ timeout: 3000 });
   
-  // Verify world planning UI is not visible
+  // Verify world UI is not visible
   await expect(
     page.getByRole("heading", { name: "World context and mode" })
   ).not.toBeVisible({ timeout: 3000 });
@@ -307,7 +307,7 @@ Then("I am shown an error telling me that my credentials were incorrect and I am
     timeout: 2000
   });
   
-  // Verify world planning UI is not visible
+  // Verify world UI is not visible
   await expect(
     page.getByRole("heading", { name: "World context and mode" })
   ).not.toBeVisible({ timeout: 3000 });
@@ -354,7 +354,7 @@ Then("the user is shown an error stating that their credentials were incorrect a
     timeout: 2000
   });
   
-  // Verify world planning UI is not visible
+  // Verify world UI is not visible
   await expect(
     page.getByRole("heading", { name: "World context and mode" })
   ).not.toBeVisible({ timeout: 3000 });
@@ -392,7 +392,7 @@ Then("the user is shown an error stating that their credentials were incorrect",
   }
 });
 
-Then("the world planning UI is not visible", async ({ page }) => {
+Then("the world UI is not visible", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "World context and mode" })
   ).not.toBeVisible({ timeout: 3000 });
@@ -404,13 +404,13 @@ Then("the login dialog closes", async ({ page }) => {
   ).toBeHidden({ timeout: 3000 });
 });
 
-Then("the login dialog closes and the world planning UI becomes visible", async ({ page }) => {
+Then("the login dialog closes and the world UI becomes visible", async ({ page }) => {
   // Verify login dialog is closed
   await expect(
     page.getByRole("dialog", { name: "Login" })
   ).toBeHidden({ timeout: 3000 });
   
-  // Verify world planning UI is visible
+  // Verify world UI is visible
   // After login, the authenticated view should be visible
   // This can be:
   // 1. ModeSelector (if no world selected) - shows "World context and mode" heading
@@ -462,7 +462,7 @@ Then("the user is logged in", async ({ page }) => {
   // The logout button being visible is sufficient to confirm we're authenticated
 });
 
-Then("the world planning UI becomes visible", async ({ page }) => {
+Then("the world UI becomes visible", async ({ page }) => {
   // After login, the authenticated view should be visible
   // This can be:
   // 1. ModeSelector (if no world selected) - shows "World context and mode" heading

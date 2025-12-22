@@ -29,7 +29,7 @@ export function useHomePageState() {
     "World" | "Campaigns" | "Sessions" | "Assets" | "Users" | null
   >(null);
   const [activeMode, setActiveMode] = useState<"plan" | "play" | null>(null);
-  const [planningSubTab, setPlanningSubTab] = useState<
+  const [subTab, setSubTab] = useState<
     "World Entities" | "Campaigns" | "Story Arcs" | "Users"
   >("World Entities");
   const [campaignView, setCampaignView] = useState<"sessions" | "players" | "story-arcs" | "timeline" | null>(null);
@@ -113,7 +113,7 @@ export function useHomePageState() {
 
   useNavigationEvents({
     activeMode,
-    planningSubTab,
+    subTab,
     campaignView,
     activeTab,
     selectedIds,
@@ -154,8 +154,8 @@ export function useHomePageState() {
     setActiveTab,
     activeMode,
     setActiveMode,
-    planningSubTab,
-    setPlanningSubTab,
+    subTab,
+    setSubTab,
     campaignView,
     setCampaignView,
     

@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { ensureModeSelectorVisible, getUniqueCampaignName, waitForModalOpen, waitForModalClose, loginAs, loginAsAdmin, waitForWorldUpdated, waitForPlanningMode } from "../helpers";
+import { ensureModeSelectorVisible, getUniqueCampaignName, waitForModalOpen, waitForModalClose, loginAs, loginAsAdmin, waitForWorldUpdated, waitForMode } from "../helpers";
 import { createApiClient } from "../helpers/api";
 import { STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 import { navigateAndWaitForReady } from "../helpers/utils";
@@ -127,7 +127,7 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
   
   if (exists) {
     // Check if we're already in planning mode with this world selected
-    const planningTabsCheck = page.getByRole("tablist", { name: "World planning views" });
+    const planningTabsCheck = page.getByRole("tablist", { name: "World views" });
     const alreadyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 1000 }).catch(() => false);
     
     if (alreadyInPlanningMode) {
@@ -146,33 +146,33 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
       }
     }
     
-    // Retry logic for world selection and planning mode activation
-    let planningModeActivated = false;
+    // Retry logic for world selection and mode activation
+    let modeActivated = false;
     let lastError: Error | null = null;
     
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         // Set up event listener BEFORE clicking
-        const planningModePromise = waitForPlanningMode(page, 10000);
+        const modePromise = waitForMode(page, 10000);
         
         await worldTab.click();
         
-        // Wait for planning mode to activate (event-based)
-        // Note: waitForPlanningMode already verifies planning tabs are visible internally
+        // Wait for mode to activate (event-based)
+        // Note: waitForMode already verifies tabs are visible internally
         // Increased timeout since worlds created via API may need more time to load
-        await planningModePromise;
-        planningModeActivated = true;
+        await modePromise;
+        modeActivated = true;
         break;
       } catch (error) {
         lastError = error as Error;
         
-        // If planning mode doesn't activate, check if we're actually in planning mode
+        // If mode doesn't activate, check if we're actually in the appropriate mode
         // (maybe the event didn't fire but the UI updated)
-        const planningTabsAfterClick = page.getByRole("tablist", { name: "World planning views" });
-        const tabsVisible = await planningTabsAfterClick.isVisible({ timeout: 3000 }).catch(() => false);
+        const tabsAfterClick = page.getByRole("tablist", { name: "World views" });
+        const tabsVisible = await tabsAfterClick.isVisible({ timeout: 3000 }).catch(() => false);
         if (tabsVisible) {
           // Tabs are visible even though event didn't fire - that's okay
-          planningModeActivated = true;
+          modeActivated = true;
           break;
         }
         
@@ -188,7 +188,7 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
       }
     }
     
-    if (!planningModeActivated && lastError) {
+    if (!modeActivated && lastError) {
       throw lastError;
     }
     
@@ -546,14 +546,14 @@ When("the admin selects world {string}", async ({ page }, worldName: string) => 
   
   if (exists) {
     // Set up event listener BEFORE clicking
-    const planningModePromise = waitForPlanningMode(page, 5000);
+    const modePromise = waitForMode(page, 5000);
     
     await worldTab.click();
     
-    // Wait for planning mode to activate (event-based)
-    await planningModePromise;
+    // Wait for mode to activate (event-based)
+    await modePromise;
     
-    // Note: waitForPlanningMode already verifies planning tabs are visible internally
+    // Note: waitForMode already verifies tabs are visible internally
     
     // For "NoSplashWorld", ensure it has no splash image
     if (worldName === "NoSplashWorld") {

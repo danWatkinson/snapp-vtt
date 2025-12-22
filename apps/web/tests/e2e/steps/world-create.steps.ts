@@ -1,42 +1,42 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, ensureModeSelectorVisible, waitForModalOpen, waitForWorldCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, getUniqueCampaignName, getStoredWorldName, getErrorMessage } from "../helpers";
+import { selectWorldAndEnterMode, ensureModeSelectorVisible, waitForModalOpen, waitForWorldCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, getUniqueCampaignName, getStoredWorldName, getErrorMessage } from "../helpers";
 import { safeWait } from "../helpers/utils";
 import { STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
 
 const { When, Then } = createBdd();
 
-When('the admin navigates to the "World Entities" planning screen', async ({ page }) => {
-  await selectWorldAndEnterPlanningMode(page, "World Entities");
+When('the admin navigates to the "World Entities" screen', async ({ page }) => {
+  await selectWorldAndEnterMode(page, "World Entities");
 });
 
 When(
   'the admin creates a world named {string} with description {string}',
   async ({ page }, worldName: string, description: string) => {
-    // Navigate to World Entities planning screen if not already there
-    const planningTabs = page.getByRole("tablist", { name: "World planning views" });
-    const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
+    // Navigate to World Entities screen if not already there
+    const tabs = page.getByRole("tablist", { name: "World views" });
+    const isInMode = await tabs.isVisible({ timeout: 1000 }).catch(() => false);
     
-    if (!isInPlanningMode) {
-      // Retry logic for planning mode activation
-      let planningModeActivated = false;
+    if (!isInMode) {
+      // Retry logic for mode activation
+      let modeActivated = false;
       let lastError: Error | null = null;
       
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          await selectWorldAndEnterPlanningMode(page, "World Entities");
-          planningModeActivated = true;
+          await selectWorldAndEnterMode(page, "World Entities");
+          modeActivated = true;
           break;
         } catch (error) {
           lastError = error as Error;
           
-          // Check if we're actually in planning mode (maybe the event didn't fire)
-          const planningTabsCheck = page.getByRole("tablist", { name: "World planning views" });
-          const isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
-          if (isActuallyInPlanningMode) {
-            // We're in planning mode despite the error - that's okay
-            planningModeActivated = true;
+          // Check if we're actually in the appropriate mode (maybe the event didn't fire)
+          const tabsCheck = page.getByRole("tablist", { name: "World views" });
+          const isActuallyInMode = await tabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
+          if (isActuallyInMode) {
+            // We're in the appropriate mode despite the error - that's okay
+            modeActivated = true;
             break;
           }
           
@@ -47,7 +47,7 @@ When(
         }
       }
       
-      if (!planningModeActivated && lastError) {
+      if (!modeActivated && lastError) {
         throw lastError;
       }
     }

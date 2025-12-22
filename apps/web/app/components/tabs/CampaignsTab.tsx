@@ -6,7 +6,7 @@ import { useTabHelpers } from "../../../lib/hooks/useTabHelpers";
 import Section from "../ui/Section";
 import SectionHeader from "../ui/SectionHeader";
 import { getNameById } from "../../../lib/helpers/entityHelpers";
-import WorldPlanningHeader from "../navigation/WorldPlanningHeader";
+import WorldHeaderWithTabs from "../navigation/WorldHeaderWithTabs";
 import CampaignSelection from "./campaigns/CampaignSelection";
 import CampaignViewFilter from "./campaigns/CampaignViewFilter";
 import SessionsView from "./campaigns/SessionsView";
@@ -23,7 +23,7 @@ export default function CampaignsTab() {
     worlds,
     selectedIds,
     campaignView,
-    planningSubTab,
+    subTab,
     sessions,
     players,
     storyArcs,
@@ -124,17 +124,17 @@ export default function CampaignsTab() {
       : scenes;
 
   // Auto-select first campaign if available and none is selected
-  // Only auto-select when user navigates to Campaigns/Story Arcs planning tab (not on initial load)
-  // Default to story-arcs view if coming from Story Arcs planning tab, otherwise sessions
+  // Only auto-select when user navigates to Campaigns/Story Arcs tab (not on initial load)
+  // Default to story-arcs view if coming from Story Arcs tab, otherwise sessions
   // Use a delay to avoid interfering with user actions (like creating a campaign via Snapp menu)
   const [hasNavigatedToCampaigns, setHasNavigatedToCampaigns] = useState(false);
   
   useEffect(() => {
-    // Track when user navigates to Campaigns or Story Arcs planning tab
-    if (planningSubTab === "Campaigns" || planningSubTab === "Story Arcs") {
+    // Track when user navigates to Campaigns or Story Arcs tab
+    if (subTab === "Campaigns" || subTab === "Story Arcs") {
       setHasNavigatedToCampaigns(true);
     }
-  }, [planningSubTab]);
+  }, [subTab]);
 
   useEffect(() => {
     if (
@@ -147,7 +147,7 @@ export default function CampaignsTab() {
       const timeoutId = setTimeout(() => {
         // Double-check conditions haven't changed (user might have started creating a campaign)
         if (!selectedCampaignId && campaigns.length > 0 && !campaignModalOpen) {
-          const defaultView = planningSubTab === "Story Arcs" ? "story-arcs" : "sessions";
+          const defaultView = subTab === "Story Arcs" ? "story-arcs" : "sessions";
           setSelectedCampaignId(campaigns[0].id);
           setCampaignView(defaultView);
           setSessionsLoadedFor(null);
@@ -158,14 +158,14 @@ export default function CampaignsTab() {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [hasNavigatedToCampaigns, campaigns, selectedCampaignId, planningSubTab, campaignModalOpen, setSelectedCampaignId, setCampaignView, setSessionsLoadedFor, setPlayersLoadedFor, setStoryArcsLoadedFor]);
+  }, [hasNavigatedToCampaigns, campaigns, selectedCampaignId, subTab, campaignModalOpen, setSelectedCampaignId, setCampaignView, setSessionsLoadedFor, setPlayersLoadedFor, setStoryArcsLoadedFor]);
 
-  // Switch to story-arcs view when Story Arcs planning tab is selected
+  // Switch to story-arcs view when Story Arcs tab is selected
   useEffect(() => {
-    if (planningSubTab === "Story Arcs" && selectedCampaignId && campaignView !== "story-arcs") {
+    if (subTab === "Story Arcs" && selectedCampaignId && campaignView !== "story-arcs") {
       setCampaignView("story-arcs");
     }
-  }, [planningSubTab, selectedCampaignId, campaignView, setCampaignView]);
+  }, [subTab, selectedCampaignId, campaignView, setCampaignView]);
 
   // Auto-select first story arc if available and none is selected (only when viewing story arcs)
   useEffect(() => {
@@ -182,8 +182,8 @@ export default function CampaignsTab() {
 
   const handleCampaignSelect = (campaignId: string) => {
     setSelectedCampaignId(campaignId);
-    // Default to story-arcs if coming from Story Arcs planning tab, otherwise sessions
-    const defaultView = planningSubTab === "Story Arcs" ? "story-arcs" : "sessions";
+    // Default to story-arcs if coming from Story Arcs tab, otherwise sessions
+    const defaultView = subTab === "Story Arcs" ? "story-arcs" : "sessions";
     setCampaignView(defaultView);
     setSessionsLoadedFor(null);
     setPlayersLoadedFor(null);
@@ -200,7 +200,7 @@ export default function CampaignsTab() {
 
   return (
     <section data-component="CampaignsTab" className="space-y-4">
-      <WorldPlanningHeader />
+      <WorldHeaderWithTabs />
       
       {selectedIds.worldId && (
         <Section>
@@ -211,7 +211,7 @@ export default function CampaignsTab() {
           <CampaignSelection
             campaigns={campaigns}
             selectedCampaignId={selectedCampaignId}
-            planningSubTab={planningSubTab}
+            subTab={subTab}
             onCampaignSelect={handleCampaignSelect}
           />
 

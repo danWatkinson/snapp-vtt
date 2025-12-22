@@ -11,31 +11,31 @@ import { waitForModalOpen, waitForModalClose } from "../modals";
 import { storeWorldName } from "./navigationUtils";
 
 /**
- * Check if planning mode is currently active by checking for planning tabs visibility.
+ * Check if mode is currently active by checking for tabs visibility.
  */
-async function isPlanningModeActive(page: Page): Promise<boolean> {
+async function isModeActive(page: Page): Promise<boolean> {
   return await isVisibleSafely(
-    page.getByRole("tablist", { name: "World planning views" })
+    page.getByRole("tablist", { name: "World views" })
   );
 }
 
 /**
- * Navigate to a planning sub-tab if already in planning mode.
- * Returns true if navigation succeeded, false if not in planning mode.
+ * Navigate to a sub-tab if already in the appropriate mode.
+ * Returns true if navigation succeeded, false if not in the appropriate mode.
  */
-async function navigateToPlanningSubTabIfActive(
+async function navigateToSubTabIfActive(
   page: Page,
   subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users"
 ): Promise<boolean> {
-  const planningTabsVisible = await isPlanningModeActive(page);
+  const tabsVisible = await isModeActive(page);
   
-  if (!planningTabsVisible) {
+  if (!tabsVisible) {
     return false;
   }
   
-  // Already in planning mode - just navigate to the requested sub-tab
-  const planningTablist = page.getByRole("tablist", { name: "World planning views" });
-  const subTabButton = planningTablist.getByRole("tab", { name: subTab });
+  // Already in the appropriate mode - just navigate to the requested sub-tab
+  const tablist = page.getByRole("tablist", { name: "World views" });
+  const subTabButton = tablist.getByRole("tab", { name: subTab });
   
   // Check if already on the requested tab
   const isActive = await getAttributeSafely(subTabButton, "aria-selected");
@@ -44,7 +44,7 @@ async function navigateToPlanningSubTabIfActive(
   }
   
   // Set up event listener BEFORE clicking
-  const subTabPromise = waitForPlanningSubTab(page, subTab, 5000);
+  const subTabPromise = waitForSubTab(page, subTab, 5000);
   
   await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
   await subTabButton.click();
@@ -214,9 +214,9 @@ export async function ensureModeSelectorVisible(page: Page) {
 }
 
 /**
- * Select a specific world by name and enter planning mode
+ * Select a specific world by name and enter the appropriate mode
  */
-export async function selectWorldAndEnterPlanningModeWithWorldName(
+export async function selectWorldAndEnterModeWithWorldName(
   page: Page,
   subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users",
   worldName: string
@@ -229,12 +229,12 @@ export async function selectWorldAndEnterPlanningModeWithWorldName(
 
   const guestView = await isVisibleSafely(page.getByText("Welcome to Snapp"));
   if (guestView) {
-    throw new Error("Cannot navigate to planning screen: still on guest view after login.");
+    throw new Error("Cannot navigate to world views: still on guest view after login.");
   }
 
-  // Check if already in planning mode
-  if (await isPlanningModeActive(page)) {
-    await navigateToPlanningSubTabIfActive(page, subTab);
+  // Check if already in the appropriate mode
+  if (await isModeActive(page)) {
+    await navigateToSubTabIfActive(page, subTab);
     return;
   }
 
@@ -280,11 +280,11 @@ export async function selectWorldAndEnterPlanningModeWithWorldName(
   // Click the world tab
   await worldTab.click();
   
-  // Wait for planning mode to activate
-  await waitForPlanningMode(page, VISIBILITY_TIMEOUT_LONG);
+  // Wait for mode to activate
+  await waitForMode(page, VISIBILITY_TIMEOUT_LONG);
   
   // Navigate to the requested sub-tab
-  await navigateToPlanningSubTabIfActive(page, subTab);
+  await navigateToSubTabIfActive(page, subTab);
 }
 
 /**
@@ -430,22 +430,22 @@ export async function waitForWorldSelected(
       tabPromise
     ]);
   } catch (error) {
-    // Both failed - check if planning mode is active anyway (might have happened via event)
-    if (await isPlanningModeActive(page)) {
-      // Planning mode is active - world must be selected, even if we didn't catch the event
+    // Both failed - check if mode is active anyway (might have happened via event)
+    if (await isModeActive(page)) {
+      // Mode is active - world must be selected, even if we didn't catch the event
       return;
     }
     
-    // Neither event nor tab check worked, and planning mode isn't active
+    // Neither event nor tab check worked, and mode isn't active
     throw error;
   }
 }
 
 /**
- * Wait for planning mode to be entered using transition events.
- * This is more reliable than polling for planning tabs visibility.
+ * Wait for mode to be entered using transition events.
+ * This is more reliable than polling for tabs visibility.
  */
-export async function waitForPlanningMode(
+export async function waitForMode(
   page: Page,
   timeout: number = DEFAULT_EVENT_TIMEOUT
 ): Promise<void> {
@@ -466,12 +466,12 @@ export async function waitForPlanningMode(
 
         window.addEventListener("snapp:planning-mode-entered", handler);
 
-        // Check if planning mode is already active (might have been entered before listener was set up)
+        // Check if mode is already active (might have been entered before listener was set up)
         setTimeout(() => {
           if (resolved) return;
           
           // Check if planning tabs are visible
-          const planningTabs = document.querySelectorAll('[role="tablist"][aria-label*="World planning views"]');
+          const planningTabs = document.querySelectorAll('[role="tablist"][aria-label*="World views"]');
           if (planningTabs.length > 0) {
             const isVisible = planningTabs[0] instanceof HTMLElement && 
               (planningTabs[0].offsetParent !== null || planningTabs[0].style.display !== "none");
@@ -489,7 +489,7 @@ export async function waitForPlanningMode(
           if (!resolved) {
             resolved = true;
             window.removeEventListener("snapp:planning-mode-entered", handler);
-            reject(new Error(`Timeout waiting for planning mode to be entered after ${timeout}ms`));
+            reject(new Error(`Timeout waiting for mode to be entered after ${timeout}ms`));
           }
         }, timeout);
       });
@@ -501,7 +501,7 @@ export async function waitForPlanningMode(
   const tabsPromise = (async () => {
     // Wait for planning tabs to be visible, but don't fail immediately if they're not
     // The event might fire before the UI updates
-    const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+    const planningTabs = page.getByRole("tablist", { name: "World views" });
     try {
       await expect(planningTabs).toBeVisible({ timeout });
     } catch {
@@ -522,10 +522,10 @@ export async function waitForPlanningMode(
 }
 
 /**
- * Wait for a planning sub-tab to be activated using transition events.
+ * Wait for a sub-tab to be activated using transition events.
  * This is more reliable than checking for DOM elements.
  */
-export async function waitForPlanningSubTab(
+export async function waitForSubTab(
   page: Page,
   subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users",
   timeout: number = DEFAULT_EVENT_TIMEOUT
@@ -555,7 +555,7 @@ export async function waitForPlanningSubTab(
           if (resolved) return;
           
           // Check if the tab is already active in the DOM
-          const planningTabs = document.querySelectorAll('[role="tablist"][aria-label*="World planning views"] [role="tab"]');
+          const planningTabs = document.querySelectorAll('[role="tablist"][aria-label*="World views"] [role="tab"]');
           for (const tabElement of planningTabs) {
             const tabText = tabElement.textContent?.trim() || "";
             const isSelected = tabElement.getAttribute("aria-selected") === "true";
@@ -583,7 +583,7 @@ export async function waitForPlanningSubTab(
 
   // Fallback: Wait for the tab to be visible and selected in the DOM
   const domPromise = (async () => {
-    const planningTablist = page.getByRole("tablist", { name: "World planning views" });
+    const planningTablist = page.getByRole("tablist", { name: "World views" });
     await expect(planningTablist).toBeVisible({ timeout });
     const tab = planningTablist.getByRole("tab", { name: subTab });
     await expect(tab).toBeVisible({ timeout });
@@ -600,7 +600,7 @@ export async function waitForPlanningSubTab(
     // After polling, check one more time
     const finalSelected = await tab.getAttribute("aria-selected");
     if (finalSelected !== "true") {
-      throw new Error(`Planning sub-tab "${subTab}" is visible but not selected after ${pollTimeout}ms`);
+        throw new Error(`Sub-tab "${subTab}" is visible but not selected after ${pollTimeout}ms`);
     }
   })();
 
@@ -610,7 +610,7 @@ export async function waitForPlanningSubTab(
     domPromise
   ]).catch(async (error) => {
     // If both failed, check if tab is selected anyway
-    const planningTablist = page.getByRole("tablist", { name: "World planning views" });
+    const planningTablist = page.getByRole("tablist", { name: "World views" });
     const isVisible = await isVisibleSafely(planningTablist);
     if (isVisible) {
       const tab = planningTablist.getByRole("tab", { name: subTab });
@@ -626,8 +626,8 @@ export async function waitForPlanningSubTab(
   });
 }
 
-// Now define selectWorldAndEnterPlanningMode which uses the wait functions above
-export async function selectWorldAndEnterPlanningMode(
+// Now define selectWorldAndEnterMode which uses the wait functions above
+export async function selectWorldAndEnterMode(
   page: Page,
   subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users" = "World Entities"
 ) {
@@ -637,12 +637,12 @@ export async function selectWorldAndEnterPlanningMode(
   if (!logoutVisible) {
     const guestView = await isVisibleSafely(page.getByText("Welcome to Snapp"), 1000);
     if (guestView) {
-      throw new Error("Cannot navigate to planning screen: user is not logged in. Guest view is visible.");
+        throw new Error("Cannot navigate to world views: user is not logged in. Guest view is visible.");
     }
     await safeWait(page, STABILITY_WAIT_MEDIUM);
     const logoutVisibleRetry = await isVisibleSafely(logoutButton, VISIBILITY_TIMEOUT_SHORT);
     if (!logoutVisibleRetry) {
-      throw new Error("Cannot navigate to planning screen: logout button is not visible and user does not appear to be logged in.");
+        throw new Error("Cannot navigate to world views: logout button is not visible and user does not appear to be logged in.");
     }
   }
   
@@ -653,32 +653,32 @@ export async function selectWorldAndEnterPlanningMode(
   } catch (error) {
     const guestViewCheck = await isVisibleSafely(page.getByText("Welcome to Snapp"), 1000);
     if (guestViewCheck) {
-      throw new Error("Cannot navigate to planning screen: user is not logged in. Guest view is visible after waiting for authentication.");
+        throw new Error("Cannot navigate to world views: user is not logged in. Guest view is visible after waiting for authentication.");
     }
-    throw new Error(`Cannot navigate to planning screen: logout button is not visible after waiting ${VISIBILITY_TIMEOUT_LONG}ms. User may not be logged in or page may not be in authenticated state. Original error: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Cannot navigate to world views: logout button is not visible after waiting ${VISIBILITY_TIMEOUT_LONG}ms. User may not be logged in or page may not be in authenticated state. Original error: ${error instanceof Error ? error.message : String(error)}`);
   }
   
   const guestView = await isVisibleSafely(page.getByText("Welcome to Snapp"));
   if (guestView) {
-    throw new Error("Cannot navigate to planning screen: still on guest view after login. AuthenticatedView may not have rendered.");
+        throw new Error("Cannot navigate to world views: still on guest view after login. AuthenticatedView may not have rendered.");
   }
   
-  // Check if we're already in planning mode
-  let planningTabsAlreadyVisible = false;
+  // Check if we're already in the appropriate mode
+  let tabsAlreadyVisible = false;
   for (let i = 0; i < 3; i++) {
-    planningTabsAlreadyVisible = await isPlanningModeActive(page);
-    if (planningTabsAlreadyVisible) {
+    tabsAlreadyVisible = await isModeActive(page);
+    if (tabsAlreadyVisible) {
       break;
     }
     await safeWait(page, STABILITY_WAIT_LONG);
   }
   
-  if (planningTabsAlreadyVisible) {
-    await navigateToPlanningSubTabIfActive(page, subTab);
+  if (tabsAlreadyVisible) {
+    await navigateToSubTabIfActive(page, subTab);
     return;
   }
 
-  // Not in planning mode yet - need to select a world first
+  // Not in the appropriate mode yet - need to select a world first
   const worldContextTablistCheck = page.getByRole("tablist", { name: "World context" });
   const worldContextVisibleCheck = await isVisibleSafely(worldContextTablistCheck);
   
@@ -731,8 +731,8 @@ export async function selectWorldAndEnterPlanningMode(
         continue;
       }
       
-      if (await isPlanningModeActive(page)) {
-        await navigateToPlanningSubTabIfActive(page, subTab);
+      if (await isModeActive(page)) {
+        await navigateToSubTabIfActive(page, subTab);
         return;
       }
       
@@ -743,12 +743,12 @@ export async function selectWorldAndEnterPlanningMode(
         break;
       }
       
-      throw new Error("World context tablist is not visible and not in planning mode. User may not be logged in or page may be in an unexpected state. Try ensuring the user is logged in and the mode selector is visible.");
+      throw new Error("World context tablist is not visible and not in the appropriate mode. User may not be logged in or page may be in an unexpected state. Try ensuring the user is logged in and the mode selector is visible.");
     }
   }
   
-  if (await isPlanningModeActive(page)) {
-    await navigateToPlanningSubTabIfActive(page, subTab);
+  if (await isModeActive(page)) {
+    await navigateToSubTabIfActive(page, subTab);
     return;
   }
 
@@ -800,8 +800,8 @@ export async function selectWorldAndEnterPlanningMode(
     await expect(worldContextTablist).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
     worldContextVisible = true;
   } catch {
-    if (await isPlanningModeActive(page)) {
-      await navigateToPlanningSubTabIfActive(page, subTab);
+    if (await isModeActive(page)) {
+      await navigateToSubTabIfActive(page, subTab);
       return;
     }
     
@@ -809,7 +809,7 @@ export async function selectWorldAndEnterPlanningMode(
     worldContextVisible = await isVisibleSafely(worldContextTablist, 5000);
     
     if (!worldContextVisible) {
-      throw new Error("World context tablist is not visible and not in planning mode. User may not be logged in or page may be in an unexpected state. Try ensuring the user is logged in and the mode selector is visible.");
+      throw new Error("World context tablist is not visible and not in the appropriate mode. User may not be logged in or page may be in an unexpected state. Try ensuring the user is logged in and the mode selector is visible.");
     }
   }
   
@@ -1026,7 +1026,7 @@ export async function selectWorldAndEnterPlanningMode(
   const worldName = worldNameRaw?.trim().replace(/^[—–\-\s]+/, "").trim() || "unknown";
   
   const worldSelectedPromise = waitForWorldSelected(page, worldName, 8000);
-  const planningModePromise = waitForPlanningMode(page, 10000);
+  const modePromise = waitForMode(page, 10000);
   
   await expect(worldTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
   await expect(worldTab).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_SHORT });
@@ -1099,25 +1099,25 @@ export async function selectWorldAndEnterPlanningMode(
   try {
     const results = await Promise.allSettled([
       worldSelectedPromise,
-      planningModePromise
+      modePromise
     ]);
     
     const worldSelectedSucceeded = results[0].status === "fulfilled";
-    const planningModeSucceeded = results[1].status === "fulfilled";
+    const modeSucceeded = results[1].status === "fulfilled";
     
-    let planningTabsVisible = planningModeSucceeded ? true : await isPlanningModeActive(page);
+    let tabsVisible = modeSucceeded ? true : await isModeActive(page);
     
-    if (!planningTabsVisible) {
+    if (!tabsVisible) {
       const waitTime = worldSelectedSucceeded ? VISIBILITY_TIMEOUT_SHORT : STABILITY_WAIT_MAX;
       await safeWait(page, waitTime);
-      planningTabsVisible = await isPlanningModeActive(page);
+      tabsVisible = await isModeActive(page);
       
-      if (!planningTabsVisible) {
+      if (!tabsVisible) {
         await safeWait(page, VISIBILITY_TIMEOUT_SHORT / 2);
-        planningTabsVisible = await isPlanningModeActive(page);
+        tabsVisible = await isModeActive(page);
       }
       
-      if (!planningTabsVisible) {
+      if (!tabsVisible) {
         if (worldSelectedSucceeded) {
           const worldTabSelected = await awaitSafelyBoolean(
             Promise.race([
@@ -1146,16 +1146,16 @@ export async function selectWorldAndEnterPlanningMode(
           }
           
           await safeWait(page, VISIBILITY_TIMEOUT_SHORT);
-          planningTabsVisible = await isPlanningModeActive(page);
+          tabsVisible = await isModeActive(page);
           
-          if (planningTabsVisible) {
+          if (tabsVisible) {
             return;
           }
           
           await safeWait(page, VISIBILITY_TIMEOUT_SHORT);
-          planningTabsVisible = await isPlanningModeActive(page);
+          tabsVisible = await isModeActive(page);
           
-          if (planningTabsVisible) {
+          if (tabsVisible) {
             return;
           }
         }
@@ -1182,15 +1182,15 @@ export async function selectWorldAndEnterPlanningMode(
           : false;
         
         const worldEventFired = worldSelectedSucceeded ? "yes" : "no";
-        const planningEventFired = planningModeSucceeded ? "yes" : "no";
+        const modeEventFired = modeSucceeded ? "yes" : "no";
         
-        let errorMessage = `Planning mode did not activate after selecting world "${worldName}". `;
+        let errorMessage = `World views did not activate after selecting world "${worldName}". `;
         errorMessage += `URL: ${currentUrl}, `;
         errorMessage += `Logout button visible: ${logoutButtonStillVisible}, `;
         errorMessage += `Guest view visible: ${guestViewVisible}, `;
         errorMessage += `World context visible: ${worldContextStillVisible}, `;
         errorMessage += `World tab visible: ${worldTabStillVisible}, World tab selected: ${worldTabSelected}. `;
-        errorMessage += `World selection event fired: ${worldEventFired}, Planning mode event fired: ${planningEventFired}. `;
+        errorMessage += `World selection event fired: ${worldEventFired}, Mode event fired: ${modeEventFired}. `;
         
         if (!logoutButtonStillVisible && guestViewVisible) {
           errorMessage += `User appears to have been logged out (guest view is visible). `;
@@ -1200,13 +1200,13 @@ export async function selectWorldAndEnterPlanningMode(
           errorMessage += `World context tablist is not visible - ensureModeSelectorVisible may have failed. `;
         }
         
-        errorMessage += `This may indicate the click did not register, the events did not fire, or planning mode did not activate.`;
+        errorMessage += `This may indicate the click did not register, the events did not fire, or world views did not activate.`;
         
         throw new Error(errorMessage);
       }
     }
   } catch (error) {
-    if (await isPlanningModeActive(page)) {
+    if (await isModeActive(page)) {
       return;
     }
     throw error;
@@ -1216,6 +1216,6 @@ export async function selectWorldAndEnterPlanningMode(
     if (await isPageClosedSafely(page)) {
       throw new Error("Page was closed before navigating to sub-tab");
     }
-    await navigateToPlanningSubTabIfActive(page, subTab);
+    await navigateToSubTabIfActive(page, subTab);
   }
 }

@@ -21,7 +21,7 @@ export * from "./auth";
 export * from "./navigation";
 // Explicitly export navigation functions to ensure they're available
 export { 
-  selectWorldAndEnterPlanningModeWithWorldName,
+  selectWorldAndEnterModeWithWorldName,
   navigateToUsersScreen,
   navigateToAssetsScreen,
   navigateToCampaignView,

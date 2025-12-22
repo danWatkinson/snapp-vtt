@@ -32,7 +32,7 @@ interface UseHomePageHandlersProps {
   setCurrentUser: (user: any) => void;
   setActiveTab: (tab: "World" | "Campaigns" | "Sessions" | "Assets" | "Users" | null) => void;
   setActiveMode: (mode: "plan" | "play" | null) => void;
-  setPlanningSubTab: (tab: "World Entities" | "Campaigns" | "Story Arcs" | "Users") => void;
+  setSubTab: (tab: "World Entities" | "Campaigns" | "Story Arcs" | "Users") => void;
   setSelectedEntityType: (type: "all" | "location" | "creature" | "faction" | "event") => void;
   
   // Data setters
@@ -90,7 +90,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     setCurrentUser,
     setActiveTab,
     setActiveMode,
-    setPlanningSubTab,
+    setSubTab,
     setSelectedEntityType,
     setWorlds,
     setCampaigns,
@@ -153,7 +153,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     // Reset navigation state
     setActiveTab(null);
     setActiveMode(null);
-    setPlanningSubTab("World Entities");
+    setSubTab("World Entities");
     resetSelection();
     setSelectedEntityType("all");
     setError(null);

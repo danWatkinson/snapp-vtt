@@ -43,7 +43,7 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
     setCurrentUser: state.setCurrentUser,
     setActiveTab: state.setActiveTab,
     setActiveMode: state.setActiveMode,
-    setPlanningSubTab: state.setPlanningSubTab,
+    setSubTab: state.setSubTab,
     setSelectedEntityType: state.setSelectedEntityType,
     setWorlds: state.setWorlds,
     setCampaigns: state.setCampaigns,
@@ -144,7 +144,7 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
     if (!state.currentUser || !state.selectedIds.worldId) return;
     state.setActiveTab("Campaigns");
     state.setActiveMode("plan");
-    state.setPlanningSubTab("Campaigns");
+    state.setSubTab("Campaigns");
     state.openModal("campaign");
   });
 
@@ -184,7 +184,7 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
       state.setCurrentUser(null);
       state.setActiveTab(null);
       state.setActiveMode(null);
-      state.setPlanningSubTab("World Entities");
+      state.setSubTab("World Entities");
       state.resetSelection();
       state.setSelectedEntityType("all");
       state.setError(null);

@@ -109,7 +109,7 @@ export default function WorldHeader() {
           <div className="flex items-center gap-2">
             {activeMode === "plan" && (
               <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs snapp-muted">
-                Planning mode
+                Mode
               </span>
             )}
             <Button

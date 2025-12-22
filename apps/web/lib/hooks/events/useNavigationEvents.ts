@@ -20,7 +20,7 @@ interface SelectionIds {
 
 interface UseNavigationEventsProps {
   activeMode: "plan" | "play" | null;
-  planningSubTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users";
+  subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users";
   campaignView: "sessions" | "players" | "story-arcs" | "timeline" | null;
   activeTab: "World" | "Campaigns" | "Sessions" | "Assets" | "Users" | null;
   selectedIds: SelectionIds;
@@ -30,11 +30,11 @@ interface UseNavigationEventsProps {
 
 /**
  * Hook to dispatch navigation-related transition events.
- * Handles planning mode, sub-tab, campaign view, and main tab change events.
+ * Handles mode, sub-tab, campaign view, and main tab change events.
  */
 export function useNavigationEvents({
   activeMode,
-  planningSubTab,
+  subTab,
   campaignView,
   activeTab,
   selectedIds,
@@ -42,23 +42,23 @@ export function useNavigationEvents({
   campaigns
 }: UseNavigationEventsProps) {
   const prevActiveModeRef = useRef(activeMode);
-  const prevPlanningSubTabRef = useRef(planningSubTab);
+  const prevSubTabRef = useRef(subTab);
   const prevCampaignViewRef = useRef(campaignView);
   const prevActiveTabRef = useRef(activeTab);
 
-  // Dispatch planning mode events when activeMode changes
+  // Dispatch mode events when activeMode changes
   useEffect(() => {
     const prevActiveMode = prevActiveModeRef.current;
     
     if (activeMode === "plan" && prevActiveMode !== "plan") {
-      // Planning mode entered
+      // Mode entered
       dispatchTransitionEvent(PLANNING_MODE_ENTERED_EVENT, {
         worldId: selectedIds.worldId,
         worldName: worlds.find(w => w.id === selectedIds.worldId)?.name || null,
-        planningSubTab: planningSubTab
+        subTab: subTab
       });
     } else if (activeMode !== "plan" && prevActiveMode === "plan") {
-      // Planning mode exited
+      // Mode exited
       dispatchTransitionEvent(PLANNING_MODE_EXITED_EVENT, {
         previousWorldId: selectedIds.worldId,
         previousWorldName: worlds.find(w => w.id === selectedIds.worldId)?.name || null
@@ -66,24 +66,24 @@ export function useNavigationEvents({
     }
     
     prevActiveModeRef.current = activeMode;
-  }, [activeMode, selectedIds.worldId, worlds, planningSubTab]);
+  }, [activeMode, selectedIds.worldId, worlds, subTab]);
 
-  // Dispatch planning sub-tab change events
+  // Dispatch sub-tab change events
   useEffect(() => {
-    const prevPlanningSubTab = prevPlanningSubTabRef.current;
+    const prevSubTab = prevSubTabRef.current;
     
-    if (planningSubTab !== prevPlanningSubTab && activeMode === "plan") {
-      // Only dispatch if we're in planning mode
+    if (subTab !== prevSubTab && activeMode === "plan") {
+      // Only dispatch if we're in the appropriate mode
       dispatchTransitionEvent(PLANNING_SUBTAB_CHANGED_EVENT, {
-        subTab: planningSubTab,
-        previousSubTab: prevPlanningSubTab,
+        subTab: subTab,
+        previousSubTab: prevSubTab,
         worldId: selectedIds.worldId,
         worldName: worlds.find(w => w.id === selectedIds.worldId)?.name || null
       });
     }
     
-    prevPlanningSubTabRef.current = planningSubTab;
-  }, [planningSubTab, activeMode, selectedIds.worldId, worlds]);
+    prevSubTabRef.current = subTab;
+  }, [subTab, activeMode, selectedIds.worldId, worlds]);
 
   // Dispatch campaign view change events
   useEffect(() => {

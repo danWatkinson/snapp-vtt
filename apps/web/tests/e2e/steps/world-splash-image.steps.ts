@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { getStoredWorldName, waitForWorldUpdated, waitForModalOpen, selectWorldAndEnterPlanningMode, getUniqueCampaignName, waitForPlanningMode } from "../helpers";
+import { getStoredWorldName, waitForWorldUpdated, waitForModalOpen, selectWorldAndEnterMode, getUniqueCampaignName, waitForMode } from "../helpers";
 import { STABILITY_WAIT_MAX, STABILITY_WAIT_SHORT } from "../helpers/constants";
 import { safeWait, isVisibleSafely } from "../helpers/utils";
 
@@ -16,21 +16,21 @@ When(
     if (!isWorldSelected) {
       // Need to navigate and select the world
       // Check if we're in planning mode
-      const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+      const planningTabs = page.getByRole("tablist", { name: "World views" });
       const isInPlanningMode = await isVisibleSafely(planningTabs, 1000);
       
       if (!isInPlanningMode) {
-        // Navigate to World Entities planning screen (this will select a world if none selected)
+        // Navigate to World Entities screen (this will select a world if none selected)
         // After navigation, verify we're in planning mode before proceeding
         try {
-          await selectWorldAndEnterPlanningMode(page, "World Entities");
+          await selectWorldAndEnterMode(page, "World Entities");
         } catch (error) {
           // If planning mode activation failed, check if we're actually in planning mode anyway
           // Retry multiple times with delays - planning mode might activate shortly after the error
           let isActuallyInPlanningMode = false;
           for (let retry = 0; retry < 5; retry++) {
             await safeWait(page, STABILITY_WAIT_SHORT);
-            const planningTabsCheck = page.getByRole("tablist", { name: "World planning views" });
+            const planningTabsCheck = page.getByRole("tablist", { name: "World views" });
             isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 2000 }).catch(() => false);
             if (isActuallyInPlanningMode) {
               break; // Planning mode is active, continue
@@ -44,14 +44,14 @@ When(
         }
         
         // Verify planning mode is active
-        const planningTabsAfterNav = page.getByRole("tablist", { name: "World planning views" });
+        const planningTabsAfterNav = page.getByRole("tablist", { name: "World views" });
         const isInPlanningModeAfterNav = await planningTabsAfterNav.isVisible({ timeout: 5000 }).catch(() => false);
         if (!isInPlanningModeAfterNav) {
           // Planning mode didn't activate - wait a bit more and check again
           await safeWait(page, STABILITY_WAIT_MAX);
           const stillNotInPlanningMode = !(await planningTabsAfterNav.isVisible({ timeout: 3000 }).catch(() => false));
           if (stillNotInPlanningMode) {
-            throw new Error(`Planning mode did not activate after navigating to World Entities planning screen for world "${worldName}"`);
+            throw new Error(`Mode did not activate after navigating to World Entities screen for world "${worldName}"`);
           }
         }
         
@@ -102,9 +102,9 @@ When(
           }
           
           if (exists) {
-            const planningModePromise = waitForPlanningMode(page, 5000);
+            const modePromise = waitForMode(page, 5000);
             await worldTab.click();
-            await planningModePromise;
+            await modePromise;
           }
         }
       } else {
@@ -158,9 +158,9 @@ When(
           }
           
           if (exists) {
-            const planningModePromise = waitForPlanningMode(page, 5000);
+            const modePromise = waitForMode(page, 5000);
             await worldTab.click();
-            await planningModePromise;
+            await modePromise;
           } else {
             throw new Error(`World "${worldName}" not found in world selector`);
           }
@@ -351,12 +351,12 @@ Then(
     const isWorldSelected = await isVisibleSafely(settingsButton, 1000);
     
     if (!isWorldSelected) {
-      // Navigate to World Entities planning screen and select world
+      // Navigate to World Entities screen and select world
       try {
-        await selectWorldAndEnterPlanningMode(page, "World Entities");
+        await selectWorldAndEnterMode(page, "World Entities");
       } catch (error) {
         // If planning mode activation failed, check if we're actually in planning mode anyway
-        const planningTabsCheck = page.getByRole("tablist", { name: "World planning views" });
+        const planningTabsCheck = page.getByRole("tablist", { name: "World views" });
         const isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
         if (!isActuallyInPlanningMode) {
           // Not in planning mode - rethrow the error
@@ -366,7 +366,7 @@ Then(
       }
       
       // Check if we're already in planning mode with a world selected
-      const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+      const planningTabs = page.getByRole("tablist", { name: "World views" });
       const isInPlanningMode = await planningTabs.isVisible({ timeout: 2000 }).catch(() => false);
       const currentSettingsButton = page.getByRole("button", { name: "World settings" });
       const worldSelectedInPlanningMode = await isVisibleSafely(currentSettingsButton, 1000);
@@ -375,7 +375,7 @@ Then(
         // We're in planning mode with a world selected - assume it's correct for now
         // The placeholder check will verify if it's the right world
         // If it's the wrong world, we'd need to leave and reselect, but that's complex
-        // For now, proceed with the assumption that selectWorldAndEnterPlanningMode selected the right world
+        // For now, proceed with the assumption that selectWorldAndEnterMode selected the right world
       } else {
         // Not in planning mode or no world selected - need to select the world
         // Get the stored world name first (from "world X exists" step), then fall back to generating one
@@ -445,9 +445,9 @@ Then(
           }
           
           if (exists) {
-            const planningModePromise = waitForPlanningMode(page, 5000);
+            const modePromise = waitForMode(page, 5000);
             await worldTab.click();
-            await planningModePromise;
+            await modePromise;
           } else {
             // List available worlds for debugging
             const availableWorlds = await Promise.all(
@@ -461,9 +461,9 @@ Then(
         } else {
           // Correct world is selected - click it to enter planning mode if not already
           const worldTab = worldContextTablist.getByRole("tab", { name: currentlySelectedWorld });
-          const planningModePromise = waitForPlanningMode(page, 5000);
+          const modePromise = waitForMode(page, 5000);
           await worldTab.click();
-          await planningModePromise;
+          await modePromise;
         }
       }
     }

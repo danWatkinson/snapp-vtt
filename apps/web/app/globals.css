@@ -103,7 +103,7 @@ body {
   border: 1px solid var(--snapp-border);
 }
 
-/* Primary planning tabs (World Entities / Campaigns / Story Arcs / Users) */
+/* Primary tabs (World Entities / Campaigns / Story Arcs / Users) */
 .snapp-planning-tabs {
   background-color: rgba(244, 232, 208, 0.95);
   border-radius: 9999px;

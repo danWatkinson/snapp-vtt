@@ -35,7 +35,7 @@ function dispatchOpenManageAssets() {
 
 export default function SnappMenu() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { selectedIds, setSelectionField, setActiveMode, setActiveTab, setPlanningSubTab, currentUser } = useHomePage();
+  const { selectedIds, setSelectionField, setActiveMode, setActiveTab, setSubTab, currentUser } = useHomePage();
   const lastUserIdRef = useRef<string | null>(null);
   
   // Close menu when user changes to ensure menu items reflect new user's roles
@@ -51,7 +51,7 @@ export default function SnappMenu() {
     setSelectionField("worldId", null);
     setActiveMode(null);
     setActiveTab(null);
-    setPlanningSubTab("World Entities");
+    setSubTab("World Entities");
     setMenuOpen(false);
   };
 

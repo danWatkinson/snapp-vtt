@@ -8,7 +8,7 @@ import Modal from "../ui/Modal";
 import Section from "../ui/Section";
 import SectionHeader from "../ui/SectionHeader";
 import Form from "../ui/Form";
-import WorldPlanningHeader from "../navigation/WorldPlanningHeader";
+import WorldHeaderWithTabs from "../navigation/WorldHeaderWithTabs";
 import { getNameById } from "../../../lib/helpers/entityHelpers";
 import { useMemo, useEffect, useCallback } from "react";
 import LoadingIndicator from "../ui/LoadingIndicator";
@@ -39,7 +39,7 @@ export default function WorldTab() {
     closeModal,
     setActiveMode,
     setActiveTab,
-    setPlanningSubTab
+    setSubTab
   } = useHomePage();
 
   // Wrapper functions for modal handlers to match useTabHelpers signature
@@ -171,7 +171,7 @@ export default function WorldTab() {
             setEntitiesLoadedFor(null);
             setActiveMode("plan");
             setActiveTab("World");
-            setPlanningSubTab("World Entities");
+            setSubTab("World Entities");
           }}
           onEntityTypeReset={() => {
             setSelectedEntityType("all");
@@ -182,8 +182,8 @@ export default function WorldTab() {
 
       {/* Main content when world is selected */}
       {selectedIds.worldId && selectedWorld && (
-        <>
-          <WorldPlanningHeader />
+        <section aria-label={getNameById(worlds, selectedWorldId, "") ?? undefined}>
+          <WorldHeaderWithTabs />
           <Section>
             <EntityTypeFilter
               selectedType={selectedEntityType}
@@ -227,7 +227,7 @@ export default function WorldTab() {
               showTypeLabel={selectedEntityType === "all"}
             />
           </Section>
-        </>
+        </section>
       )}
 
       {/* World creation modal */}

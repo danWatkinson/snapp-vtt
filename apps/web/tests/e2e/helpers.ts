@@ -6,11 +6,11 @@ import { waitForModalOpen, waitForModalClose, closeModalIfOpen } from "./helpers
 import { loginAs, loginAsAdmin, ensureLoginDialogClosed } from "./helpers/auth";
 import {
   ensureModeSelectorVisible,
-  selectWorldAndEnterPlanningMode,
+  selectWorldAndEnterMode,
   waitForWorldSelected,
   waitForCampaignSelected,
-  waitForPlanningMode,
-  waitForPlanningSubTab,
+  waitForMode,
+  waitForSubTab,
   waitForCampaignView,
   waitForMainTab,
   ensureCampaignExists
@@ -32,11 +32,11 @@ export { waitForModalOpen, waitForModalClose, closeModalIfOpen } from "./helpers
 export { loginAs, loginAsAdmin, ensureLoginDialogClosed } from "./helpers/auth";
 export {
   ensureModeSelectorVisible,
-  selectWorldAndEnterPlanningMode,
+  selectWorldAndEnterMode,
   waitForWorldSelected,
   waitForCampaignSelected,
-  waitForPlanningMode,
-  waitForPlanningSubTab,
+  waitForMode,
+  waitForSubTab,
   waitForCampaignView,
   waitForMainTab,
   ensureCampaignExists

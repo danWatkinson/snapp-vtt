@@ -15,7 +15,7 @@ export const WORLD_DESELECTED_EVENT = "snapp:world-deselected";
 export const CAMPAIGN_SELECTED_EVENT = "snapp:campaign-selected";
 export const CAMPAIGN_DESELECTED_EVENT = "snapp:campaign-deselected";
 
-// Planning mode transition events
+// Mode transition events
 export const PLANNING_MODE_ENTERED_EVENT = "snapp:planning-mode-entered";
 export const PLANNING_MODE_EXITED_EVENT = "snapp:planning-mode-exited";
 export const PLANNING_SUBTAB_CHANGED_EVENT = "snapp:planning-subtab-changed";

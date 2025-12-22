@@ -9,7 +9,7 @@ describe("useHomePageState", () => {
 
     expect(result.current.activeTab).toBeNull();
     expect(result.current.activeMode).toBeNull();
-    expect(result.current.planningSubTab).toBe("World Entities");
+    expect(result.current.subTab).toBe("World Entities");
     expect(result.current.campaignView).toBeNull();
     expect(result.current.currentUser).toBeNull();
     expect(result.current.error).toBeNull();
@@ -70,14 +70,14 @@ describe("useHomePageState", () => {
     expect(result.current.activeMode).toBe("plan");
   });
 
-  it("should allow updating planning sub tab", () => {
+  it("should allow updating sub tab", () => {
     const { result } = renderHook(() => useHomePageState());
 
     act(() => {
-      result.current.setPlanningSubTab("Campaigns");
+      result.current.setSubTab("Campaigns");
     });
 
-    expect(result.current.planningSubTab).toBe("Campaigns");
+    expect(result.current.subTab).toBe("Campaigns");
   });
 
   it("should allow updating campaign view", () => {

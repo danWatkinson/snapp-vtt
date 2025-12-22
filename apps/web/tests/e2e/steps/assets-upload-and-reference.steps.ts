@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName, ensureLoginDialogClosed, loginAs, selectWorldAndEnterPlanningMode, waitForAssetUploaded, waitForPlanningMode, getUniqueUsername } from "../helpers";
+import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName, ensureLoginDialogClosed, loginAs, selectWorldAndEnterMode, waitForAssetUploaded, waitForMode, getUniqueUsername } from "../helpers";
 import { safeWait, navigateAndWaitForReady } from "../helpers/utils";
 import { Buffer } from "buffer";
 import path from "path";
@@ -419,18 +419,18 @@ When("campaign {string} exists", async ({ page }, campaignName: string) => {
 });
 
 // Navigation steps for world builder
-When('the world builder navigates to the "World Entities" planning screen', async ({ page }) => {
-  await selectWorldAndEnterPlanningMode(page, "World Entities");
+When('the world builder navigates to the "World Entities" screen', async ({ page }) => {
+  await selectWorldAndEnterMode(page, "World Entities");
   
   // After navigating to World Entities, the world context tablist might not be visible
   // if we're already in planning mode (it's hidden when a world is selected).
   // We only need to wait for it if we're not in planning mode yet.
-  // The selectWorldAndEnterPlanningMode function handles this, so we don't need to wait here.
+  // The selectWorldAndEnterMode function handles this, so we don't need to wait here.
   // If a world needs to be selected, that will happen in the next step.
 });
 
-When('the world builder navigates to the "Campaigns" planning screen', async ({ page }) => {
-  await selectWorldAndEnterPlanningMode(page, "Campaigns");
+When('the world builder navigates to the "Campaigns" screen', async ({ page }) => {
+  await selectWorldAndEnterMode(page, "Campaigns");
 });
 
 When("the world builder navigates to the locations tab", async ({ page }) => {
@@ -452,7 +452,7 @@ When("the world builder selects world {string}", async ({ page }, worldName: str
   }
   
   // Check if we're already in planning mode
-  const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+  const planningTabs = page.getByRole("tablist", { name: "World views" });
   const isInPlanningMode = await planningTabs.isVisible({ timeout: 2000 }).catch(() => false);
   
   if (isInPlanningMode) {
@@ -526,12 +526,12 @@ When("the world builder selects world {string}", async ({ page }, worldName: str
   }
   
   // Set up event listener BEFORE clicking
-  const planningModePromise = waitForPlanningMode(page, 5000);
+  const modePromise = waitForMode(page, 5000);
   
   await worldTab.click();
   
-  // Wait for planning mode to activate
-  await planningModePromise;
+  // Wait for mode to activate
+  await modePromise;
 });
 
 When("the world builder ensures location {string} exists", async ({ page }, locationName: string) => {
@@ -541,16 +541,16 @@ When("the world builder ensures location {string} exists", async ({ page }, loca
   
   if (!isOnLocationsTab) {
     // Check if we're in planning mode with a world selected
-    const planningTabs = page.getByRole("tablist", { name: "World planning views" });
+    const planningTabs = page.getByRole("tablist", { name: "World views" });
     const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
     
     if (!isInPlanningMode) {
-      // Navigate to World Entities planning screen and select world (defaults to "Eldoria")
+      // Navigate to World Entities screen and select world (defaults to "Eldoria")
       try {
-        await selectWorldAndEnterPlanningMode(page, "World Entities");
+        await selectWorldAndEnterMode(page, "World Entities");
       } catch (error) {
         // If planning mode activation failed, check if we're actually in planning mode anyway
-        const planningTabsCheck = page.getByRole("tablist", { name: "World planning views" });
+        const planningTabsCheck = page.getByRole("tablist", { name: "World views" });
         const isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
         if (!isActuallyInPlanningMode) {
           // Not in planning mode - rethrow the error
@@ -678,8 +678,8 @@ When(
     const isCampaignSelected = await campaignViews.isVisible({ timeout: 1000 }).catch(() => false);
     
     if (!isCampaignSelected) {
-      // Navigate to Campaigns planning screen and select campaign
-      await selectWorldAndEnterPlanningMode(page, "Campaigns");
+      // Navigate to Campaigns screen and select campaign
+      await selectWorldAndEnterMode(page, "Campaigns");
       
       // Get the unique campaign name
       const uniqueCampaignName = await getStoredCampaignName(page, campaignName).catch(() => 
@@ -741,10 +741,10 @@ When(
     const isCampaignSelected = await campaignViews.isVisible({ timeout: 1000 }).catch(() => false);
     
     if (!isCampaignSelected) {
-      // Navigate to Campaigns planning screen and select campaign
+      // Navigate to Campaigns screen and select campaign
       // We need to get the campaign name from context - try to get it from the page
       // For now, assume we're working with "The Eldorian Saga" or use stored name
-      await selectWorldAndEnterPlanningMode(page, "Campaigns");
+      await selectWorldAndEnterMode(page, "Campaigns");
       
       // Try to get stored campaign name, or use a default
       let campaignName = "The Eldorian Saga";

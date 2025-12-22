@@ -3,14 +3,14 @@ import { isVisibleSafely } from "./utils";
 import { VISIBILITY_TIMEOUT_MEDIUM } from "./constants";
 
 /**
- * Planning sub-tabs within the World Entities planning screen
+ * Sub-tabs within the World Entities screen
  */
-export type PlanningSubTab = "Locations" | "Events" | "Creatures" | "Factions" | "World Entities" | "Campaigns" | "Story Arcs" | "Users";
+export type SubTab = "Locations" | "Events" | "Creatures" | "Factions" | "World Entities" | "Campaigns" | "Story Arcs" | "Users";
 
 /**
- * Mapping of planning sub-tabs to their corresponding "Add" button text
+ * Mapping of sub-tabs to their corresponding "Add" button text
  */
-const TAB_TO_ADD_BUTTON: Record<PlanningSubTab, string> = {
+const TAB_TO_ADD_BUTTON: Record<SubTab, string> = {
   "Locations": "Add location",
   "Events": "Add event",
   "Creatures": "Add creature",
@@ -22,25 +22,25 @@ const TAB_TO_ADD_BUTTON: Record<PlanningSubTab, string> = {
 };
 
 /**
- * Check if planning mode is currently active by checking for planning tabs visibility.
+ * Check if mode is currently active by checking for tabs visibility.
  */
-async function isPlanningModeActive(page: Page): Promise<boolean> {
+async function isModeActive(page: Page): Promise<boolean> {
   return await isVisibleSafely(
-    page.getByRole("tablist", { name: "World planning views" })
+    page.getByRole("tablist", { name: "World views" })
   );
 }
 
 /**
- * Navigate to a planning sub-tab within the World Entities planning screen.
+ * Navigate to a sub-tab within the World Entities screen.
  * Verifies the tab is active by checking for the corresponding "Add" button.
  * 
  * @param page - Playwright page object
  * @param tabName - Name of the tab to navigate to
  * @param verifyButton - Whether to verify the "Add" button is visible (default: true)
  */
-export async function navigateToPlanningSubTab(
+export async function navigateToSubTab(
   page: Page,
-  tabName: PlanningSubTab,
+  tabName: SubTab,
   verifyButton: boolean = true
 ): Promise<void> {
   // Find the tab directly (tabs are accessible directly, not necessarily through tablist)
@@ -82,33 +82,33 @@ export async function navigateToPlanningSubTab(
 }
 
 /**
- * Navigate to the Locations tab within the World Entities planning screen.
- * Convenience wrapper for `navigateToPlanningSubTab(page, "Locations")`.
+ * Navigate to the Locations tab within the World Entities screen.
+ * Convenience wrapper for `navigateToSubTab(page, "Locations")`.
  */
 export async function navigateToLocationsTab(page: Page): Promise<void> {
-  await navigateToPlanningSubTab(page, "Locations");
+  await navigateToSubTab(page, "Locations");
 }
 
 /**
- * Navigate to the Events tab within the World Entities planning screen.
- * Convenience wrapper for `navigateToPlanningSubTab(page, "Events")`.
+ * Navigate to the Events tab within the World Entities screen.
+ * Convenience wrapper for `navigateToSubTab(page, "Events")`.
  */
 export async function navigateToEventsTab(page: Page): Promise<void> {
-  await navigateToPlanningSubTab(page, "Events");
+  await navigateToSubTab(page, "Events");
 }
 
 /**
- * Navigate to the Creatures tab within the World Entities planning screen.
- * Convenience wrapper for `navigateToPlanningSubTab(page, "Creatures")`.
+ * Navigate to the Creatures tab within the World Entities screen.
+ * Convenience wrapper for `navigateToSubTab(page, "Creatures")`.
  */
 export async function navigateToCreaturesTab(page: Page): Promise<void> {
-  await navigateToPlanningSubTab(page, "Creatures");
+  await navigateToSubTab(page, "Creatures");
 }
 
 /**
- * Navigate to the Factions tab within the World Entities planning screen.
- * Convenience wrapper for `navigateToPlanningSubTab(page, "Factions")`.
+ * Navigate to the Factions tab within the World Entities screen.
+ * Convenience wrapper for `navigateToSubTab(page, "Factions")`.
  */
 export async function navigateToFactionsTab(page: Page): Promise<void> {
-  await navigateToPlanningSubTab(page, "Factions");
+  await navigateToSubTab(page, "Factions");
 }
