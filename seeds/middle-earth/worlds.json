@@ -1,0 +1,1271 @@
+[
+  {
+    "name": "Middle-earth",
+    "description": "The realm of J.R.R. Tolkien's legendarium, home to the Third Age and the War of the Ring. A vast continent populated by Elves, Men, Dwarves, Hobbits, and darker forces.",
+    "entities": [
+      {
+        "type": "location",
+        "name": "Middle-earth",
+        "summary": "The great continent of Arda in the Third Age, home to Elves, Men, Dwarves, Hobbits, and the dark forces of Sauron. The setting for the War of the Ring."
+      },
+      {
+        "type": "location",
+        "name": "The Shire",
+        "summary": "A peaceful, rural land of rolling green hills and cozy hobbit holes in the northwest of Middle-earth, home to the Hobbits.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Bag End",
+        "summary": "The luxurious hobbit-hole home of Bilbo and later Frodo Baggins, built into the side of the hill overlooking Hobbiton.",
+        "relationships": [
+          {
+            "targetEntityName": "The Shire",
+            "relationshipType": "is contained by"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Bree",
+        "summary": "A small town at the crossroads of the Great East Road and the Greenway, where Men and Hobbits live together.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "The Shire",
+            "relationshipType": "is connected to"
+          },
+          {
+            "targetEntityName": "Rivendell",
+            "relationshipType": "is connected to"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Rivendell",
+        "summary": "The Last Homely House east of the Sea, the hidden valley of Elrond Half-elven, a sanctuary for travelers.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "The Misty Mountains",
+            "relationshipType": "is near"
+          },
+          {
+            "targetEntityName": "Bree",
+            "relationshipType": "is connected to"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "The Misty Mountains",
+        "summary": "A great mountain range running north-south, home to many dangers including Orcs, Goblins, and the Balrog of Moria.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Rivendell",
+            "relationshipType": "is near"
+          },
+          {
+            "targetEntityName": "Rohan",
+            "relationshipType": "borders against"
+          },
+          {
+            "targetEntityName": "Fangorn Forest",
+            "relationshipType": "is near"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Moria",
+        "summary": "The ancient Dwarven kingdom of Khazad-dûm beneath the Misty Mountains, now abandoned and inhabited by Orcs and a Balrog.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "The Misty Mountains",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Lothlórien",
+            "relationshipType": "is connected to"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Lothlórien",
+        "summary": "The Golden Wood, realm of the Lady Galadriel and Lord Celeborn, protected by the power of the Elven Ring Nenya.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Moria",
+            "relationshipType": "is connected to"
+          },
+          {
+            "targetEntityName": "Rohan",
+            "relationshipType": "is near"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Fangorn Forest",
+        "summary": "The ancient forest home of the Ents, the shepherds of trees, located at the southern end of the Misty Mountains.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "The Misty Mountains",
+            "relationshipType": "is near"
+          },
+          {
+            "targetEntityName": "Rohan",
+            "relationshipType": "borders against"
+          },
+          {
+            "targetEntityName": "Isengard",
+            "relationshipType": "borders against"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Isengard",
+        "summary": "The fortress of Saruman the White, built around the tower of Orthanc, later corrupted and used as a stronghold for his armies.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Fangorn Forest",
+            "relationshipType": "borders against"
+          },
+          {
+            "targetEntityName": "Rohan",
+            "relationshipType": "borders against"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Rohan",
+        "summary": "The land of the Horse-lords, a kingdom of Men between the Misty Mountains and the White Mountains, known for their skilled riders.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "The Misty Mountains",
+            "relationshipType": "borders against"
+          },
+          {
+            "targetEntityName": "Fangorn Forest",
+            "relationshipType": "borders against"
+          },
+          {
+            "targetEntityName": "Isengard",
+            "relationshipType": "borders against"
+          },
+          {
+            "targetEntityName": "Gondor",
+            "relationshipType": "borders against"
+          },
+          {
+            "targetEntityName": "Lothlórien",
+            "relationshipType": "is near"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Edoras",
+        "summary": "The capital city of Rohan, built on a hill and home to the Golden Hall of Meduseld, seat of the King of Rohan.",
+        "relationships": [
+          {
+            "targetEntityName": "Rohan",
+            "relationshipType": "is contained by"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Helm's Deep",
+        "summary": "The great fortress in the Deeping-coomb of Rohan, last refuge in times of war, site of the Battle of Helm's Deep.",
+        "relationships": [
+          {
+            "targetEntityName": "Rohan",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Edoras",
+            "relationshipType": "is near"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Gondor",
+        "summary": "The great kingdom of Men in the south, last bastion against the forces of Mordor, ruled from the White City of Minas Tirith.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Rohan",
+            "relationshipType": "borders against"
+          },
+          {
+            "targetEntityName": "Mordor",
+            "relationshipType": "borders against"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Minas Tirith",
+        "summary": "The White City, capital of Gondor, built on seven levels on the Hill of Guard, facing the shadow of Mordor.",
+        "relationships": [
+          {
+            "targetEntityName": "Gondor",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Osgiliath",
+            "relationshipType": "is near"
+          },
+          {
+            "targetEntityName": "Mordor",
+            "relationshipType": "borders against"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Osgiliath",
+        "summary": "The former capital of Gondor, now in ruins and fought over by Gondor and Mordor, straddling the River Anduin.",
+        "relationships": [
+          {
+            "targetEntityName": "Gondor",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Minas Tirith",
+            "relationshipType": "is near"
+          },
+          {
+            "targetEntityName": "Mordor",
+            "relationshipType": "borders against"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Mordor",
+        "summary": "The dark land of the Enemy in the southeast, dominated by the volcano Mount Doom where the One Ring was forged.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Gondor",
+            "relationshipType": "borders against"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Barad-dûr",
+        "summary": "The Dark Tower, Sauron's fortress in Mordor, from which the Eye watches over Middle-earth.",
+        "relationships": [
+          {
+            "targetEntityName": "Mordor",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Mount Doom",
+            "relationshipType": "is near"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Mount Doom",
+        "summary": "Orodruin, the volcano in Mordor where the One Ring was forged and must be destroyed, the only place it can be unmade.",
+        "relationships": [
+          {
+            "targetEntityName": "Mordor",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Barad-dûr",
+            "relationshipType": "is near"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "The Black Gate",
+        "summary": "Morgul Vale and the main entrance to Mordor, heavily fortified and guarded by the forces of Sauron.",
+        "relationships": [
+          {
+            "targetEntityName": "Mordor",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Gondor",
+            "relationshipType": "borders against"
+          },
+          {
+            "targetEntityName": "Osgiliath",
+            "relationshipType": "is connected to"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Weathertop",
+        "summary": "Amon Sûl, the watchtower on Weathertop hill, where Frodo was wounded by the Witch-king.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Bree",
+            "relationshipType": "is near"
+          },
+          {
+            "targetEntityName": "Rivendell",
+            "relationshipType": "is near"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "The Dead Marshes",
+        "summary": "A treacherous marshland on the border of Mordor, filled with the lights of the dead, where Gollum led Frodo and Sam.",
+        "relationships": [
+          {
+            "targetEntityName": "Middle-earth",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Mordor",
+            "relationshipType": "borders against"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Cirith Ungol",
+        "summary": "The pass of the spider, a secret entrance to Mordor guarded by Shelob, where Frodo was captured by Orcs.",
+        "relationships": [
+          {
+            "targetEntityName": "Mordor",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Mount Doom",
+            "relationshipType": "is connected to"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Ithilien",
+        "summary": "The garden of Gondor, a fair land between the Anduin and the Mountains of Shadow, where Faramir encountered Frodo and Sam.",
+        "relationships": [
+          {
+            "targetEntityName": "Gondor",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Mordor",
+            "relationshipType": "borders against"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Minas Morgul",
+        "summary": "The Tower of Sorcery, formerly Minas Ithil, now a stronghold of the Nazgûl and gateway to Mordor.",
+        "relationships": [
+          {
+            "targetEntityName": "Mordor",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Gondor",
+            "relationshipType": "borders against"
+          },
+          {
+            "targetEntityName": "Cirith Ungol",
+            "relationshipType": "is connected to"
+          }
+        ]
+      },
+      {
+        "type": "location",
+        "name": "Amon Hen",
+        "summary": "The Hill of Sight, the high seat on the southern end of Nen Hithoel, where Frodo used the Ring and the Fellowship was broken.",
+        "relationships": [
+          {
+            "targetEntityName": "Rohan",
+            "relationshipType": "is contained by"
+          }
+        ]
+      },
+      {
+        "type": "creature",
+        "name": "Frodo Baggins",
+        "summary": "A Hobbit of the Shire, the Ring-bearer who undertook the quest to destroy the One Ring. Brave and resilient despite the Ring's terrible burden."
+      },
+      {
+        "type": "creature",
+        "name": "Samwise Gamgee",
+        "summary": "Frodo's loyal gardener and companion, a Hobbit who never left his master's side throughout the quest. The true hero of the story."
+      },
+      {
+        "type": "creature",
+        "name": "Meriadoc Brandybuck",
+        "summary": "Merry, a Hobbit of Buckland, brave and resourceful. Later became a Knight of Rohan and helped slay the Witch-king."
+      },
+      {
+        "type": "creature",
+        "name": "Peregrin Took",
+        "summary": "Pippin, a Hobbit of the Took family, curious and impulsive. Later served as a Guard of the Citadel in Minas Tirith."
+      },
+      {
+        "type": "creature",
+        "name": "Aragorn",
+        "summary": "Also known as Strider, the Dúnedain ranger who was the rightful heir to the thrones of Gondor and Arnor. Later crowned King Elessar."
+      },
+      {
+        "type": "creature",
+        "name": "Legolas",
+        "summary": "Prince of the Woodland Realm of Mirkwood, an Elven archer of great skill and keen senses. Friend to Gimli the Dwarf."
+      },
+      {
+        "type": "creature",
+        "name": "Gimli",
+        "summary": "Son of Glóin, a Dwarf of the Lonely Mountain, fierce warrior and friend to Legolas. Represented the Dwarves in the Fellowship."
+      },
+      {
+        "type": "creature",
+        "name": "Boromir",
+        "summary": "Son of Denethor, Steward of Gondor, a valiant warrior who fell to the Ring's temptation but redeemed himself in death defending Merry and Pippin."
+      },
+      {
+        "type": "creature",
+        "name": "Gandalf",
+        "summary": "The Grey Wizard, later the White, a Maia sent to Middle-earth to aid in the fight against Sauron. Returned from death as Gandalf the White."
+      },
+      {
+        "type": "creature",
+        "name": "Gollum",
+        "summary": "Formerly Sméagol, a Hobbit-like creature corrupted by the One Ring over hundreds of years. Both guide and betrayer to Frodo."
+      },
+      {
+        "type": "creature",
+        "name": "Elrond",
+        "summary": "Half-elven Lord of Rivendell, keeper of Vilya, one of the Three Rings. Called the Council of Elrond to decide the Ring's fate."
+      },
+      {
+        "type": "creature",
+        "name": "Galadriel",
+        "summary": "Lady of Lothlórien, keeper of Nenya, one of the Three Rings. Possessed great wisdom and power, tested by the Ring's temptation."
+      },
+      {
+        "type": "creature",
+        "name": "Saruman",
+        "summary": "The White Wizard, head of the Istari, who fell to evil and betrayed the free peoples. Ruled Isengard and bred Uruk-hai."
+      },
+      {
+        "type": "creature",
+        "name": "Théoden",
+        "summary": "King of Rohan, freed from Saruman's spell by Gandalf. Led his people valiantly in the War of the Ring until his death at Pelennor Fields."
+      },
+      {
+        "type": "creature",
+        "name": "Éowyn",
+        "summary": "Niece of King Théoden, shieldmaiden of Rohan. Defied orders to remain behind and slew the Witch-king of Angmar at the Battle of Pelennor Fields."
+      },
+      {
+        "type": "creature",
+        "name": "Faramir",
+        "summary": "Captain of Gondor, son of Denethor and brother of Boromir. Resisted the Ring's temptation and later became Prince of Ithilien."
+      },
+      {
+        "type": "creature",
+        "name": "Denethor",
+        "summary": "Steward of Gondor, father of Boromir and Faramir. Despair drove him to madness and suicide."
+      },
+      {
+        "type": "creature",
+        "name": "Treebeard",
+        "summary": "Fangorn, the oldest of the Ents, leader of the Entmoot, who marched on Isengard to defeat Saruman."
+      },
+      {
+        "type": "creature",
+        "name": "Shelob",
+        "summary": "A great spider, ancient and evil, who dwelt in the passes above Minas Morgul, near Cirith Ungol."
+      },
+      {
+        "type": "creature",
+        "name": "Bilbo Baggins",
+        "summary": "Frodo's uncle, former Ring-bearer, who left the Ring to Frodo at his eleventy-first birthday party."
+      },
+      {
+        "type": "creature",
+        "name": "The Balrog",
+        "summary": "A demon of fire and shadow, a Maia corrupted by Morgoth, who dwelt in the depths of Moria and fought Gandalf."
+      },
+      {
+        "type": "creature",
+        "name": "The Witch-king of Angmar",
+        "summary": "Lord of the Nazgûl, the chief of the Ringwraiths, slain by Éowyn and Merry at the Battle of Pelennor Fields."
+      },
+      {
+        "type": "creature",
+        "name": "Gríma Wormtongue",
+        "summary": "Saruman's spy in Rohan, counselor to King Théoden, who corrupted the king's mind with lies."
+      },
+      {
+        "type": "faction",
+        "name": "The Fellowship of the Ring",
+        "summary": "The nine companions chosen at the Council of Elrond to destroy the One Ring: four Hobbits, two Men, one Elf, one Dwarf, and one Wizard.",
+        "relationships": [
+          {
+            "targetEntityName": "Frodo Baggins",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Samwise Gamgee",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Meriadoc Brandybuck",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Peregrin Took",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Aragorn",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Legolas",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Gimli",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Boromir",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Gandalf",
+            "relationshipType": "has member"
+          }
+        ]
+      },
+      {
+        "type": "faction",
+        "name": "The Three Hunters",
+        "summary": "Aragorn, Legolas, and Gimli, who pursued the Orcs across Rohan to rescue Merry and Pippin after the Breaking of the Fellowship.",
+        "relationships": [
+          {
+            "targetEntityName": "The Fellowship of the Ring",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Aragorn",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Legolas",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Gimli",
+            "relationshipType": "has member"
+          }
+        ]
+      },
+      {
+        "type": "faction",
+        "name": "The Two Walkers",
+        "summary": "Frodo and Sam, who continued the quest to destroy the Ring after the Fellowship broke apart, guided by Gollum.",
+        "relationships": [
+          {
+            "targetEntityName": "The Fellowship of the Ring",
+            "relationshipType": "is contained by"
+          },
+          {
+            "targetEntityName": "Frodo Baggins",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Samwise Gamgee",
+            "relationshipType": "has member"
+          }
+        ]
+      },
+      {
+        "type": "faction",
+        "name": "The White Council",
+        "summary": "A group of the Wise, including Gandalf, Elrond, Galadriel, and Saruman, formed to counter the threat of Sauron.",
+        "relationships": [
+          {
+            "targetEntityName": "Gandalf",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Elrond",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Galadriel",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Saruman",
+            "relationshipType": "has member"
+          }
+        ]
+      },
+      {
+        "type": "faction",
+        "name": "The Rangers of the North",
+        "summary": "The Dúnedain, descendants of the Númenóreans who guard the northern lands of Eriador, led by Aragorn.",
+        "relationships": [
+          {
+            "targetEntityName": "Aragorn",
+            "relationshipType": "has member"
+          }
+        ]
+      },
+      {
+        "type": "faction",
+        "name": "The Rohirrim",
+        "summary": "The Horse-lords of Rohan, skilled riders and warriors who fight for the Free Peoples.",
+        "relationships": [
+          {
+            "targetEntityName": "Théoden",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Éowyn",
+            "relationshipType": "has member"
+          }
+        ]
+      },
+      {
+        "type": "faction",
+        "name": "The Stewards of Gondor",
+        "summary": "The ruling house of Gondor in the absence of a king, serving as caretakers until the return of the rightful heir.",
+        "relationships": [
+          {
+            "targetEntityName": "Boromir",
+            "relationshipType": "has member"
+          },
+          {
+            "targetEntityName": "Faramir",
+            "relationshipType": "has member"
+          }
+        ]
+      },
+      {
+        "type": "faction",
+        "name": "The Elves of Rivendell",
+        "summary": "The Elven folk who dwell in the Last Homely House, led by Elrond Half-elven.",
+        "relationships": [
+          {
+            "targetEntityName": "Elrond",
+            "relationshipType": "has member"
+          }
+        ]
+      },
+      {
+        "type": "faction",
+        "name": "The Elves of Lothlórien",
+        "summary": "The Galadhrim, the Elven folk of the Golden Wood, led by Galadriel and Celeborn.",
+        "relationships": [
+          {
+            "targetEntityName": "Galadriel",
+            "relationshipType": "has member"
+          }
+        ]
+      },
+      {
+        "type": "faction",
+        "name": "The Ents",
+        "summary": "The ancient shepherds of trees, guardians of Fangorn Forest, who march against Isengard."
+      },
+      {
+        "type": "faction",
+        "name": "The Forces of Isengard",
+        "summary": "Saruman's armies, including Uruk-hai, Orcs, and wild Men, servants of the White Hand.",
+        "relationships": [
+          {
+            "targetEntityName": "Saruman",
+            "relationshipType": "has member"
+          }
+        ]
+      },
+      {
+        "type": "faction",
+        "name": "The Forces of Mordor",
+        "summary": "Sauron's vast armies of Orcs, Trolls, Nazgûl, and other evil creatures, the greatest threat to Middle-earth."
+      },
+      {
+        "type": "event",
+        "name": "The Long-Expected Party",
+        "summary": "Bilbo's eleventy-first birthday party in the Shire, where he disappeared using the Ring and left it to Frodo.",
+        "locationName": "Bag End",
+        "beginningTimestamp": -1244755200000,
+        "endingTimestamp": -1244751600000
+      },
+      {
+        "type": "event",
+        "name": "Gandalf Reveals the Ring's Nature",
+        "summary": "Gandalf returns to the Shire and tells Frodo that his ring is the One Ring, and that he must leave the Shire.",
+        "locationName": "Bag End",
+        "beginningTimestamp": -1244748000000,
+        "endingTimestamp": -1244744400000
+      },
+      {
+        "type": "event",
+        "name": "Flight from the Shire",
+        "summary": "Frodo, Sam, Merry, and Pippin leave the Shire, pursued by the Black Riders, taking the back roads to avoid them.",
+        "locationName": "The Shire",
+        "beginningTimestamp": -1244740800000,
+        "endingTimestamp": -1244736000000
+      },
+      {
+        "type": "event",
+        "name": "Encounter at the Prancing Pony",
+        "summary": "Frodo and his companions meet Strider (Aragorn) at the inn in Bree, and Frodo accidentally puts on the Ring.",
+        "locationName": "Bree",
+        "beginningTimestamp": -1244736000000,
+        "endingTimestamp": -1244732400000
+      },
+      {
+        "type": "event",
+        "name": "The Attack on Weathertop",
+        "summary": "The Ringwraiths attack the company at Weathertop, and the Witch-king stabs Frodo with a Morgul-blade.",
+        "locationName": "Weathertop",
+        "beginningTimestamp": -1244678400000,
+        "endingTimestamp": -1244674800000
+      },
+      {
+        "type": "event",
+        "name": "The Race to Rivendell",
+        "summary": "Aragorn, with the wounded Frodo, races to reach Rivendell before the Morgul-blade reaches Frodo's heart, saved by Glorfindel.",
+        "locationName": "Rivendell",
+        "beginningTimestamp": -1244674800000,
+        "endingTimestamp": -1244671200000
+      },
+      {
+        "type": "event",
+        "name": "The Council of Elrond",
+        "summary": "The gathering in Rivendell where the fate of the One Ring was decided and the Fellowship was formed.",
+        "locationName": "Rivendell",
+        "beginningTimestamp": -1244664000000,
+        "endingTimestamp": -1244660400000
+      },
+      {
+        "type": "event",
+        "name": "The Journey through Moria",
+        "summary": "The Fellowship's dangerous passage through the abandoned Dwarven kingdom, where Gandalf fell fighting the Balrog.",
+        "locationName": "Moria",
+        "beginningTimestamp": -1244649600000,
+        "endingTimestamp": -1244642400000,
+        "relationships": [
+          {
+            "targetEntityName": "Gandalf's Fall",
+            "relationshipType": "contains"
+          }
+        ]
+      },
+      {
+        "type": "event",
+        "name": "Gandalf's Fall",
+        "summary": "Gandalf's battle with the Balrog on the Bridge of Khazad-dûm, where both fell into the depths.",
+        "locationName": "Moria",
+        "beginningTimestamp": -1244642400000,
+        "endingTimestamp": -1244641800000
+      },
+      {
+        "type": "event",
+        "name": "The Fellowship Reaches Lothlórien",
+        "summary": "The remaining Fellowship, grieving for Gandalf, reaches the Golden Wood and meets the Lady Galadriel.",
+        "locationName": "Lothlórien",
+        "beginningTimestamp": -1244640000000,
+        "endingTimestamp": -1244636400000
+      },
+      {
+        "type": "event",
+        "name": "Galadriel's Test",
+        "summary": "Galadriel shows each member of the Fellowship visions in her mirror and resists the temptation to take the Ring for herself.",
+        "locationName": "Lothlórien",
+        "beginningTimestamp": -1244636400000,
+        "endingTimestamp": -1244632800000
+      },
+      {
+        "type": "event",
+        "name": "The Breaking of the Fellowship",
+        "summary": "The Fellowship was broken at Amon Hen when Boromir tried to take the Ring from Frodo, and Frodo decided to continue alone with Sam.",
+        "locationName": "Amon Hen",
+        "beginningTimestamp": -1244620800000,
+        "endingTimestamp": -1244617200000
+      },
+      {
+        "type": "event",
+        "name": "The Uruk-hai Attack",
+        "summary": "The attack by Saruman's Uruk-hai at Amon Hen, where Boromir died defending Merry and Pippin, who were then captured.",
+        "locationName": "Amon Hen",
+        "beginningTimestamp": -1244620800000,
+        "endingTimestamp": -1244617200000
+      },
+      {
+        "type": "event",
+        "name": "The Capture of Merry and Pippin",
+        "summary": "Merry and Pippin are captured by the Uruk-hai and carried across Rohan toward Isengard.",
+        "locationName": "Rohan",
+        "beginningTimestamp": -1244617200000,
+        "endingTimestamp": -1244613600000
+      },
+      {
+        "type": "event",
+        "name": "Escape into Fangorn",
+        "summary": "Merry and Pippin escape from the Uruk-hai into Fangorn Forest, where they meet Treebeard.",
+        "locationName": "Fangorn Forest",
+        "beginningTimestamp": -1244613600000,
+        "endingTimestamp": -1244610000000
+      },
+      {
+        "type": "event",
+        "name": "Gandalf's Return",
+        "summary": "Gandalf the White appears to Aragorn, Legolas, and Gimli in Fangorn Forest, having returned from death after defeating the Balrog.",
+        "locationName": "Fangorn Forest",
+        "beginningTimestamp": -1244610000000,
+        "endingTimestamp": -1244606400000
+      },
+      {
+        "type": "event",
+        "name": "The Ride to Edoras",
+        "summary": "Gandalf, Aragorn, Legolas, and Gimli ride to Edoras to free King Théoden from Saruman's influence.",
+        "locationName": "Edoras",
+        "beginningTimestamp": -1244606400000,
+        "endingTimestamp": -1244602800000
+      },
+      {
+        "type": "event",
+        "name": "Théoden's Healing",
+        "summary": "Gandalf drives out Saruman's influence from King Théoden, restoring him to strength and wisdom.",
+        "locationName": "Edoras",
+        "beginningTimestamp": -1244602800000,
+        "endingTimestamp": -1244599200000
+      },
+      {
+        "type": "event",
+        "name": "The Entmoot",
+        "summary": "The gathering of the Ents in Fangorn Forest to decide whether to go to war against Saruman.",
+        "locationName": "Fangorn Forest",
+        "beginningTimestamp": -1244613600000,
+        "endingTimestamp": -1244610000000
+      },
+      {
+        "type": "event",
+        "name": "The Battle of Helm's Deep",
+        "summary": "The epic defense of the fortress of Helm's Deep by the forces of Rohan against Saruman's army, ending with the arrival of Gandalf and the Huorns.",
+        "locationName": "Helm's Deep",
+        "beginningTimestamp": -1244606400000,
+        "endingTimestamp": -1244599200000
+      },
+      {
+        "type": "event",
+        "name": "The Fall of Isengard",
+        "summary": "The Ents' attack on Isengard, flooding the fortress and capturing Saruman, ending his threat.",
+        "locationName": "Isengard",
+        "beginningTimestamp": -1244602800000,
+        "endingTimestamp": -1244599200000
+      },
+      {
+        "type": "event",
+        "name": "The Siege of Minas Tirith",
+        "summary": "Sauron's massive assault on the White City, the greatest battle of the War of the Ring, where the Witch-king was slain.",
+        "locationName": "Minas Tirith",
+        "beginningTimestamp": -1244592000000,
+        "endingTimestamp": -1244584800000,
+        "relationships": [
+          {
+            "targetEntityName": "Faramir's Retreat",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "Denethor's Madness",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Ride of the Rohirrim",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Battle of Pelennor Fields",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Paths of the Dead",
+            "relationshipType": "contains"
+          }
+        ]
+      },
+      {
+        "type": "event",
+        "name": "The Battle of Pelennor Fields",
+        "summary": "The great battle on the fields before Minas Tirith, where the Rohirrim arrived and Éowyn slew the Witch-king.",
+        "locationName": "Minas Tirith",
+        "beginningTimestamp": -1244592000000,
+        "endingTimestamp": -1244584800000
+      },
+      {
+        "type": "event",
+        "name": "The Paths of the Dead",
+        "summary": "Aragorn's journey through the haunted mountain paths to summon the Army of the Dead to fulfill their oath.",
+        "locationName": "Gondor",
+        "beginningTimestamp": -1244595600000,
+        "endingTimestamp": -1244592000000
+      },
+      {
+        "type": "event",
+        "name": "Pippin Looks into the Palantír",
+        "summary": "Pippin looks into Saruman's palantír, revealing himself to Sauron and forcing Gandalf to take him to Minas Tirith.",
+        "locationName": "Isengard",
+        "beginningTimestamp": -1244599200000,
+        "endingTimestamp": -1244598000000
+      },
+      {
+        "type": "event",
+        "name": "Faramir's Retreat",
+        "summary": "Faramir leads a retreat from Osgiliath, pursued by the Nazgûl, and is wounded saving the rearguard.",
+        "locationName": "Osgiliath",
+        "beginningTimestamp": -1244595600000,
+        "endingTimestamp": -1244593800000
+      },
+      {
+        "type": "event",
+        "name": "Denethor's Madness",
+        "summary": "Denethor, driven to despair by the palantír and Faramir's apparent death, attempts to burn himself and his son alive.",
+        "locationName": "Minas Tirith",
+        "beginningTimestamp": -1244593800000,
+        "endingTimestamp": -1244592600000
+      },
+      {
+        "type": "event",
+        "name": "The Ride of the Rohirrim",
+        "summary": "Théoden leads the Rohirrim on their great ride to Gondor, arriving at the critical moment of the battle.",
+        "locationName": "Rohan",
+        "beginningTimestamp": -1244592600000,
+        "endingTimestamp": -1244592000000
+      },
+      {
+        "type": "event",
+        "name": "Frodo and Sam in Ithilien",
+        "summary": "Frodo and Sam encounter Faramir and his Rangers in Ithilien, where Faramir resists the Ring's temptation.",
+        "locationName": "Ithilien",
+        "beginningTimestamp": -1244588400000,
+        "endingTimestamp": -1244586000000
+      },
+      {
+        "type": "event",
+        "name": "The Journey through the Dead Marshes",
+        "summary": "Gollum leads Frodo and Sam through the treacherous Dead Marshes, avoiding the lights of the dead.",
+        "locationName": "The Dead Marshes",
+        "beginningTimestamp": -1244586000000,
+        "endingTimestamp": -1244584800000
+      },
+      {
+        "type": "event",
+        "name": "The Passage of Cirith Ungol",
+        "summary": "Frodo and Sam, led by Gollum, pass through Cirith Ungol, where Frodo is stung by Shelob and captured by Orcs.",
+        "locationName": "Cirith Ungol",
+        "beginningTimestamp": -1244584800000,
+        "endingTimestamp": -1244583600000,
+        "relationships": [
+          {
+            "targetEntityName": "Sam's Rescue of Frodo",
+            "relationshipType": "contains"
+          }
+        ]
+      },
+      {
+        "type": "event",
+        "name": "Sam's Rescue of Frodo",
+        "summary": "Sam fights the Orcs at the Tower of Cirith Ungol and rescues Frodo, taking the Ring for safekeeping.",
+        "locationName": "Cirith Ungol",
+        "beginningTimestamp": -1244583600000,
+        "endingTimestamp": -1244582400000
+      },
+      {
+        "type": "event",
+        "name": "The Battle at the Black Gate",
+        "summary": "The diversionary assault on the Black Gate by the armies of the West to draw Sauron's eye away from Frodo and Sam.",
+        "locationName": "The Black Gate",
+        "beginningTimestamp": -1244582400000,
+        "endingTimestamp": -1244581200000
+      },
+      {
+        "type": "event",
+        "name": "The Destruction of the One Ring",
+        "summary": "Frodo and Sam reached Mount Doom, and the One Ring was finally destroyed in the fires where it was forged, ending Sauron's power.",
+        "locationName": "Mount Doom",
+        "beginningTimestamp": -1244584800000,
+        "endingTimestamp": -1244581200000
+      },
+      {
+        "type": "event",
+        "name": "The Coronation of King Elessar",
+        "summary": "Aragorn's coronation as King Elessar Telcontar of Gondor and Arnor, the Return of the King.",
+        "locationName": "Minas Tirith",
+        "beginningTimestamp": -1244577600000,
+        "endingTimestamp": -1244574000000
+      },
+      {
+        "type": "event",
+        "name": "The Quest Begins",
+        "summary": "The beginning of the Ring's journey, from Bilbo's party through the flight to Rivendell, as the Shadow falls on the Shire.",
+        "locationName": "The Shire",
+        "beginningTimestamp": -1244755200000,
+        "endingTimestamp": -1244671200000,
+        "relationships": [
+          {
+            "targetEntityName": "The Long-Expected Party",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "Gandalf Reveals the Ring's Nature",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "Flight from the Shire",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "Encounter at the Prancing Pony",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Attack on Weathertop",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Race to Rivendell",
+            "relationshipType": "contains"
+          }
+        ]
+      },
+      {
+        "type": "event",
+        "name": "The Fellowship's Journey",
+        "summary": "The Fellowship's journey from Rivendell through Lothlórien to the breaking at Amon Hen, the great quest to destroy the Ring.",
+        "locationName": "Rivendell",
+        "beginningTimestamp": -1244664000000,
+        "endingTimestamp": -1244620800000,
+        "relationships": [
+          {
+            "targetEntityName": "The Council of Elrond",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Journey through Moria",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Fellowship Reaches Lothlórien",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "Galadriel's Test",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Breaking of the Fellowship",
+            "relationshipType": "contains"
+          }
+        ]
+      },
+      {
+        "type": "event",
+        "name": "The War in the North",
+        "summary": "The war against Saruman in Rohan, including the rescue of Merry and Pippin, the Ents' attack on Isengard, and the Battle of Helm's Deep.",
+        "locationName": "Rohan",
+        "beginningTimestamp": -1244620800000,
+        "endingTimestamp": -1244599200000,
+        "relationships": [
+          {
+            "targetEntityName": "The Uruk-hai Attack",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Capture of Merry and Pippin",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "Escape into Fangorn",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Entmoot",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "Gandalf's Return",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Ride to Edoras",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "Théoden's Healing",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Battle of Helm's Deep",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Fall of Isengard",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "Pippin Looks into the Palantír",
+            "relationshipType": "contains"
+          }
+        ]
+      },
+      {
+        "type": "event",
+        "name": "The Quest to Destroy the Ring",
+        "summary": "Frodo and Sam's journey through Ithilien and Mordor to destroy the One Ring, guided by Gollum.",
+        "locationName": "Mordor",
+        "beginningTimestamp": -1244588400000,
+        "endingTimestamp": -1244581200000,
+        "relationships": [
+          {
+            "targetEntityName": "Frodo and Sam in Ithilien",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Journey through the Dead Marshes",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Passage of Cirith Ungol",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "Sam's Rescue of Frodo",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Destruction of the One Ring",
+            "relationshipType": "contains"
+          }
+        ]
+      },
+      {
+        "type": "event",
+        "name": "The War of the Ring",
+        "summary": "The great war against Sauron, encompassing all the major battles and events from the Siege of Minas Tirith to the final victory.",
+        "locationName": "Middle-earth",
+        "beginningTimestamp": -1244595600000,
+        "endingTimestamp": -1244577600000,
+        "relationships": [
+          {
+            "targetEntityName": "The Siege of Minas Tirith",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Battle at the Black Gate",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Quest to Destroy the Ring",
+            "relationshipType": "contains"
+          },
+          {
+            "targetEntityName": "The Coronation of King Elessar",
+            "relationshipType": "contains"
+          }
+        ]
+      },
+      {
+        "type": "event",
+        "name": "The Field of Cormallen",
+        "summary": "The reunion of the Fellowship and the celebration of victory on the Field of Cormallen in Ithilien.",
+        "locationName": "Ithilien",
+        "beginningTimestamp": -1244574000000,
+        "endingTimestamp": -1244570400000
+      },
+      {
+        "type": "event",
+        "name": "The Return Journey",
+        "summary": "The Hobbits' journey back to the Shire, passing through Rivendell and Bree, discovering their home has been occupied.",
+        "locationName": "The Shire",
+        "beginningTimestamp": -1244566800000,
+        "endingTimestamp": -1244563200000
+      },
+      {
+        "type": "event",
+        "name": "The Scouring of the Shire",
+        "summary": "The Hobbits return to find the Shire under the control of Saruman's ruffians, and lead a rebellion to free it.",
+        "locationName": "The Shire",
+        "beginningTimestamp": -1244563200000,
+        "endingTimestamp": -1244559600000
+      },
+      {
+        "type": "event",
+        "name": "Frodo's Departure",
+        "summary": "Frodo, bearing the scars of the Ring, departs Middle-earth with Bilbo, Gandalf, and the Elves, sailing into the West.",
+        "locationName": "The Shire",
+        "beginningTimestamp": -1244556000000,
+        "endingTimestamp": -1244552400000
+      }
+    ]
+  }
+]

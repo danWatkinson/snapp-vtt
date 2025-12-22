@@ -291,6 +291,11 @@ async function seedWorlds(filePath: string, options: SeedOptions, token: string)
       summary: string;
       beginningTimestamp?: number;
       endingTimestamp?: number;
+      locationName?: string;
+      relationships?: Array<{
+        targetEntityName: string;
+        relationshipType: string;
+      }>;
     }>;
     campaigns?: Array<{
       name: string;
@@ -399,15 +404,41 @@ async function seedWorlds(filePath: string, options: SeedOptions, token: string)
       }
     }
 
-    // Create entities
+    // Create entities - sort so locations come first (for events to reference them)
     if (world.entities) {
-      for (const entity of world.entities) {
+      const sortedEntities = [...world.entities].sort((a, b) => {
+        if (a.type === "location" && b.type !== "location") return -1;
+        if (a.type !== "location" && b.type === "location") return 1;
+        return 0;
+      });
+
+      const entityNameToId = new Map<string, string>();
+      const entitiesWithRelationships: Array<{
+        entityName: string;
+        relationships: Array<{
+          targetEntityName: string;
+          relationshipType: string;
+        }>;
+      }> = [];
+
+      for (const entity of sortedEntities) {
         if (!entity.name || !entity.summary || !entity.type) {
           console.warn(`  Skipping entity with missing fields: ${JSON.stringify(entity)}`);
           continue;
         }
 
         try {
+          // For events, resolve locationName to locationId
+          let locationId: string | undefined = undefined;
+          if (entity.type === "event" && (entity as any).locationName) {
+            const locationIdFromMap = entityNameToId.get((entity as any).locationName);
+            if (!locationIdFromMap) {
+              console.warn(`    Location '${(entity as any).locationName}' not found for event '${entity.name}', skipping locationId`);
+            } else {
+              locationId = locationIdFromMap;
+            }
+          }
+
           const entityResponse = await makeRequest(
             options.worldUrl,
             `/worlds/${worldId}/entities`,
@@ -418,19 +449,123 @@ async function seedWorlds(filePath: string, options: SeedOptions, token: string)
               name: entity.name,
               summary: entity.summary,
               beginningTimestamp: entity.beginningTimestamp,
-              endingTimestamp: entity.endingTimestamp
+              endingTimestamp: entity.endingTimestamp,
+              locationId: locationId
             }
           );
 
           if (entityResponse.status === 201) {
-            console.log(`    ✓ Created ${entity.type}: ${entity.name}`);
+            const createdEntity = (entityResponse.body as { entity?: { id: string } }).entity;
+            if (createdEntity?.id) {
+              entityNameToId.set(entity.name, createdEntity.id);
+              console.log(`    ✓ Created ${entity.type}: ${entity.name}${locationId ? ` (at location: ${(entity as any).locationName})` : ''}`);
+              
+              // Store entities with relationships for second pass
+              if ((entity as any).relationships && (entity as any).relationships.length > 0) {
+                entitiesWithRelationships.push({
+                  entityName: entity.name,
+                  relationships: (entity as any).relationships
+                });
+              }
+            }
           } else if (entityResponse.status === 400 && (entityResponse.body as any).error?.includes("already exists")) {
             console.log(`    Entity '${entity.name}' already exists, skipping`);
+            // Still try to get the ID for relationship creation
+            const existingEntitiesResponse = await makeRequest(
+              options.worldUrl,
+              `/worlds/${worldId}/entities?type=${entity.type}`,
+              "GET",
+              token
+            );
+            if (existingEntitiesResponse.status === 200) {
+              const entities = ((existingEntitiesResponse.body as { entities?: Array<{ id: string; name: string }> }).entities ?? []);
+              const existingEntity = entities.find(e => e.name === entity.name);
+              if (existingEntity) {
+                entityNameToId.set(entity.name, existingEntity.id);
+              }
+            }
           } else {
             throw new Error((entityResponse.body as any).error || "Unknown error");
           }
         } catch (err) {
           console.error(`    Failed to create ${entity.type} ${entity.name}:`, (err as Error).message);
+        }
+      }
+
+      // Second pass: create relationships
+      for (const { entityName, relationships } of entitiesWithRelationships) {
+        const sourceEntityId = entityNameToId.get(entityName);
+        if (!sourceEntityId) {
+          console.warn(`    Cannot create relationships for entity '${entityName}': entity not found`);
+          continue;
+        }
+
+        for (const rel of relationships) {
+          const targetEntityId = entityNameToId.get(rel.targetEntityName);
+          if (!targetEntityId) {
+            console.warn(`    Cannot create relationship from '${entityName}' to '${rel.targetEntityName}': target entity not found`);
+            continue;
+          }
+
+          try {
+            // Determine the endpoint based on relationship type and entity types
+            // For locations: use /locations/:id/relationships
+            // For events: use /events/:id/relationships  
+            // For factions: use /factions/:id/relationships or /factions/:id/members
+            let endpoint = "";
+            
+            // Get source entity type
+            const sourceEntity = sortedEntities.find(e => e.name === entityName);
+            const targetEntity = sortedEntities.find(e => e.name === rel.targetEntityName);
+            
+            if (!sourceEntity || !targetEntity) {
+              console.warn(`    Cannot determine entity types for relationship from '${entityName}' to '${rel.targetEntityName}'`);
+              continue;
+            }
+
+            if (sourceEntity.type === "location") {
+              endpoint = `/worlds/${worldId}/locations/${sourceEntityId}/relationships`;
+            } else if (sourceEntity.type === "event") {
+              endpoint = `/worlds/${worldId}/events/${sourceEntityId}/relationships`;
+            } else if (sourceEntity.type === "faction") {
+              if (rel.relationshipType === "has member" && targetEntity.type === "creature") {
+                endpoint = `/worlds/${worldId}/factions/${sourceEntityId}/members`;
+              } else {
+                endpoint = `/worlds/${worldId}/factions/${sourceEntityId}/relationships`;
+              }
+            } else {
+              console.warn(`    Relationship creation not supported for entity type: ${sourceEntity.type}`);
+              continue;
+            }
+
+            let requestBody: any;
+            if (endpoint.includes("/members")) {
+              requestBody = { creatureId: targetEntityId };
+            } else {
+              const targetFieldName = sourceEntity.type === "location" ? "targetLocationId" 
+                : sourceEntity.type === "event" ? "targetEventId"
+                : "targetFactionId";
+              requestBody = { [targetFieldName]: targetEntityId, relationshipType: rel.relationshipType };
+            }
+
+            const relResponse = await makeRequest(
+              options.worldUrl,
+              endpoint,
+              "POST",
+              token,
+              requestBody
+            );
+
+            if (relResponse.status === 201) {
+              console.log(`      ✓ Created relationship: ${entityName} --[${rel.relationshipType}]--> ${rel.targetEntityName}`);
+            } else if (relResponse.status === 400 && (relResponse.body as any).error?.includes("already")) {
+              console.log(`      Relationship from '${entityName}' to '${rel.targetEntityName}' already exists, skipping`);
+            } else {
+              throw new Error((relResponse.body as any).error || "Unknown error");
+            }
+          } catch (err) {
+            console.error(`      Failed to create relationship from '${entityName}' to '${rel.targetEntityName}':`, (err as Error).message);
+          }
         }
       }
     }

@@ -3,7 +3,8 @@ import path from "path";
 import { InMemoryWorldStore } from "./worldStore";
 import {
   InMemoryWorldEntityStore,
-  type WorldEntityType
+  type WorldEntityType,
+  type LocationRelationshipType
 } from "./worldEntitiesStore";
 
 export interface WorldSeedOptions {
@@ -51,6 +52,11 @@ export const seedWorlds = async (
         summary: string;
         beginningTimestamp?: number;
         endingTimestamp?: number;
+        locationName?: string; // For events: name of the location (will be resolved to locationId)
+        relationships?: Array<{
+          targetEntityName: string; // Name of the target entity (will be resolved to ID)
+          relationshipType: LocationRelationshipType;
+        }>;
       }>;
     }>;
 
@@ -89,7 +95,24 @@ export const seedWorlds = async (
         }
 
         if (world.entities) {
-          for (const entity of world.entities) {
+          // Sort entities: locations first (for events to reference), then everything else
+          const sortedEntities = [...world.entities].sort((a, b) => {
+            if (a.type === "location" && b.type !== "location") return -1;
+            if (a.type !== "location" && b.type === "location") return 1;
+            return 0;
+          });
+
+          // First pass: create all entities and build a name-to-ID map
+          const entityNameToId = new Map<string, string>();
+          const entitiesWithRelationships: Array<{
+            entityName: string;
+            relationships: Array<{
+              targetEntityName: string;
+              relationshipType: LocationRelationshipType;
+            }>;
+          }> = [];
+
+          for (const entity of sortedEntities) {
             if (!entity.name || !entity.summary || !entity.type) {
               // eslint-disable-next-line no-console
               console.warn(
@@ -101,22 +124,87 @@ export const seedWorlds = async (
             }
 
             try {
-              entityStore.createEntity(
+              // For events, resolve locationName to locationId (locations should already be created)
+              let locationId: string | undefined = undefined;
+              if (entity.type === "event" && entity.locationName) {
+                const locationIdFromMap = entityNameToId.get(entity.locationName);
+                if (!locationIdFromMap) {
+                  // eslint-disable-next-line no-console
+                  console.warn(
+                    `Location '${entity.locationName}' not found for event '${entity.name}' in world ${world.name}. Make sure locations are defined before events that reference them.`
+                  );
+                } else {
+                  locationId = locationIdFromMap;
+                }
+              }
+
+              const createdEntity = entityStore.createEntity(
                 createdWorld.id,
                 entity.type,
                 entity.name,
                 entity.summary,
                 entity.beginningTimestamp,
-                entity.endingTimestamp
+                entity.endingTimestamp,
+                locationId
               );
+              
+              entityNameToId.set(entity.name, createdEntity.id);
+              
+              // Store entities with relationships for second pass
+              if (entity.relationships && entity.relationships.length > 0) {
+                entitiesWithRelationships.push({
+                  entityName: entity.name,
+                  relationships: entity.relationships
+                });
+              }
+              
               // eslint-disable-next-line no-console
-              console.log(`  Seeded ${entity.type}: ${entity.name}`);
+              console.log(`  Seeded ${entity.type}: ${entity.name}${locationId ? ` (at location: ${entity.locationName})` : ''}`);
             } catch (err) {
               // eslint-disable-next-line no-console
               console.error(
                 `Failed to seed ${entity.type} ${entity.name}:`,
                 (err as Error).message
               );
+            }
+          }
+
+          // Second pass: create relationships
+          for (const { entityName, relationships } of entitiesWithRelationships) {
+            const sourceEntityId = entityNameToId.get(entityName);
+            if (!sourceEntityId) {
+              // eslint-disable-next-line no-console
+              console.warn(
+                `Cannot create relationships for entity '${entityName}' in world ${world.name}: entity not found`
+              );
+              continue;
+            }
+
+            for (const rel of relationships) {
+              const targetEntityId = entityNameToId.get(rel.targetEntityName);
+              if (!targetEntityId) {
+                // eslint-disable-next-line no-console
+                console.warn(
+                  `Cannot create relationship from '${entityName}' to '${rel.targetEntityName}' in world ${world.name}: target entity not found`
+                );
+                continue;
+              }
+
+              try {
+                entityStore.addRelationship(
+                  sourceEntityId,
+                  targetEntityId,
+                  rel.relationshipType
+                );
+                // eslint-disable-next-line no-console
+                console.log(`  Created relationship: ${entityName} --[${rel.relationshipType}]--> ${rel.targetEntityName}`);
+              } catch (err) {
+                // eslint-disable-next-line no-console
+                console.error(
+                  `Failed to create relationship from '${entityName}' to '${rel.targetEntityName}':`,
+                  (err as Error).message
+                );
+              }
             }
           }
         }
