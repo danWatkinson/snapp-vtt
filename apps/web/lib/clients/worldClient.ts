@@ -39,14 +39,11 @@ export interface WorldLocation extends WorldEntity {
   type: "location";
 }
 
-import { apiRequest, extractProperty } from "./baseClient";
+import { apiRequest, get, post, patch, postVoid, extractProperty } from "./baseClient";
 import { serviceUrls } from "../config/services";
 
 export async function fetchWorlds(): Promise<World[]> {
-  const data = await apiRequest<{ worlds: World[] }>(
-    `${serviceUrls.world}/worlds`
-  );
-  return extractProperty(data, "worlds");
+  return get<World[]>(`${serviceUrls.world}/worlds`, "worlds");
 }
 
 export async function createWorld(
@@ -54,12 +51,12 @@ export async function createWorld(
   description: string,
   token?: string
 ): Promise<World> {
-  const data = await apiRequest<{ world: World }>(`${serviceUrls.world}/worlds`, {
-    method: "POST",
-    token,
-    body: { name, description }
-  });
-  return extractProperty(data, "world");
+  return post<World>(
+    `${serviceUrls.world}/worlds`,
+    "world",
+    { name, description },
+    { token }
+  );
 }
 
 export async function updateWorldSplashImage(
@@ -67,15 +64,12 @@ export async function updateWorldSplashImage(
   splashImageAssetId: string | null,
   token?: string
 ): Promise<World> {
-  const data = await apiRequest<{ world: World }>(
+  return patch<World>(
     `${serviceUrls.world}/worlds/${worldId}`,
-    {
-      method: "PATCH",
-      token,
-      body: { splashImageAssetId }
-    }
+    "world",
+    { splashImageAssetId },
+    { token }
   );
-  return extractProperty(data, "world");
 }
 
 export async function fetchWorldEntities(
@@ -85,8 +79,7 @@ export async function fetchWorldEntities(
   const url = type
     ? `${serviceUrls.world}/worlds/${worldId}/entities?type=${type}`
     : `${serviceUrls.world}/worlds/${worldId}/entities`;
-  const data = await apiRequest<{ entities: WorldEntity[] }>(url);
-  return extractProperty(data, "entities");
+  return get<WorldEntity[]>(url, "entities");
 }
 
 export async function createWorldEntity(
@@ -122,23 +115,19 @@ export async function createWorldEntity(
       body.locationId = locationId;
     }
   }
-  const data = await apiRequest<{ entity: WorldEntity }>(
+  return post<WorldEntity>(
     `${serviceUrls.world}/worlds/${worldId}/entities`,
-    {
-      method: "POST",
-      token,
-      body
-    }
+    "entity",
+    body,
+    { token }
   );
-  return extractProperty(data, "entity");
 }
 
 // Convenience functions for backward compatibility
 export async function fetchWorldLocations(
   worldId: string
 ): Promise<WorldLocation[]> {
-  const entities = await fetchWorldEntities(worldId, "location");
-  return entities as WorldLocation[];
+  return fetchWorldEntities(worldId, "location") as Promise<WorldLocation[]>;
 }
 
 export async function createWorldLocation(
@@ -161,13 +150,10 @@ export async function addLocationRelationship(
   relationshipType: LocationRelationshipType,
   token?: string
 ): Promise<void> {
-  await apiRequest(
+  await postVoid(
     `${serviceUrls.world}/worlds/${worldId}/locations/${sourceLocationId}/relationships`,
-    {
-      method: "POST",
-      token,
-      body: { targetLocationId, relationshipType }
-    }
+    { targetLocationId, relationshipType },
+    { token }
   );
 }
 
@@ -179,18 +165,17 @@ export async function getLocationRelationships(
   const url = relationshipType
     ? `${serviceUrls.world}/worlds/${worldId}/locations/${locationId}/relationships?type=${relationshipType}`
     : `${serviceUrls.world}/worlds/${worldId}/locations/${locationId}/relationships`;
-  const data = await apiRequest<{ relationships: LocationRelationship[] }>(url);
-  return extractProperty(data, "relationships");
+  return get<LocationRelationship[]>(url, "relationships");
 }
 
 export async function getEventsForLocation(
   worldId: string,
   locationId: string
 ): Promise<WorldEntity[]> {
-  const data = await apiRequest<{ events: WorldEntity[] }>(
-    `${serviceUrls.world}/worlds/${worldId}/locations/${locationId}/events`
+  return get<WorldEntity[]>(
+    `${serviceUrls.world}/worlds/${worldId}/locations/${locationId}/events`,
+    "events"
   );
-  return extractProperty(data, "events");
 }
 
 export async function addEventRelationship(
@@ -200,13 +185,10 @@ export async function addEventRelationship(
   relationshipType: LocationRelationshipType,
   token?: string
 ): Promise<void> {
-  await apiRequest(
+  await postVoid(
     `${serviceUrls.world}/worlds/${worldId}/events/${sourceEventId}/relationships`,
-    {
-      method: "POST",
-      token,
-      body: { targetEventId, relationshipType }
-    }
+    { targetEventId, relationshipType },
+    { token }
   );
 }
 
@@ -214,10 +196,10 @@ export async function getSubEventsForEvent(
   worldId: string,
   eventId: string
 ): Promise<WorldEntity[]> {
-  const data = await apiRequest<{ subEvents: WorldEntity[] }>(
-    `${serviceUrls.world}/worlds/${worldId}/events/${eventId}/sub-events`
+  return get<WorldEntity[]>(
+    `${serviceUrls.world}/worlds/${worldId}/events/${eventId}/sub-events`,
+    "subEvents"
   );
-  return extractProperty(data, "subEvents");
 }
 
 export async function addFactionRelationship(
@@ -227,13 +209,10 @@ export async function addFactionRelationship(
   relationshipType: LocationRelationshipType,
   token?: string
 ): Promise<void> {
-  await apiRequest(
+  await postVoid(
     `${serviceUrls.world}/worlds/${worldId}/factions/${sourceFactionId}/relationships`,
-    {
-      method: "POST",
-      token,
-      body: { targetFactionId, relationshipType }
-    }
+    { targetFactionId, relationshipType },
+    { token }
   );
 }
 
@@ -241,10 +220,10 @@ export async function getSubFactionsForFaction(
   worldId: string,
   factionId: string
 ): Promise<WorldEntity[]> {
-  const data = await apiRequest<{ subFactions: WorldEntity[] }>(
-    `${serviceUrls.world}/worlds/${worldId}/factions/${factionId}/sub-factions`
+  return get<WorldEntity[]>(
+    `${serviceUrls.world}/worlds/${worldId}/factions/${factionId}/sub-factions`,
+    "subFactions"
   );
-  return extractProperty(data, "subFactions");
 }
 
 export async function addFactionMember(
@@ -253,13 +232,10 @@ export async function addFactionMember(
   creatureId: string,
   token?: string
 ): Promise<void> {
-  await apiRequest(
+  await postVoid(
     `${serviceUrls.world}/worlds/${worldId}/factions/${factionId}/members`,
-    {
-      method: "POST",
-      token,
-      body: { creatureId }
-    }
+    { creatureId },
+    { token }
   );
 }
 
@@ -267,10 +243,10 @@ export async function getMembersForFaction(
   worldId: string,
   factionId: string
 ): Promise<WorldEntity[]> {
-  const data = await apiRequest<{ members: WorldEntity[] }>(
-    `${serviceUrls.world}/worlds/${worldId}/factions/${factionId}/members`
+  return get<WorldEntity[]>(
+    `${serviceUrls.world}/worlds/${worldId}/factions/${factionId}/members`,
+    "members"
   );
-  return extractProperty(data, "members");
 }
 
 

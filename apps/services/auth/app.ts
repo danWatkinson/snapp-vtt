@@ -6,6 +6,7 @@ import { createServiceApp } from "../../../packages/express-app";
 import { authenticate } from "../../../packages/auth-middleware";
 import { AuthService, AuthServiceConfig } from "./authService";
 import { InMemoryUserStore, Role } from "./userStore";
+import { auth as authConfig } from "../../../packages/config";
 
 export interface AppDependencies {
   userStore?: InMemoryUserStore;
@@ -21,12 +22,12 @@ type AuthedRequest = ExpressRequest & {
 
 export function createApp(deps: AppDependencies = {}) {
   const userStore = deps.userStore ?? new InMemoryUserStore();
-  const authConfig: AuthServiceConfig = deps.authConfig ?? {
-    jwtSecret: process.env.AUTH_JWT_SECRET ?? "dev-secret",
-    tokenExpiresInSeconds: 60 * 10
+  const serviceConfig: AuthServiceConfig = deps.authConfig ?? {
+    jwtSecret: authConfig.jwtSecret,
+    tokenExpiresInSeconds: authConfig.tokenExpiresInSeconds
   };
 
-  const authService = new AuthService(userStore, authConfig);
+  const authService = new AuthService(userStore, serviceConfig);
 
   const app = createServiceApp({
     serviceName: "auth",

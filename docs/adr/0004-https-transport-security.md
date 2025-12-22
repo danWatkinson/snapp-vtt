@@ -23,7 +23,7 @@ All of these components need to communicate securely, and we want to ensure that
   - No HTTP servers are exposed externally in local development; all communication is encrypted.
 
 - **Frontend-to-service communication**
-  - The frontend makes direct HTTPS calls to service endpoints (e.g. `https://localhost:4400/auth/login`, `https://localhost:4501/worlds`).
+  - The frontend makes direct HTTPS calls to service endpoints (e.g. `https://localhost:3001/auth/login`, `https://localhost:3002/worlds`).
   - Service URLs are configurable via environment variables (`NEXT_PUBLIC_AUTH_SERVICE_URL`, `NEXT_PUBLIC_WORLD_SERVICE_URL`) to support different environments.
   - CORS is configured on all services to allow requests from the HTTPS web UI origin.
 
@@ -48,8 +48,10 @@ All of these components need to communicate securely, and we want to ensure that
 ### Service ports (development defaults)
 
 - Web UI: `https://localhost:3000` (configurable via `WEB_PORT`).
-- Auth service: `https://localhost:4400` (configurable via `AUTH_PORT`).
-- World service: `https://localhost:4501` (configurable via `WORLD_PORT`).
+- Auth service: `https://localhost:3001` (configurable via `AUTH_PORT`).
+- World service: `https://localhost:3002` (configurable via `WORLD_PORT`).
+- Campaign service: `https://localhost:3003` (configurable via `CAMPAIGN_PORT`).
+- Assets service: `https://localhost:3004` (configurable via `ASSET_PORT`).
 
 ### Consequences
 

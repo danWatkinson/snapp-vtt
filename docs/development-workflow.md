@@ -84,9 +84,10 @@ All local development and E2E testing is expected to run over **HTTPS**, using t
   - `HTTPS_CERT_PATH`: full path to the certificate file.
 - **Service ports (over HTTPS)** – all configurable via env:
   - Web UI: `WEB_PORT` (default `3000`) → `https://localhost:3000`
-  - Auth service: `AUTH_PORT` (default `4400`) → `https://localhost:4400`
-  - World service: `WORLD_PORT` (default `4501`) → `https://localhost:4501`
-  - Campaign service: `CAMPAIGN_PORT` (default `4600`) → `https://localhost:4600`
+  - Auth service: `AUTH_PORT` (default `3001`) → `https://localhost:3001`
+  - World service: `WORLD_PORT` (default `3002`) → `https://localhost:3002`
+  - Campaign service: `CAMPAIGN_PORT` (default `3003`) → `https://localhost:3003`
+  - Assets service: `ASSET_PORT` (default `3004`) → `https://localhost:3004`
 
 > E2E tests are configured with `baseURL: https://localhost:3000` and `ignoreHTTPSErrors: true` so they work seamlessly with these self‑signed certificates.
 

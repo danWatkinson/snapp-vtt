@@ -30,6 +30,8 @@ export interface StoryArc {
   eventIds: string[];
 }
 
+import { generateId, requireNonEmpty, findOrThrow, findIndexOrThrow, notFoundError, exists } from "../../../packages/store-utils";
+
 export class InMemoryCampaignStore {
   private campaigns: Campaign[] = [];
   private sessions: Session[] = [];
@@ -41,21 +43,17 @@ export class InMemoryCampaignStore {
   }
 
   createCampaign(name: string, summary: string, worldId: string): Campaign {
-    if (!name.trim()) {
-      throw new Error("Campaign name is required");
-    }
-    if (!worldId.trim()) {
-      throw new Error("worldId is required");
-    }
+    requireNonEmpty(name, "Campaign name");
+    requireNonEmpty(worldId, "worldId");
     // Check uniqueness per world: same name cannot exist twice in the same world
-    const existing = this.campaigns.find(
+    if (exists(
+      this.campaigns,
       (c) => c.name.toLowerCase() === name.toLowerCase() && c.worldId === worldId
-    );
-    if (existing) {
+    )) {
       throw new Error(`Campaign '${name}' already exists in this world`);
     }
     const campaign: Campaign = {
-      id: `camp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: generateId("camp"),
       name,
       summary,
       worldId,
@@ -71,14 +69,10 @@ export class InMemoryCampaignStore {
   }
 
   createSession(campaignId: string, name: string): Session {
-    if (!campaignId.trim()) {
-      throw new Error("campaignId is required");
-    }
-    if (!name.trim()) {
-      throw new Error("Session name is required");
-    }
+    requireNonEmpty(campaignId, "campaignId");
+    requireNonEmpty(name, "Session name");
     const session: Session = {
-      id: `sess-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: generateId("sess"),
       campaignId,
       name
     };
@@ -97,17 +91,11 @@ export class InMemoryCampaignStore {
     worldId: string,
     entityIds: string[]
   ): Scene {
-    if (!sessionId.trim()) {
-      throw new Error("sessionId is required");
-    }
-    if (!name.trim()) {
-      throw new Error("Scene name is required");
-    }
-    if (!worldId.trim()) {
-      throw new Error("worldId is required");
-    }
+    requireNonEmpty(sessionId, "sessionId");
+    requireNonEmpty(name, "Scene name");
+    requireNonEmpty(worldId, "worldId");
     const scene: Scene = {
-      id: `scene-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: generateId("scene"),
       sessionId,
       name,
       summary,
@@ -119,24 +107,22 @@ export class InMemoryCampaignStore {
   }
 
   listPlayers(campaignId: string): string[] {
-    const campaign = this.campaigns.find((c) => c.id === campaignId);
-    if (!campaign) {
-      throw new Error(`Campaign ${campaignId} not found`);
-    }
+    const campaign = findOrThrow(
+      this.campaigns,
+      (c) => c.id === campaignId,
+      notFoundError("Campaign", campaignId)
+    );
     return [...campaign.playerIds];
   }
 
   addPlayer(campaignId: string, playerId: string): void {
-    if (!campaignId.trim()) {
-      throw new Error("campaignId is required");
-    }
-    if (!playerId.trim()) {
-      throw new Error("playerId is required");
-    }
-    const campaign = this.campaigns.find((c) => c.id === campaignId);
-    if (!campaign) {
-      throw new Error(`Campaign ${campaignId} not found`);
-    }
+    requireNonEmpty(campaignId, "campaignId");
+    requireNonEmpty(playerId, "playerId");
+    const campaign = findOrThrow(
+      this.campaigns,
+      (c) => c.id === campaignId,
+      notFoundError("Campaign", campaignId)
+    );
     if (campaign.playerIds.includes(playerId)) {
       throw new Error(`Player ${playerId} is already in campaign ${campaignId}`);
     }
@@ -159,12 +145,8 @@ export class InMemoryCampaignStore {
     name: string,
     summary: string
   ): StoryArc {
-    if (!campaignId.trim()) {
-      throw new Error("campaignId is required");
-    }
-    if (!name.trim()) {
-      throw new Error("Story arc name is required");
-    }
+    requireNonEmpty(campaignId, "campaignId");
+    requireNonEmpty(name, "Story arc name");
     const campaign = this.campaigns.find((c) => c.id === campaignId);
     if (!campaign) {
       throw new Error(`Campaign ${campaignId} not found`);
@@ -177,7 +159,7 @@ export class InMemoryCampaignStore {
       throw new Error(`Story arc '${name}' already exists in this campaign`);
     }
     const storyArc: StoryArc = {
-      id: `arc-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: generateId("arc"),
       campaignId,
       name,
       summary,
@@ -188,24 +170,22 @@ export class InMemoryCampaignStore {
   }
 
   listStoryArcEvents(storyArcId: string): string[] {
-    const storyArc = this.storyArcs.find((arc) => arc.id === storyArcId);
-    if (!storyArc) {
-      throw new Error(`Story arc ${storyArcId} not found`);
-    }
+    const storyArc = findOrThrow(
+      this.storyArcs,
+      (arc) => arc.id === storyArcId,
+      notFoundError("Story arc", storyArcId)
+    );
     return [...storyArc.eventIds];
   }
 
   addEventToStoryArc(storyArcId: string, eventId: string): void {
-    if (!storyArcId.trim()) {
-      throw new Error("storyArcId is required");
-    }
-    if (!eventId.trim()) {
-      throw new Error("eventId is required");
-    }
-    const storyArc = this.storyArcs.find((arc) => arc.id === storyArcId);
-    if (!storyArc) {
-      throw new Error(`Story arc ${storyArcId} not found`);
-    }
+    requireNonEmpty(storyArcId, "storyArcId");
+    requireNonEmpty(eventId, "eventId");
+    const storyArc = findOrThrow(
+      this.storyArcs,
+      (arc) => arc.id === storyArcId,
+      notFoundError("Story arc", storyArcId)
+    );
     if (storyArc.eventIds.includes(eventId)) {
       throw new Error(`Event ${eventId} is already in story arc ${storyArcId}`);
     }
@@ -213,10 +193,11 @@ export class InMemoryCampaignStore {
   }
 
   getTimeline(campaignId: string): { currentMoment: number } {
-    const campaign = this.campaigns.find((c) => c.id === campaignId);
-    if (!campaign) {
-      throw new Error(`Campaign ${campaignId} not found`);
-    }
+    const campaign = findOrThrow(
+      this.campaigns,
+      (c) => c.id === campaignId,
+      notFoundError("Campaign", campaignId)
+    );
     return { currentMoment: campaign.currentMoment };
   }
 
@@ -225,13 +206,12 @@ export class InMemoryCampaignStore {
     amount: number,
     unit: "second" | "minute" | "hour" | "day" | "week" | "month" | "year"
   ): void {
-    if (!campaignId.trim()) {
-      throw new Error("campaignId is required");
-    }
-    const campaign = this.campaigns.find((c) => c.id === campaignId);
-    if (!campaign) {
-      throw new Error(`Campaign ${campaignId} not found`);
-    }
+    requireNonEmpty(campaignId, "campaignId");
+    const campaign = findOrThrow(
+      this.campaigns,
+      (c) => c.id === campaignId,
+      notFoundError("Campaign", campaignId)
+    );
 
     const multipliers: Record<
       typeof unit,

@@ -3,6 +3,7 @@ import { createApp } from "./app";
 import { InMemoryUserStore } from "./userStore";
 import { seedUsers } from "./userSeeder";
 import { createHttpsServer } from "../../../packages/server-bootstrap";
+import { ports } from "../../../packages/config";
 
 const seededStore = new InMemoryUserStore();
 
@@ -21,7 +22,7 @@ async function bootstrap() {
   createHttpsServer({
     app,
     serviceName: "Auth",
-    port: 4400,
+    port: ports.auth,
     portEnvVar: "AUTH_PORT"
   });
 }

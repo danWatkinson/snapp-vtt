@@ -1,3 +1,5 @@
+import { alreadyExistsError, notFoundError } from "../../../packages/store-utils";
+
 export type Role = "admin" | "gm" | "player";
 
 export interface User {
@@ -16,7 +18,7 @@ export class InMemoryUserStore {
 
   createUser(username: string, roles: Role[] = [], passwordHash?: string): User {
     if (this.usersByUsername.has(username)) {
-      throw new Error(`User with username '${username}' already exists`);
+      throw new Error(alreadyExistsError("User", username));
     }
     const user: User = {
       id: username,
@@ -35,7 +37,7 @@ export class InMemoryUserStore {
   assignRoles(username: string, roles: Role[]): User {
     const user = this.usersByUsername.get(username);
     if (!user) {
-      throw new Error(`User '${username}' not found`);
+      throw new Error(notFoundError("User", username));
     }
     const uniqueRoles = Array.from(new Set([...user.roles, ...roles]));
     user.roles = uniqueRoles;
@@ -48,7 +50,7 @@ export class InMemoryUserStore {
 
   removeUser(username: string): void {
     if (!this.usersByUsername.has(username)) {
-      throw new Error(`User '${username}' not found`);
+      throw new Error(notFoundError("User", username));
     }
     this.usersByUsername.delete(username);
   }
@@ -56,7 +58,7 @@ export class InMemoryUserStore {
   revokeRole(username: string, role: Role): User {
     const user = this.usersByUsername.get(username);
     if (!user) {
-      throw new Error(`User '${username}' not found`);
+      throw new Error(notFoundError("User", username));
     }
     user.roles = user.roles.filter((r) => r !== role);
     return user;
@@ -65,7 +67,7 @@ export class InMemoryUserStore {
   setRoles(username: string, roles: Role[]): User {
     const user = this.usersByUsername.get(username);
     if (!user) {
-      throw new Error(`User '${username}' not found`);
+      throw new Error(notFoundError("User", username));
     }
     user.roles = [...roles];
     return user;
@@ -74,7 +76,7 @@ export class InMemoryUserStore {
   updatePassword(username: string, passwordHash: string): User {
     const user = this.usersByUsername.get(username);
     if (!user) {
-      throw new Error(`User '${username}' not found`);
+      throw new Error(notFoundError("User", username));
     }
     user.passwordHash = passwordHash;
     return user;

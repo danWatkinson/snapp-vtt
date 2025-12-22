@@ -6,17 +6,17 @@ This document provides a high-level overview of the Snapp VTT backend services a
 
 - **Auth service**
   - **Responsibility**: User accounts, password authentication, and role management (`admin`, `gm`, `player`).
-  - **Default base URL**: `https://localhost:4400` (configurable via `AUTH_PORT` or `PORT`).
+  - **Default base URL**: `https://localhost:3001` (configurable via `AUTH_PORT` or `PORT`).
   - **OpenAPI spec**: `docs/api/auth-openapi.yaml`.
 
 - **World service**
   - **Responsibility**: Worlds and world entities (e.g. locations, characters, items, events).
-  - **Default base URL**: `https://localhost:4501` (configurable via `WORLD_PORT` or `PORT`).
+  - **Default base URL**: `https://localhost:3002` (configurable via `WORLD_PORT` or `PORT`).
   - **OpenAPI spec**: `docs/api/world-openapi.yaml`.
 
 - **Campaign service**
   - **Responsibility**: Campaigns, sessions, scenes, players, story arcs, and campaign timelines.
-  - **Default base URL**: `https://localhost:4600` (configurable via `CAMPAIGN_PORT` or `PORT`).
+  - **Default base URL**: `https://localhost:3003` (configurable via `CAMPAIGN_PORT` or `PORT`).
   - **OpenAPI spec**: `docs/api/campaign-openapi.yaml`.
 
 ### Authentication and Authorisation

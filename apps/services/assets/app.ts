@@ -24,6 +24,8 @@ export interface AssetStore {
   getById(id: string): DigitalAsset | undefined;
 }
 
+import { generateId } from "../../../packages/store-utils";
+
 export class InMemoryAssetStore implements AssetStore {
   private assets: DigitalAsset[] = [];
 
@@ -33,7 +35,7 @@ export class InMemoryAssetStore implements AssetStore {
     const now = Date.now();
     const created: DigitalAsset = {
       ...asset,
-      id: `asset-${this.assets.length + 1}`,
+      id: generateId("asset"),
       createdAt: now,
       updatedAt: now
     };
@@ -70,8 +72,9 @@ export interface AssetAppDependencies {
   store?: AssetStore;
 }
 
-const MAX_FILE_SIZE_BYTES =
-  Number(process.env.ASSET_MAX_FILE_SIZE_BYTES ?? 10 * 1024 * 1024);
+import { assets as assetsConfig } from "../../../packages/config";
+
+const MAX_FILE_SIZE_BYTES = assetsConfig.maxFileSizeBytes;
 
 const allowedImageTypes = new Set([
   "image/png",

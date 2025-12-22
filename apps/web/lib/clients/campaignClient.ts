@@ -1,4 +1,4 @@
-import { apiRequest, extractProperty } from "./baseClient";
+import { apiRequest, get, post, postVoid } from "./baseClient";
 import { serviceUrls } from "../config/services";
 
 export interface Campaign {
@@ -19,22 +19,19 @@ export async function createCampaign(
   if (!worldId || !worldId.trim()) {
     throw new Error("worldId is required");
   }
-  const data = await apiRequest<{ campaign: Campaign }>(
+  return post<Campaign>(
     `${serviceUrls.campaign}/campaigns`,
-    {
-      method: "POST",
-      token,
-      body: { name, summary, worldId }
-    }
+    "campaign",
+    { name, summary, worldId },
+    { token }
   );
-  return extractProperty(data, "campaign");
 }
 
 export async function fetchCampaignsByWorld(worldId: string): Promise<Campaign[]> {
-  const data = await apiRequest<{ campaigns: Campaign[] }>(
-    `${serviceUrls.campaign}/worlds/${worldId}/campaigns`
+  return get<Campaign[]>(
+    `${serviceUrls.campaign}/worlds/${worldId}/campaigns`,
+    "campaigns"
   );
-  return extractProperty(data, "campaigns");
 }
 
 export interface Session {
@@ -46,10 +43,10 @@ export interface Session {
 export async function fetchCampaignSessions(
   campaignId: string
 ): Promise<Session[]> {
-  const data = await apiRequest<{ sessions: Session[] }>(
-    `${serviceUrls.campaign}/campaigns/${campaignId}/sessions`
+  return get<Session[]>(
+    `${serviceUrls.campaign}/campaigns/${campaignId}/sessions`,
+    "sessions"
   );
-  return extractProperty(data, "sessions");
 }
 
 export async function createSession(
@@ -57,15 +54,12 @@ export async function createSession(
   name: string,
   token?: string
 ): Promise<Session> {
-  const data = await apiRequest<{ session: Session }>(
+  return post<Session>(
     `${serviceUrls.campaign}/campaigns/${campaignId}/sessions`,
-    {
-      method: "POST",
-      token,
-      body: { name }
-    }
+    "session",
+    { name },
+    { token }
   );
-  return extractProperty(data, "session");
 }
 
 export interface Scene {
@@ -80,10 +74,10 @@ export interface Scene {
 export async function fetchSessionScenes(
   sessionId: string
 ): Promise<Scene[]> {
-  const data = await apiRequest<{ scenes: Scene[] }>(
-    `${serviceUrls.campaign}/sessions/${sessionId}/scenes`
+  return get<Scene[]>(
+    `${serviceUrls.campaign}/sessions/${sessionId}/scenes`,
+    "scenes"
   );
-  return extractProperty(data, "scenes");
 }
 
 export async function createScene(
@@ -94,24 +88,21 @@ export async function createScene(
   entityIds: string[] = [],
   token?: string
 ): Promise<Scene> {
-  const data = await apiRequest<{ scene: Scene }>(
+  return post<Scene>(
     `${serviceUrls.campaign}/sessions/${sessionId}/scenes`,
-    {
-      method: "POST",
-      token,
-      body: { name, summary, worldId, entityIds }
-    }
+    "scene",
+    { name, summary, worldId, entityIds },
+    { token }
   );
-  return extractProperty(data, "scene");
 }
 
 export async function fetchCampaignPlayers(
   campaignId: string
 ): Promise<string[]> {
-  const data = await apiRequest<{ players: string[] }>(
-    `${serviceUrls.campaign}/campaigns/${campaignId}/players`
+  return get<string[]>(
+    `${serviceUrls.campaign}/campaigns/${campaignId}/players`,
+    "players"
   );
-  return extractProperty(data, "players");
 }
 
 export async function addPlayerToCampaign(
@@ -119,13 +110,10 @@ export async function addPlayerToCampaign(
   playerId: string,
   token?: string
 ): Promise<void> {
-  await apiRequest(
+  await postVoid(
     `${serviceUrls.campaign}/campaigns/${campaignId}/players`,
-    {
-      method: "POST",
-      token,
-      body: { playerId }
-    }
+    { playerId },
+    { token }
   );
 }
 
@@ -140,10 +128,10 @@ export interface StoryArc {
 export async function fetchStoryArcs(
   campaignId: string
 ): Promise<StoryArc[]> {
-  const data = await apiRequest<{ storyArcs: StoryArc[] }>(
-    `${serviceUrls.campaign}/campaigns/${campaignId}/story-arcs`
+  return get<StoryArc[]>(
+    `${serviceUrls.campaign}/campaigns/${campaignId}/story-arcs`,
+    "storyArcs"
   );
-  return extractProperty(data, "storyArcs");
 }
 
 export async function createStoryArc(
@@ -155,15 +143,12 @@ export async function createStoryArc(
   if (!campaignId || !campaignId.trim()) {
     throw new Error("campaignId is required");
   }
-  const data = await apiRequest<{ storyArc: StoryArc }>(
+  return post<StoryArc>(
     `${serviceUrls.campaign}/campaigns/${campaignId}/story-arcs`,
-    {
-      method: "POST",
-      token,
-      body: { name, summary }
-    }
+    "storyArc",
+    { name, summary },
+    { token }
   );
-  return extractProperty(data, "storyArc");
 }
 
 export interface Timeline {
@@ -171,6 +156,7 @@ export interface Timeline {
 }
 
 export async function fetchTimeline(campaignId: string): Promise<Timeline> {
+  // Timeline returns response directly, not nested
   return apiRequest<Timeline>(
     `${serviceUrls.campaign}/campaigns/${campaignId}/timeline`
   );
@@ -182,6 +168,7 @@ export async function advanceTimeline(
   unit: "second" | "minute" | "hour" | "day" | "week" | "month" | "year",
   token?: string
 ): Promise<Timeline> {
+  // Timeline returns response directly, not nested
   return apiRequest<Timeline>(
     `${serviceUrls.campaign}/campaigns/${campaignId}/timeline/advance`,
     {
@@ -195,10 +182,10 @@ export async function advanceTimeline(
 export async function fetchStoryArcEvents(
   storyArcId: string
 ): Promise<string[]> {
-  const data = await apiRequest<{ events: string[] }>(
-    `${serviceUrls.campaign}/story-arcs/${storyArcId}/events`
+  return get<string[]>(
+    `${serviceUrls.campaign}/story-arcs/${storyArcId}/events`,
+    "events"
   );
-  return extractProperty(data, "events");
 }
 
 export async function addEventToStoryArc(
@@ -206,13 +193,10 @@ export async function addEventToStoryArc(
   eventId: string,
   token?: string
 ): Promise<void> {
-  await apiRequest(
+  await postVoid(
     `${serviceUrls.campaign}/story-arcs/${storyArcId}/events`,
-    {
-      method: "POST",
-      token,
-      body: { eventId }
-    }
+    { eventId },
+    { token }
   );
 }
 

@@ -1,4 +1,4 @@
-import { apiRequest, extractProperty } from "./baseClient";
+import { apiRequest, get, post, postVoid, patch, del, extractProperty } from "./baseClient";
 import { serviceUrls } from "../config/services";
 
 export interface LoginResponse {
@@ -10,6 +10,7 @@ export async function login(
   username: string,
   password: string
 ): Promise<LoginResponse> {
+  // Login returns response directly, not nested
   return apiRequest<LoginResponse>(`${serviceUrls.auth}/auth/login`, {
     method: "POST",
     body: { username, password }
@@ -23,25 +24,14 @@ export interface User {
 }
 
 export async function listUsers(token: string): Promise<User[]> {
-  const data = await apiRequest<{ users: User[] }>(`${serviceUrls.auth}/users`, {
-    method: "GET",
-    token
-  });
-  return extractProperty(data, "users");
+  return get<User[]>(`${serviceUrls.auth}/users`, "users", { token });
 }
 
 export async function getUser(
   token: string,
   username: string
 ): Promise<User> {
-  const data = await apiRequest<{ user: User }>(
-    `${serviceUrls.auth}/users/${username}`,
-    {
-      method: "GET",
-      token
-    }
-  );
-  return extractProperty(data, "user");
+  return get<User>(`${serviceUrls.auth}/users/${username}`, "user", { token });
 }
 
 export async function createUser(
@@ -50,34 +40,31 @@ export async function createUser(
   password: string,
   roles: string[] = []
 ): Promise<User> {
-  const data = await apiRequest<{ user: User }>(`${serviceUrls.auth}/users`, {
-    method: "POST",
-    token,
-    body: { username, password, roles }
-  });
-  return extractProperty(data, "user");
+  return post<User>(
+    `${serviceUrls.auth}/users`,
+    "user",
+    { username, password, roles },
+    { token }
+  );
 }
 
 export async function deleteUser(
   token: string,
   username: string
 ): Promise<void> {
-  await apiRequest(`${serviceUrls.auth}/users/${username}`, {
-    method: "DELETE",
-    token
-  });
+  await del(`${serviceUrls.auth}/users/${username}`, { token });
 }
 
 export async function assignRoles(
   actingToken: string,
   username: string,
   roles: string[]
-) {
-  return apiRequest(`${serviceUrls.auth}/users/${username}/roles`, {
-    method: "POST",
-    token: actingToken,
-    body: { roles }
-  });
+): Promise<void> {
+  await postVoid(
+    `${serviceUrls.auth}/users/${username}/roles`,
+    { roles },
+    { token: actingToken }
+  );
 }
 
 export async function revokeRole(

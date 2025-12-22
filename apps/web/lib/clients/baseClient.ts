@@ -77,3 +77,83 @@ export function extractProperty<T>(
   }
   return data[property] as T;
 }
+
+/**
+ * Helper to make a GET request and extract a nested property from the response.
+ * Reduces boilerplate for common GET operations.
+ */
+export async function get<T>(
+  url: string,
+  property: string,
+  options: Omit<ApiRequestOptions, "method"> = {}
+): Promise<T> {
+  const data = await apiRequest<Record<string, unknown>>(url, {
+    ...options,
+    method: "GET"
+  });
+  return extractProperty<T>(data, property);
+}
+
+/**
+ * Helper to make a POST request and extract a nested property from the response.
+ * Reduces boilerplate for common POST operations.
+ */
+export async function post<T>(
+  url: string,
+  property: string,
+  body: unknown,
+  options: Omit<ApiRequestOptions, "method" | "body"> = {}
+): Promise<T> {
+  const data = await apiRequest<Record<string, unknown>>(url, {
+    ...options,
+    method: "POST",
+    body
+  });
+  return extractProperty<T>(data, property);
+}
+
+/**
+ * Helper to make a POST request that doesn't return a nested property.
+ * Useful for operations that return the response directly or have no body.
+ */
+export async function postVoid(
+  url: string,
+  body: unknown,
+  options: Omit<ApiRequestOptions, "method" | "body"> = {}
+): Promise<void> {
+  await apiRequest(url, {
+    ...options,
+    method: "POST",
+    body
+  });
+}
+
+/**
+ * Helper to make a PATCH request and extract a nested property from the response.
+ */
+export async function patch<T>(
+  url: string,
+  property: string,
+  body: unknown,
+  options: Omit<ApiRequestOptions, "method" | "body"> = {}
+): Promise<T> {
+  const data = await apiRequest<Record<string, unknown>>(url, {
+    ...options,
+    method: "PATCH",
+    body
+  });
+  return extractProperty<T>(data, property);
+}
+
+/**
+ * Helper to make a DELETE request.
+ */
+export async function del(
+  url: string,
+  options: Omit<ApiRequestOptions, "method"> = {}
+): Promise<void> {
+  await apiRequest(url, {
+    ...options,
+    method: "DELETE"
+  });
+}

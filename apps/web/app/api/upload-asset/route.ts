@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     
     // Call the assets service to create the asset record
     // Use a custom fetch that ignores SSL certificate errors for self-signed certs
-    const ASSET_SERVICE_URL = process.env.NEXT_PUBLIC_ASSET_SERVICE_URL ?? "https://localhost:4700";
+    const ASSET_SERVICE_URL = process.env.NEXT_PUBLIC_ASSET_SERVICE_URL ?? "https://localhost:3004";
     
     // For server-side fetch in Node.js, we need to use undici or handle SSL differently
     // Since Next.js uses Node's fetch, we'll use the https module directly

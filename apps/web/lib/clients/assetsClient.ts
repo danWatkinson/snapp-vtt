@@ -1,4 +1,4 @@
-import { apiRequest, extractProperty } from "./baseClient";
+import { apiRequest, get, post } from "./baseClient";
 import { serviceUrls } from "../config/services";
 
 export type MediaType = "image" | "audio";
@@ -26,11 +26,7 @@ export async function fetchAssets(
   if (options.search) params.set("search", options.search);
 
   const url = `${serviceUrls.assets}/assets${params.toString() ? `?${params.toString()}` : ""}`;
-  const data = await apiRequest<{ assets: DigitalAsset[] }>(url, {
-    method: "GET",
-    token
-  });
-  return extractProperty(data, "assets");
+  return get<DigitalAsset[]>(url, "assets", { token });
 }
 
 export async function createAsset(
@@ -43,14 +39,11 @@ export async function createAsset(
     tags?: string[];
   }
 ): Promise<DigitalAsset> {
-  const data = await apiRequest<{ asset: DigitalAsset }>(
+  return post<DigitalAsset>(
     `${serviceUrls.assets}/assets`,
-    {
-      method: "POST",
-      token,
-      body: input
-    }
+    "asset",
+    input,
+    { token }
   );
-  return extractProperty(data, "asset");
 }
 

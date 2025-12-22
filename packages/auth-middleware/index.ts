@@ -46,10 +46,10 @@ export function createAuthenticateMiddleware(
   };
 }
 
+import { auth } from "../config";
+
 // Convenience function that creates middleware with optional role requirement
 export function authenticate(requiredRole?: Role) {
-  const jwtSecret =
-    process.env.AUTH_JWT_SECRET ?? process.env.JWT_SECRET ?? "dev-secret";
-  return createAuthenticateMiddleware({ jwtSecret, requiredRole });
+  return createAuthenticateMiddleware({ jwtSecret: auth.jwtSecret, requiredRole });
 }
 

@@ -4,22 +4,21 @@ import fs from "fs";
 import path from "path";
 import next from "next";
 import type { IncomingMessage, ServerResponse } from "http";
+import { logRequest } from "../../packages/express-middleware/logging";
+import { ports, https as httpsConfig } from "../../packages/config";
 
 const dev = true;
 const hostname = "localhost";
-const port = Number(process.env.WEB_PORT ?? 3000);
+const port = ports.web;
 
 const webDir = path.join(process.cwd(), "apps", "web");
 const app = next({ dev, hostname, port, dir: webDir });
 const handle = app.getRequestHandler();
 
-const certDir =
-  process.env.HTTPS_CERT_DIR ??
-  path.join(process.cwd(), "..", "Snapp-other", "certs");
-const keyPath =
-  process.env.HTTPS_KEY_PATH ?? path.join(certDir, "localhost-key.pem");
-const certPath =
-  process.env.HTTPS_CERT_PATH ?? path.join(certDir, "localhost-cert.pem");
+// Use centralized config, but resolve paths at runtime
+const certDir = httpsConfig.getCertDir();
+const keyPath = httpsConfig.getKeyPath();
+const certPath = httpsConfig.getCertPath();
 
 async function start() {
   await app.prepare();
@@ -38,19 +37,13 @@ async function start() {
       // Intercept the response finish event to log
       const originalEnd = res.end;
       res.end = function (chunk?: any, encoding?: any, cb?: any) {
-        const endTime = process.hrtime.bigint();
-        const responseTimeMs = Number(endTime - startTime) / 1_000_000; // Convert nanoseconds to milliseconds
-        const service = "web";
-        const operation = method;
-        const responseCode = res.statusCode || 200;
-        const requestedUrl = url;
-        // Service color: blue for web
-        const serviceColor = '\x1b[34m';
-        // Response code color: green for 2xx (success), red for others
-        const responseColor = responseCode >= 200 && responseCode < 300 ? '\x1b[32m' : '\x1b[31m';
-        const resetCode = '\x1b[0m';
-        // eslint-disable-next-line no-console
-        console.log(`${serviceColor}${service}${resetCode} [${operation}] ${responseColor}${responseCode}${resetCode} [${requestedUrl}] [${responseTimeMs.toFixed(2)}ms]`);
+        logRequest(
+          "web",
+          method,
+          url,
+          res.statusCode || 200,
+          startTime
+        );
         return originalEnd.call(this, chunk, encoding, cb);
       };
       

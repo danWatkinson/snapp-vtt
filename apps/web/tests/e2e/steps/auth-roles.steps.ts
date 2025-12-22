@@ -211,7 +211,7 @@ Then(
     // Use direct fetch since we expect a 403 (not handled by api.call which throws on !ok)
     const authServiceUrl = process.env.AUTH_SERVICE_URL ?? 
                           process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ?? 
-                          "https://localhost:4400";
+                          "https://localhost:3001";
     const response = await request.fetch(`${authServiceUrl}/admin-only`, {
       method: "GET",
       headers: {

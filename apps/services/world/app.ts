@@ -7,6 +7,7 @@ import {
   type LocationRelationshipType
 } from "./worldEntitiesStore";
 import { authenticate } from "../../../packages/auth-middleware";
+import { createGetRoute, createPostRoute, createPatchRoute, createPostVoidRoute, requireFields } from "../../../packages/express-routes";
 
 export interface WorldAppDependencies {
   store?: InMemoryWorldStore;
@@ -20,63 +21,53 @@ export function createWorldApp(deps: WorldAppDependencies = {}) {
   const app = createServiceApp({
     serviceName: "world",
     routes: (app) => {
-      app.get("/worlds", (_req: Request, res: Response) => {
-    const worlds = store.listWorlds();
-    res.json({ worlds });
-  });
+      app.get("/worlds", createGetRoute(
+    () => store.listWorlds(),
+    { responseProperty: "worlds" }
+  ));
 
   // Update world metadata (e.g. splash image asset)
-  app.patch("/worlds/:worldId", authenticate("gm"), (req: Request, res: Response) => {
-    const { worldId } = req.params;
-    const {
-      splashImageAssetId
-    } = req.body as {
-      splashImageAssetId?: string | null;
-    };
-
-    try {
-      const world = store.updateWorld(worldId, {
+  app.patch("/worlds/:worldId", authenticate("gm"), createPatchRoute(
+    (req: Request) => {
+      const { worldId } = req.params;
+      const { splashImageAssetId } = req.body as { splashImageAssetId?: string | null };
+      return store.updateWorld(worldId, {
         splashImageAssetId: splashImageAssetId ?? undefined
       });
-      res.json({ world });
-    } catch (err) {
-      res.status(404).json({ error: (err as Error).message });
-    }
-  });
+    },
+    { responseProperty: "world" }
+  ));
 
-  app.post("/worlds", authenticate("gm"), (req: Request, res: Response) => {
-    const { name, description } = req.body as {
-      name?: string;
-      description?: string;
-    };
-    try {
-      const world = store.createWorld(name ?? "", description ?? "");
-      res.status(201).json({ world });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+  app.post("/worlds", authenticate("gm"), createPostRoute(
+    (req: Request) => {
+      const { name, description } = req.body as { name?: string; description?: string };
+      return store.createWorld(name ?? "", description ?? "");
+    },
+    { responseProperty: "world" }
+  ));
 
   // World entities (e.g. locations) for a given world
-  app.get("/worlds/:worldId/entities", (req: Request, res: Response) => {
-    const { worldId } = req.params;
-    const { type } = req.query as { type?: WorldEntityType };
-    const entities = entityStore.listByWorld(worldId, type);
-    res.json({ entities });
-  });
+  app.get("/worlds/:worldId/entities", createGetRoute(
+    (req: Request) => {
+      const { worldId } = req.params;
+      const { type } = req.query as { type?: WorldEntityType };
+      return entityStore.listByWorld(worldId, type);
+    },
+    { responseProperty: "entities" }
+  ));
 
-  app.post("/worlds/:worldId/entities", authenticate("gm"), (req: Request, res: Response) => {
-    const { worldId } = req.params;
-    const { type, name, summary, beginningTimestamp, endingTimestamp, locationId } = req.body as {
-      type?: WorldEntityType;
-      name?: string;
-      summary?: string;
-      beginningTimestamp?: number;
-      endingTimestamp?: number;
-      locationId?: string;
-    };
-    try {
-      const entity = entityStore.createEntity(
+  app.post("/worlds/:worldId/entities", authenticate("gm"), createPostRoute(
+    (req: Request) => {
+      const { worldId } = req.params;
+      const { type, name, summary, beginningTimestamp, endingTimestamp, locationId } = req.body as {
+        type?: WorldEntityType;
+        name?: string;
+        summary?: string;
+        beginningTimestamp?: number;
+        endingTimestamp?: number;
+        locationId?: string;
+      };
+      return entityStore.createEntity(
         worldId,
         type ?? "location",
         name ?? "",
@@ -85,60 +76,44 @@ export function createWorldApp(deps: WorldAppDependencies = {}) {
         endingTimestamp,
         locationId
       );
-      res.status(201).json({ entity });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+    },
+    { responseProperty: "entity" }
+  ));
 
   // Add relationship between two locations
-  app.post("/worlds/:worldId/locations/:sourceLocationId/relationships", authenticate("gm"), (req: Request, res: Response) => {
-    const { worldId, sourceLocationId } = req.params;
-    const { targetLocationId, relationshipType } = req.body as {
-      targetLocationId?: string;
-      relationshipType?: LocationRelationshipType;
-    };
-    try {
-      if (!targetLocationId) {
-        res.status(400).json({ error: "targetLocationId is required" });
-        return;
-      }
-      if (!relationshipType) {
-        res.status(400).json({ error: "relationshipType is required" });
-        return;
-      }
+  app.post("/worlds/:worldId/locations/:sourceLocationId/relationships", authenticate("gm"), createPostVoidRoute(
+    (req: Request) => {
+      requireFields(req, ["targetLocationId", "relationshipType"]);
+      const { sourceLocationId } = req.params;
+      const { targetLocationId, relationshipType } = req.body as {
+        targetLocationId: string;
+        relationshipType: LocationRelationshipType;
+      };
       entityStore.addRelationship(sourceLocationId, targetLocationId, relationshipType);
-      res.status(201).json({ success: true });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
     }
-  });
+  ));
 
   // Get relationships for a location
-  app.get("/worlds/:worldId/locations/:locationId/relationships", (req: Request, res: Response) => {
-    const { locationId } = req.params;
-    const { type } = req.query as { type?: LocationRelationshipType };
-    try {
+  app.get("/worlds/:worldId/locations/:locationId/relationships", createGetRoute(
+    (req: Request) => {
+      const { locationId } = req.params;
+      const { type } = req.query as { type?: LocationRelationshipType };
       const relationships = entityStore.getRelationships(locationId);
-      const filtered = type
+      return type
         ? relationships.filter((r) => r.relationshipType === type)
         : relationships;
-      res.json({ relationships: filtered });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+    },
+    { responseProperty: "relationships" }
+  ));
 
   // Get events for a location (including events from parent locations)
-  app.get("/worlds/:worldId/locations/:locationId/events", (req: Request, res: Response) => {
-    const { locationId } = req.params;
-    try {
-      const events = entityStore.getEventsForLocation(locationId);
-      res.json({ events });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+  app.get("/worlds/:worldId/locations/:locationId/events", createGetRoute(
+    (req: Request) => {
+      const { locationId } = req.params;
+      return entityStore.getEventsForLocation(locationId);
+    },
+    { responseProperty: "events" }
+  ));
 
   // Add relationship between two events (for composite events)
   app.post("/worlds/:worldId/events/:sourceEventId/relationships", authenticate("gm"), (req: Request, res: Response) => {

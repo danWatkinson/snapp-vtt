@@ -8,6 +8,7 @@ import {
   type StoryArc
 } from "./campaignStore";
 import { authenticate } from "../../../packages/auth-middleware";
+import { createGetRoute, createPostRoute, createPostVoidRoute, requireFields } from "../../../packages/express-routes";
 
 export interface CampaignAppDependencies {
   store?: InMemoryCampaignStore;
@@ -22,182 +23,173 @@ export function createCampaignApp(
     serviceName: "campaign",
     routes: (app) => {
       // Campaigns by world
-      app.get("/worlds/:worldId/campaigns", (req: Request, res: Response) => {
-    const { worldId } = req.params;
-    const campaigns = store.listCampaignsByWorld(worldId);
-    res.json({ campaigns });
-  });
+      app.get("/worlds/:worldId/campaigns", createGetRoute(
+    (req: Request) => {
+      const { worldId } = req.params;
+      return store.listCampaignsByWorld(worldId);
+    },
+    { responseProperty: "campaigns" }
+  ));
 
-  app.post("/campaigns", authenticate("gm"), (req: Request, res: Response) => {
-    const { name, summary, worldId } = req.body as {
-      name?: string;
-      summary?: string;
-      worldId?: string;
-    };
-    if (!worldId || !worldId.trim()) {
-      res.status(400).json({ error: "worldId is required" });
-      return;
-    }
-    try {
-      const campaign = store.createCampaign(name ?? "", summary ?? "", worldId);
-      res.status(201).json({ campaign });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+  app.post("/campaigns", authenticate("gm"), createPostRoute(
+    (req: Request) => {
+      const { name, summary, worldId } = req.body as {
+        name?: string;
+        summary?: string;
+        worldId?: string;
+      };
+      requireFields(req, ["worldId"]);
+      return store.createCampaign(name ?? "", summary ?? "", worldId!);
+    },
+    { responseProperty: "campaign" }
+  ));
 
   // Sessions within a campaign
-  app.get("/campaigns/:campaignId/sessions", (req: Request, res: Response) => {
-    const { campaignId } = req.params;
-    const sessions = store.listSessions(campaignId);
-    res.json({ sessions });
-  });
+  app.get("/campaigns/:campaignId/sessions", createGetRoute(
+    (req: Request) => {
+      const { campaignId } = req.params;
+      return store.listSessions(campaignId);
+    },
+    { responseProperty: "sessions" }
+  ));
 
   app.post(
     "/campaigns/:campaignId/sessions",
     authenticate("gm"),
-    (req: Request, res: Response) => {
-      const { campaignId } = req.params;
-      const { name } = req.body as { name?: string };
-      try {
-        const session = store.createSession(campaignId, name ?? "");
-        res.status(201).json({ session });
-      } catch (err) {
-        res.status(400).json({ error: (err as Error).message });
-      }
-    }
+    createPostRoute(
+      (req: Request) => {
+        const { campaignId } = req.params;
+        const { name } = req.body as { name?: string };
+        return store.createSession(campaignId, name ?? "");
+      },
+      { responseProperty: "session" }
+    )
   );
 
   // Scenes within a session
-  app.get("/sessions/:sessionId/scenes", (req: Request, res: Response) => {
-    const { sessionId } = req.params;
-    const scenes = store.listScenes(sessionId);
-    res.json({ scenes });
-  });
+  app.get("/sessions/:sessionId/scenes", createGetRoute(
+    (req: Request) => {
+      const { sessionId } = req.params;
+      return store.listScenes(sessionId);
+    },
+    { responseProperty: "scenes" }
+  ));
 
-  app.post("/sessions/:sessionId/scenes", (req: Request, res: Response) => {
-    const { sessionId } = req.params;
-    const { name, summary, worldId, entityIds } = req.body as {
-      name?: string;
-      summary?: string;
-      worldId?: string;
-      entityIds?: string[];
-    };
-    try {
-      const scene = store.createScene(
+  app.post("/sessions/:sessionId/scenes", createPostRoute(
+    (req: Request) => {
+      const { sessionId } = req.params;
+      const { name, summary, worldId, entityIds } = req.body as {
+        name?: string;
+        summary?: string;
+        worldId?: string;
+        entityIds?: string[];
+      };
+      return store.createScene(
         sessionId,
         name ?? "",
         summary ?? "",
         worldId ?? "",
         entityIds ?? []
       );
-      res.status(201).json({ scene });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+    },
+    { responseProperty: "scene" }
+  ));
 
   // Players within a campaign
-  app.get("/campaigns/:campaignId/players", (req: Request, res: Response) => {
-    const { campaignId } = req.params;
-    try {
-      const playerIds = store.listPlayers(campaignId);
-      res.json({ players: playerIds });
-    } catch (err) {
-      res.status(404).json({ error: (err as Error).message });
-    }
-  });
+  app.get("/campaigns/:campaignId/players", createGetRoute(
+    (req: Request) => {
+      const { campaignId } = req.params;
+      return store.listPlayers(campaignId);
+    },
+    { responseProperty: "players" }
+  ));
 
-  app.post("/campaigns/:campaignId/players", authenticate("gm"), (req: Request, res: Response) => {
-    const { campaignId } = req.params;
-    const { playerId } = req.body as { playerId?: string };
-    try {
+  app.post("/campaigns/:campaignId/players", authenticate("gm"), createPostRoute(
+    (req: Request) => {
+      const { campaignId } = req.params;
+      const { playerId } = req.body as { playerId?: string };
       store.addPlayer(campaignId, playerId ?? "");
-      res.status(201).json({ playerId: playerId ?? "" });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+      return { playerId: playerId ?? "" };
+    },
+    { responseProperty: "playerId", statusCode: 201 }
+  ));
 
   // Story arcs within a campaign
-  app.get("/campaigns/:campaignId/story-arcs", (req: Request, res: Response) => {
-    const { campaignId } = req.params;
-    const storyArcs = store.listStoryArcs(campaignId);
-    res.json({ storyArcs });
-  });
+  app.get("/campaigns/:campaignId/story-arcs", createGetRoute(
+    (req: Request) => {
+      const { campaignId } = req.params;
+      return store.listStoryArcs(campaignId);
+    },
+    { responseProperty: "storyArcs" }
+  ));
 
   app.post("/campaigns/:campaignId/story-arcs",
-    authenticate("gm"), (req: Request, res: Response) => {
-    const { campaignId } = req.params;
-    const { name, summary } = req.body as {
-      name?: string;
-      summary?: string;
-    };
-    try {
-      const storyArc = store.createStoryArc(
-        campaignId,
-        name ?? "",
-        summary ?? ""
-      );
-      res.status(201).json({ storyArc });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+    authenticate("gm"),
+    createPostRoute(
+      (req: Request) => {
+        const { campaignId } = req.params;
+        const { name, summary } = req.body as {
+          name?: string;
+          summary?: string;
+        };
+        return store.createStoryArc(
+          campaignId,
+          name ?? "",
+          summary ?? ""
+        );
+      },
+      { responseProperty: "storyArc" }
+    )
+  );
 
   // Events within a story arc
-  app.get("/story-arcs/:storyArcId/events", (req: Request, res: Response) => {
-    const { storyArcId } = req.params;
-    try {
-      const eventIds = store.listStoryArcEvents(storyArcId);
-      res.json({ events: eventIds });
-    } catch (err) {
-      res.status(404).json({ error: (err as Error).message });
-    }
-  });
+  app.get("/story-arcs/:storyArcId/events", createGetRoute(
+    (req: Request) => {
+      const { storyArcId } = req.params;
+      return store.listStoryArcEvents(storyArcId);
+    },
+    { responseProperty: "events" }
+  ));
 
   app.post("/story-arcs/:storyArcId/events",
-    authenticate("gm"), (req: Request, res: Response) => {
-    const { storyArcId } = req.params;
-    const { eventId } = req.body as { eventId?: string };
-    try {
-      store.addEventToStoryArc(storyArcId, eventId ?? "");
-      res.status(201).json({ eventId: eventId ?? "" });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+    authenticate("gm"),
+    createPostRoute(
+      (req: Request) => {
+        const { storyArcId } = req.params;
+        const { eventId } = req.body as { eventId?: string };
+        store.addEventToStoryArc(storyArcId, eventId ?? "");
+        return { eventId: eventId ?? "" };
+      },
+      { responseProperty: "eventId", statusCode: 201 }
+    )
+  );
 
   // Timeline
-  app.get("/campaigns/:campaignId/timeline", (req: Request, res: Response) => {
-    const { campaignId } = req.params;
-    try {
-      const timeline = store.getTimeline(campaignId);
-      res.json(timeline);
-    } catch (err) {
-      res.status(404).json({ error: (err as Error).message });
+  app.get("/campaigns/:campaignId/timeline", createGetRoute(
+    (req: Request) => {
+      const { campaignId } = req.params;
+      return store.getTimeline(campaignId);
     }
-  });
+  ));
 
   app.post("/campaigns/:campaignId/timeline/advance",
-    authenticate("gm"), (req: Request, res: Response) => {
-    const { campaignId } = req.params;
-    const { amount, unit } = req.body as {
-      amount?: number;
-      unit?: "second" | "minute" | "hour" | "day" | "week" | "month" | "year";
-    };
-    try {
-      store.advanceTimeline(
-        campaignId,
-        amount ?? 1,
-        unit ?? "day"
-      );
-      const timeline = store.getTimeline(campaignId);
-      res.json(timeline);
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+    authenticate("gm"),
+    createPostRoute(
+      (req: Request) => {
+        const { campaignId } = req.params;
+        const { amount, unit } = req.body as {
+          amount?: number;
+          unit?: "second" | "minute" | "hour" | "day" | "week" | "month" | "year";
+        };
+        store.advanceTimeline(
+          campaignId,
+          amount ?? 1,
+          unit ?? "day"
+        );
+        return store.getTimeline(campaignId);
+      }
+    )
+  );
     }
   });
 

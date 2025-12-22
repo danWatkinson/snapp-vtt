@@ -1,6 +1,7 @@
 import https from "https";
 import { Express } from "express";
 import { loadCertificates } from "../https-config";
+import { ports } from "../config";
 
 export interface ServerBootstrapOptions {
   /** Express app instance */
@@ -40,11 +41,11 @@ export function createHttpsServer(
   } = options;
 
   // Resolve port with priority: env var > provided port > default
+  // Note: ports from config already handle PORT env var fallback
   const port =
     (portEnvVar && process.env[portEnvVar]
       ? Number(process.env[portEnvVar])
       : undefined) ??
-    (process.env.PORT ? Number(process.env.PORT) : undefined) ??
     providedPort ??
     defaultPort ??
     3000;
