@@ -1,7 +1,8 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { loginAs, waitForModalOpen, getUniqueUsername } from "../helpers";
-import type { APIRequestContext } from "@playwright/test";
+import { loginAs, waitForModalOpen } from "../helpers";
+import { ensureTestUser, getStoredTestUsername } from "../helpers/users";
+import type { Page } from "@playwright/test";
 
 const { Given, When, Then } = createBdd();
 
@@ -11,114 +12,10 @@ const TEST_ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD || "admin123";
 const TEST_REGISTERED_USERNAME = process.env.TEST_REGISTERED_USERNAME || "registered";
 const TEST_REGISTERED_PASSWORD = process.env.TEST_REGISTERED_PASSWORD || "registered123";
 
-const AUTH_SERVICE_URL =
-  process.env.AUTH_SERVICE_URL ??
-  process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ??
-  "https://localhost:4400";
-
-// Helper to make API calls to auth service
-async function apiCall(
-  request: APIRequestContext,
-  method: string,
-  path: string,
-  options: { body?: any; token?: string } = {}
-) {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json"
-  };
-  if (options.token) {
-    headers.Authorization = `Bearer ${options.token}`;
-  }
-
-  const url = `${AUTH_SERVICE_URL}${path}`;
-  const response = await request.fetch(url, {
-    method,
-    headers,
-    data: options.body,
-    ignoreHTTPSErrors: true
-  });
-
-  if (!response.ok()) {
-    const status = response.status();
-    const errorBody = await response.json().catch(() => ({}));
-    const errorMessage = errorBody.error ?? `API call failed with status ${status}`;
-    throw new Error(`${errorMessage} (${method} ${url})`);
-  }
-
-  return response.json();
-}
-
-// Helper to get admin token for API calls
-async function getAdminToken(request: APIRequestContext): Promise<string> {
-  const response = await request.fetch(`${AUTH_SERVICE_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    data: { username: TEST_ADMIN_USERNAME, password: TEST_ADMIN_PASSWORD },
-    ignoreHTTPSErrors: true
-  });
-
-  if (!response.ok()) {
-    const status = response.status();
-    const errorBody = await response.json().catch(() => ({}));
-    const errorMessage = errorBody.error ?? `HTTP ${status}`;
-    throw new Error(
-      `Login failed: ${errorMessage} (status ${status}). Check that auth service is running at ${AUTH_SERVICE_URL}.`
-    );
-  }
-
-  const body = await response.json();
-  if (!body.token) {
-    throw new Error("Login response missing token");
-  }
-  return body.token;
-}
-
 Given('there is a registered user', async ({ page, request }) => {
-  // Generate unique username per worker to avoid concurrency issues
-  const uniqueRegisteredName = getUniqueUsername(TEST_REGISTERED_USERNAME);
-  
-  // Store the unique name in page context for other steps to use
-  await page.evaluate((username) => {
-    (window as any).__testRegisteredUsername = username;
-  }, uniqueRegisteredName);
-  
-  // Ensure registered user exists with no roles via API
-  const adminToken = await getAdminToken(request);
-  
-  try {
-    // Try to get the user first
-    const user = await apiCall(request, "GET", `/users/${uniqueRegisteredName}`, { token: adminToken });
-    // User exists - ensure no roles
-    if (user.user.roles.length > 0) {
-      await apiCall(request, "PUT", `/users/${uniqueRegisteredName}/roles`, {
-        token: adminToken,
-        body: { roles: [] }
-      });
-    }
-  } catch (err) {
-    // User doesn't exist - create it
-    await apiCall(request, "POST", "/users", {
-      token: adminToken,
-      body: { username: uniqueRegisteredName, password: TEST_REGISTERED_PASSWORD, roles: [] }
-    });
-  }
+  await ensureTestUser(page, request, TEST_REGISTERED_USERNAME, TEST_REGISTERED_PASSWORD, [], "__testRegisteredUsername");
 });
 
-// Helper to get the unique registered username from page context
-async function getStoredRegisteredUsername(page: any): Promise<string> {
-  try {
-    const storedName = await page.evaluate(() => {
-      return (window as any).__testRegisteredUsername;
-    });
-    if (storedName) {
-      return storedName;
-    }
-  } catch {
-    // Can't retrieve - fall back to unique name generation
-  }
-  // Fall back to generating unique name if not stored
-  return getUniqueUsername(TEST_REGISTERED_USERNAME);
-}
 
 When("I open the Snapp home page", async ({ page }) => {
   await page.goto("/");
@@ -164,7 +61,7 @@ When(
   'an unidentified user attempts to login as the registered user without providing a password',
   async ({ page }) => {
     // Get the unique registered username from page context
-    const uniqueUsername = await getStoredRegisteredUsername(page);
+    const uniqueUsername = await getStoredTestUsername(page, TEST_REGISTERED_USERNAME, "__testRegisteredUsername");
     
     // Navigate to home page
     await page.goto("/");
@@ -190,7 +87,7 @@ When(
   'an unidentified user attempts to login as the registered user with the correct password',
   async ({ page }) => {
     // Get the unique registered username from page context
-    const uniqueUsername = await getStoredRegisteredUsername(page);
+    const uniqueUsername = await getStoredTestUsername(page, TEST_REGISTERED_USERNAME, "__testRegisteredUsername");
     
     // Navigate to home page
     await page.goto("/");
@@ -229,7 +126,7 @@ When(
   'an unidentified user attempts to login as the registered user with password {string}',
   async ({ page }, password: string) => {
     // Get the unique registered username from page context
-    const uniqueUsername = await getStoredRegisteredUsername(page);
+    const uniqueUsername = await getStoredTestUsername(page, TEST_REGISTERED_USERNAME, "__testRegisteredUsername");
     
     // Navigate to home page
     await page.goto("/");
@@ -250,7 +147,7 @@ When(
   'an unidentified user attempts to login as the registered user with an incorrect password',
   async ({ page }) => {
     // Get the unique registered username from page context
-    const uniqueUsername = await getStoredRegisteredUsername(page);
+    const uniqueUsername = await getStoredTestUsername(page, TEST_REGISTERED_USERNAME, "__testRegisteredUsername");
     
     // Navigate to home page
     await page.goto("/");

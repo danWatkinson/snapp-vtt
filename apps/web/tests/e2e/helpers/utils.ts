@@ -1,5 +1,5 @@
 import { Page, Locator } from "@playwright/test";
-import { DEFAULT_EVENT_TIMEOUT } from "./constants";
+import { DEFAULT_EVENT_TIMEOUT, STABILITY_WAIT_MEDIUM } from "./constants";
 
 /**
  * Generic helper to wait for a simple event (no filtering needed).
@@ -87,16 +87,24 @@ export function getUniqueUsername(baseName: string): string {
  * This is used to retrieve the actual campaign name when tests need to reference it.
  */
 export async function getStoredCampaignName(page: Page, baseName: string): Promise<string> {
-  try {
-    const storedName = await page.evaluate(() => {
-      return (window as any).__testCampaignName;
-    });
-    if (storedName) {
-      return storedName;
+  // Try to get stored campaign name with retry logic (page context might not be ready)
+  let campaignName: string | null = null;
+  for (let i = 0; i < 5; i++) {
+    try {
+      campaignName = await page.evaluate(() => {
+        return (window as any).__testCampaignName;
+      });
+      if (campaignName) break;
+    } catch {
+      // Page might not be ready yet, wait and retry
+      await safeWait(page, 200);
     }
-  } catch {
-    // Can't retrieve - fall back to unique name generation
   }
+  
+  if (campaignName) {
+    return campaignName;
+  }
+  
   // Fall back to generating unique name if not stored
   return getUniqueCampaignName(baseName);
 }
@@ -121,6 +129,50 @@ export async function getStoredWorldName(
   }
   // Fall back to generating the unique name
   return getUniqueCampaignName(baseName);
+}
+
+/**
+ * Generic helper to get a stored value from page context.
+ * Falls back to a provided default value if not stored.
+ * 
+ * @param page - Playwright page object
+ * @param key - Key in window object (e.g., "__testWorldName")
+ * @param defaultValue - Default value if not stored
+ * @returns The stored value or default
+ */
+export async function getStoredValue<T>(
+  page: Page,
+  key: string,
+  defaultValue: T
+): Promise<T> {
+  try {
+    const stored = await page.evaluate((k) => {
+      return (window as any)[k];
+    }, key);
+    if (stored !== undefined && stored !== null) {
+      return stored;
+    }
+  } catch {
+    // Can't retrieve - fall back to default
+  }
+  return defaultValue;
+}
+
+/**
+ * Store a value in page context for later retrieval.
+ * 
+ * @param page - Playwright page object
+ * @param key - Key in window object (e.g., "__testWorldName")
+ * @param value - Value to store
+ */
+export async function storeValue<T>(
+  page: Page,
+  key: string,
+  value: T
+): Promise<void> {
+  await page.evaluate(({ k, v }) => {
+    (window as any)[k] = v;
+  }, { k: key, v: value });
 }
 
 /**
@@ -511,4 +563,51 @@ export async function safeWait(page: Page, ms: number): Promise<void> {
     // If wait fails (e.g., page closed during wait), just return silently
     // The calling code will handle any issues that arise
   }
+}
+
+/**
+ * Navigate to a URL and wait for the page to be ready.
+ * This is a common pattern used across step definitions.
+ * 
+ * @param page - Playwright page object
+ * @param url - URL to navigate to (default: "/")
+ * @param options - Optional navigation options
+ */
+export async function navigateAndWaitForReady(
+  page: Page,
+  url: string = "/",
+  options?: {
+    waitUntil?: "load" | "domcontentloaded" | "networkidle" | "commit";
+    timeout?: number;
+    waitForNetworkIdle?: boolean;
+    networkIdleTimeout?: number;
+    stabilityWait?: number;
+  }
+): Promise<void> {
+  const {
+    waitUntil = "domcontentloaded",
+    timeout = 15000,
+    waitForNetworkIdle = true,
+    networkIdleTimeout = 5000,
+    stabilityWait = STABILITY_WAIT_MEDIUM
+  } = options || {};
+  
+  await page.goto(url, { waitUntil, timeout });
+  
+  if (waitForNetworkIdle) {
+    await page.waitForLoadState("networkidle", { timeout: networkIdleTimeout }).catch(() => {});
+  }
+  
+  await safeWait(page, stabilityWait);
+}
+
+/**
+ * Clear all storage (cookies and localStorage).
+ * Useful for logging out or resetting session state.
+ * 
+ * @param page - Playwright page object
+ */
+export async function clearAllStorage(page: Page): Promise<void> {
+  await page.context().clearCookies();
+  await page.evaluate(() => localStorage.clear());
 }

@@ -1049,7 +1049,47 @@ export async function selectWorldAndEnterPlanningMode(
         // If world selection event fired but planning mode didn't, the world might still be selected
         // Check if we can proceed anyway - sometimes planning mode activates without the event
         if (worldSelectedSucceeded) {
-          // World was selected - wait a bit more for planning mode to catch up
+          // World selection event fired - verify the tab is actually selected
+          // Sometimes the event fires before the UI updates
+          const worldTabSelected = await awaitSafelyBoolean(
+            Promise.race([
+              getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
+              createTimeoutPromise(3000, false)
+            ])
+          );
+          
+          if (!worldTabSelected) {
+            // Event fired but tab isn't selected - wait for UI to catch up
+            await safeWait(page, VISIBILITY_TIMEOUT_SHORT);
+            // Re-check if tab is selected
+            const stillNotSelected = !(await awaitSafelyBoolean(
+              Promise.race([
+                getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
+                createTimeoutPromise(2000, false)
+              ])
+            ));
+            
+            if (stillNotSelected) {
+              // Tab still not selected - try clicking again
+              try {
+                await worldTab.click({ force: true });
+                await safeWait(page, STABILITY_WAIT_EXTRA);
+              } catch {
+                // Click failed - continue anyway
+              }
+            }
+          }
+          
+          // World was selected (or we tried to fix it) - wait for planning mode to catch up
+          await safeWait(page, VISIBILITY_TIMEOUT_SHORT);
+          planningTabsVisible = await isPlanningModeActive(page);
+          
+          if (planningTabsVisible) {
+            // Planning mode is now active - success!
+            return;
+          }
+          
+          // Still not visible - wait one more time with a longer delay
           await safeWait(page, VISIBILITY_TIMEOUT_SHORT);
           planningTabsVisible = await isPlanningModeActive(page);
           
@@ -2250,4 +2290,155 @@ export async function waitForMainTab(
     }
     throw error; // Neither event nor DOM, rethrow
   });
+}
+
+/**
+ * Navigate to the Users management screen.
+ * Checks if already on the screen and navigates only if needed.
+ * 
+ * @param page - Playwright page object
+ */
+export async function navigateToUsersScreen(page: Page): Promise<void> {
+  // Check if already on Users screen
+  const usersTab = page.locator('[data-component="UsersTab"]');
+  const isOnUsersScreen = await isVisibleSafely(usersTab, 1000);
+  
+  if (isOnUsersScreen) {
+    return; // Already on Users screen
+  }
+  
+  // Navigate to Users screen
+  await ensureLoginDialogClosed(page);
+  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
+  
+  // Open Snapp menu
+  await page.getByRole("button", { name: /^Snapp/i }).click();
+  
+  // Wait for User Management button to appear
+  await expect(page.getByRole("button", { name: "User Management" })).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
+  
+  // Click User Management
+  await page.getByRole("button", { name: "User Management" }).click();
+  
+  // Wait for UsersTab to be visible
+  await page.waitForSelector('[data-component="UsersTab"]', { timeout: VISIBILITY_TIMEOUT_MEDIUM });
+}
+
+/**
+ * Navigate to the Assets management screen.
+ * Checks if already on the screen and navigates only if needed.
+ * 
+ * @param page - Playwright page object
+ */
+export async function navigateToAssetsScreen(page: Page): Promise<void> {
+  // Check if already on Assets screen
+  const assetsHeading = page.getByRole("heading", { name: "Assets" });
+  const isOnAssetsScreen = await isVisibleSafely(assetsHeading, 1000);
+  
+  if (isOnAssetsScreen) {
+    return; // Already on Assets screen
+  }
+  
+  // Navigate to Assets screen
+  await ensureLoginDialogClosed(page);
+  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
+  
+  // Open Snapp menu
+  await page.getByRole("button", { name: /^Snapp/i }).click();
+  
+  // Wait for Manage Assets button to appear
+  await expect(page.getByRole("button", { name: "Manage Assets" })).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
+  
+  // Click Manage Assets
+  await page.getByRole("button", { name: "Manage Assets" }).click();
+  
+  // Wait for Assets heading to be visible
+  await expect(page.getByRole("heading", { name: "Assets" })).toBeVisible({ timeout: VISIBILITY_TIMEOUT_LONG });
+}
+
+/**
+ * Navigate to a specific campaign view (Sessions, Story Arcs, Players, Timeline).
+ * Requires a campaign to be selected first.
+ * 
+ * @param page - Playwright page object
+ * @param view - The campaign view to navigate to
+ */
+export async function navigateToCampaignView(
+  page: Page,
+  view: "sessions" | "story-arcs" | "players" | "timeline"
+): Promise<void> {
+  // Ensure campaign views are visible (campaign must be selected)
+  const campaignViewsTablist = page.getByRole("tablist", { name: "Campaign views" });
+  const campaignViewsVisible = await isVisibleSafely(campaignViewsTablist, 2000);
+  
+  if (!campaignViewsVisible) {
+    throw new Error(`Cannot navigate to ${view} view: No campaign is currently selected. Campaign views tablist is not visible.`);
+  }
+  
+  // Map view name to tab name
+  const viewToTabName: Record<string, string> = {
+    sessions: "Sessions",
+    "story-arcs": "Story arcs",  // Note: tab name is "Story arcs" (lowercase 'a'), not "Story Arcs"
+    players: "Players",
+    timeline: "Timeline"
+  };
+  
+  const tabName = viewToTabName[view];
+  if (!tabName) {
+    throw new Error(`Unknown campaign view: ${view}`);
+  }
+  
+  // Check if already on the requested view
+  const tab = campaignViewsTablist.getByRole("tab", { name: tabName });
+  const isSelected = await getAttributeSafely(tab, "aria-selected");
+  
+  if (isSelected === "true") {
+    return; // Already on the requested view
+  }
+  
+  // Set up event listener BEFORE clicking
+  const viewPromise = waitForCampaignView(page, view, 5000);
+  
+  // Click the tab
+  await expect(tab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
+  await tab.click();
+  
+  // Wait for view to be activated
+  await awaitSafely(viewPromise);
+}
+
+/**
+ * Check if currently on a specific campaign view by looking for the "Add" button.
+ * This is a convenience helper to avoid duplicating the pattern of checking for Add buttons.
+ * 
+ * @param page - Playwright page object
+ * @param view - The campaign view to check
+ * @returns True if on the requested view, false otherwise
+ */
+export async function isOnCampaignView(
+  page: Page,
+  view: "sessions" | "story-arcs" | "players" | "timeline"
+): Promise<boolean> {
+  // Map view to Add button text
+  const viewToAddButton: Record<string, string> = {
+    sessions: "Add session",
+    "story-arcs": "Add story arc",
+    players: "Add player",
+    timeline: "current moment"  // Timeline doesn't have an Add button, use a different indicator
+  };
+  
+  const addButtonText = viewToAddButton[view];
+  if (!addButtonText) {
+    return false;
+  }
+  
+  // For timeline, check for a different indicator
+  if (view === "timeline") {
+    const timelineHeading = page.getByRole("heading", { name: /timeline/i });
+    return await isVisibleSafely(timelineHeading, 1000);
+  }
+  
+  // For other views, check for the Add button
+  const addButton = page.getByRole("button", { name: addButtonText });
+  return await isVisibleSafely(addButton, 1000);
 }

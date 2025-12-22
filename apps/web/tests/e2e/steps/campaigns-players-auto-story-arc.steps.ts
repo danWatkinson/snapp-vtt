@@ -1,7 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, getUniqueCampaignName } from "../helpers";
-import { safeWait } from "../helpers/utils";
+import { selectWorldAndEnterPlanningMode, getStoredCampaignName } from "../helpers";
 import { STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 // Note: "the admin navigates to the Campaigns planning screen" and "the campaign Rise of the Dragon King exists" 
 // are defined in campaigns-create.steps.ts
@@ -45,21 +44,7 @@ Then('a story arc named "bob\'s Arc" is automatically created', async ({ page })
       await selectWorldAndEnterPlanningMode(page, "Campaigns");
       
       // Get test campaign name
-      let campaignName: string | null = null;
-      for (let i = 0; i < 5; i++) {
-        try {
-          campaignName = await page.evaluate(() => {
-            return (window as any).__testCampaignName;
-          });
-          if (campaignName) break;
-        } catch {
-          await safeWait(page, 200);
-        }
-      }
-      
-      if (!campaignName) {
-        campaignName = getUniqueCampaignName("Rise of the Dragon King");
-      }
+      const campaignName = await getStoredCampaignName(page, "Rise of the Dragon King");
       
       // Wait for campaigns to load
       await safeWait(page, STABILITY_WAIT_MEDIUM);

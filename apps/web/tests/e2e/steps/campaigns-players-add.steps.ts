@@ -1,6 +1,8 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 import { getUniqueUsername } from "../helpers";
+import { createPlayer } from "../helpers/entityCreation";
+import { verifyEntityInList } from "../helpers/verification";
 // Note: "the admin navigates to the Campaigns planning screen" and "the campaign Rise of the Dragon King exists" 
 // are defined in campaigns-create.steps.ts
 
@@ -25,25 +27,11 @@ async function getStoredAliceUsername(page: any): Promise<string> {
 When('the admin ensures the test user is added to the campaign', async ({ page }) => {
   const uniqueAliceName = await getStoredAliceUsername(page);
   
-  const hasAlice = await page
-    .getByRole("listitem")
-    .filter({ hasText: uniqueAliceName })
-    .first()
-    .isVisible()
-    .catch(() => false);
-
-  if (!hasAlice) {
-    await page.getByRole("button", { name: "Add player" }).click();
-    await expect(page.getByRole("dialog", { name: "Add player" })).toBeVisible();
-
-    await page.getByLabel("Player username").fill(uniqueAliceName);
-    await page.getByRole("button", { name: "Save player" }).click();
-  }
+  // Create player if it doesn't exist
+  await createPlayer(page, uniqueAliceName);
 });
 
 Then('the test user appears in the players list', async ({ page }) => {
   const uniqueAliceName = await getStoredAliceUsername(page);
-  await expect(
-    page.getByRole("listitem").filter({ hasText: uniqueAliceName }).first()
-  ).toBeVisible();
+  await verifyEntityInList(page, uniqueAliceName);
 });

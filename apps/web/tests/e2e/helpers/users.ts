@@ -1,4 +1,5 @@
 import { Page, expect } from "@playwright/test";
+import type { APIRequestContext } from "@playwright/test";
 import {
   USER_CREATED_EVENT,
   USER_DELETED_EVENT,
@@ -6,7 +7,8 @@ import {
   ROLE_REVOKED_EVENT
 } from "../../../lib/auth/authEvents";
 import { DEFAULT_EVENT_TIMEOUT } from "./constants";
-import { waitForEventWithNameFilter, matchesName, isVisibleSafely, isHiddenSafely } from "./utils";
+import { waitForEventWithNameFilter, matchesName, isVisibleSafely, isHiddenSafely, getUniqueUsername } from "./utils";
+import { createApiClient } from "./api";
 
 /**
  * Wait for a user to be created using transition events.
@@ -230,4 +232,70 @@ export async function waitForRoleRevoked(
     // No specific DOM check available - rely on event
     await eventPromise;
   }
+}
+
+/**
+ * Ensure a test user exists with specified roles.
+ * Creates the user via API if it doesn't exist, or updates roles if they don't match.
+ * Stores the username in page context for other steps to use.
+ * 
+ * @param page - Playwright page object
+ * @param request - Playwright API request context
+ * @param baseUsername - Base username (will be made unique per worker)
+ * @param password - User password
+ * @param roles - Array of role names
+ * @param storageKey - Key to store username in page context (default: based on baseUsername)
+ * @returns The unique username that was created/stored
+ */
+export async function ensureTestUser(
+  page: Page,
+  request: APIRequestContext,
+  baseUsername: string,
+  password: string,
+  roles: string[],
+  storageKey?: string
+): Promise<string> {
+  // Generate unique username per worker to avoid conflicts
+  const uniqueUsername = getUniqueUsername(baseUsername);
+  
+  // Store the unique name in page context for other steps to use
+  const key = storageKey || `__test${baseUsername.charAt(0).toUpperCase() + baseUsername.slice(1)}Username`;
+  await page.evaluate(({ username, key }) => {
+    (window as any)[key] = username;
+  }, { username: uniqueUsername, key });
+  
+  // Ensure user exists with correct roles via API
+  const api = createApiClient(request);
+  await api.ensureUserExists(uniqueUsername, password, roles);
+  
+  return uniqueUsername;
+}
+
+/**
+ * Get a stored test username from page context.
+ * Falls back to generating a unique name if not stored.
+ * 
+ * @param page - Playwright page object
+ * @param baseUsername - Base username (used for fallback generation)
+ * @param storageKey - Key where username is stored (default: based on baseUsername)
+ * @returns The stored or generated unique username
+ */
+export async function getStoredTestUsername(
+  page: Page,
+  baseUsername: string,
+  storageKey?: string
+): Promise<string> {
+  const key = storageKey || `__test${baseUsername.charAt(0).toUpperCase() + baseUsername.slice(1)}Username`;
+  try {
+    const storedName = await page.evaluate((key) => {
+      return (window as any)[key];
+    }, key);
+    if (storedName) {
+      return storedName;
+    }
+  } catch {
+    // Can't retrieve - fall back to unique name generation
+  }
+  // Fall back to generating unique name if not stored
+  return getUniqueUsername(baseUsername);
 }

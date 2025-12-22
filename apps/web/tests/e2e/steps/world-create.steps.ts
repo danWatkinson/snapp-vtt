@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, ensureModeSelectorVisible, waitForModalOpen, waitForWorldCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, getUniqueCampaignName, getStoredWorldName } from "../helpers";
+import { selectWorldAndEnterPlanningMode, ensureModeSelectorVisible, waitForModalOpen, waitForWorldCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, getUniqueCampaignName, getStoredWorldName, getErrorMessage } from "../helpers";
 import { safeWait } from "../helpers/utils";
 import { STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
@@ -133,10 +133,8 @@ When(
       await closeModalIfOpen(page, "world", "Create world");
     } catch (error) {
       // Event didn't fire - check for errors
-      const errorMessage = page.getByTestId("error-message");
-      const hasError = await errorMessage.isVisible().catch(() => false);
-      if (hasError) {
-        const errorText = await errorMessage.textContent().catch(() => "") ?? "";
+      const errorText = await getErrorMessage(page, 1000);
+      if (errorText) {
         // Handle "already exists" errors gracefully
         await handleAlreadyExistsError(page, errorText, "world", "Create world");
         return; // World already exists, that's fine

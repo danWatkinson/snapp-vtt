@@ -2,7 +2,7 @@ import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 import { selectWorldAndEnterPlanningMode } from "../helpers";
 import { STABILITY_WAIT_SHORT } from "../helpers/constants";
-import { safeWait } from "../helpers/utils";
+import { safeWait, isVisibleSafely } from "../helpers/utils";
 
 const { When, Then } = createBdd();
 // Note: "world Eldoria exists" is defined in world-entities-create.steps.ts
@@ -10,7 +10,7 @@ const { When, Then } = createBdd();
 When("the admin navigates to the all entities view", async ({ page }) => {
   // Check if we're already on the All tab
   const allTab = page.getByRole("tab", { name: "All" });
-  const isOnAllTab = await allTab.isVisible({ timeout: 1000 }).catch(() => false);
+  const isOnAllTab = await isVisibleSafely(allTab, 1000);
   
   if (isOnAllTab) {
     // Already on the All tab - check if it's selected
@@ -22,7 +22,7 @@ When("the admin navigates to the all entities view", async ({ page }) => {
   
   // Check if we're in planning mode with a world selected
   const planningTabs = page.getByRole("tablist", { name: "World planning views" });
-  const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
+  const isInPlanningMode = await isVisibleSafely(planningTabs, 1000);
   
   if (!isInPlanningMode) {
     // Navigate to World Entities planning screen and select world

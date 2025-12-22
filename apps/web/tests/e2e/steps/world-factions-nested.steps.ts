@@ -1,44 +1,10 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { createApiClient } from "../helpers/api";
+import { isVisibleSafely } from "../helpers/utils";
 import type { APIRequestContext } from "@playwright/test";
 
 const { When, Then } = createBdd();
-
-const AUTH_SERVICE_URL =
-  process.env.AUTH_SERVICE_URL ??
-  process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ??
-  "https://localhost:4400";
-
-const WORLD_SERVICE_URL =
-  process.env.WORLD_SERVICE_URL ??
-  process.env.NEXT_PUBLIC_WORLD_SERVICE_URL ??
-  "https://localhost:4501";
-
-// Helper to get admin token for API calls
-async function getAdminToken(request: APIRequestContext): Promise<string> {
-  const url = `${AUTH_SERVICE_URL}/auth/login`;
-  const response = await request.fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    data: { username: "admin", password: "admin123" },
-    ignoreHTTPSErrors: true
-  });
-
-  if (!response.ok()) {
-    const status = response.status();
-    const errorBody = await response.json().catch(() => ({}));
-    const errorMessage = (errorBody as any).error ?? `HTTP ${status}`;
-    throw new Error(
-      `Login failed: ${errorMessage} (status ${status}). Check that auth service is running at ${AUTH_SERVICE_URL}.`
-    );
-  }
-
-  const body = await response.json();
-  if (!body.token) {
-    throw new Error("Login response missing token");
-  }
-  return body.token;
-}
 
 // Note: "world {string} exists and is selected with factions tab" is defined in world-entities-create.steps.ts
 // Note: "the admin ensures faction {string} exists" is defined in world-entities-create.steps.ts
@@ -75,11 +41,10 @@ When('the admin links faction {string} as sub-faction of {string}', async ({ pag
   await page.waitForTimeout(1000);
   
   // Get all worlds first
-  const worldsResponse = await request.get(`${WORLD_SERVICE_URL}/worlds`, {
-    ignoreHTTPSErrors: true
-  });
-  const worldsData = await worldsResponse.json();
-  const worlds = worldsData.worlds;
+  const api = createApiClient(request);
+  const adminToken = await api.getAdminToken();
+  const worldsResponse = await api.call("world", "GET", "/worlds", { token: adminToken });
+  const worlds = (worldsResponse as { worlds?: any[] }).worlds || [];
   
   if (worlds.length === 0) {
     throw new Error("No worlds found. Ensure a world exists before linking factions.");
@@ -92,11 +57,8 @@ When('the admin links faction {string} as sub-faction of {string}', async ({ pag
   let worldId: string | null = null;
   
   for (const world of worlds) {
-    const factionsResponse = await request.get(`${WORLD_SERVICE_URL}/worlds/${world.id}/entities?type=faction`, {
-      ignoreHTTPSErrors: true
-    });
-    const factionsData = await factionsResponse.json();
-    const factions = factionsData.entities;
+    const factionsResponse = await api.call("world", "GET", `/worlds/${world.id}/entities?type=faction`, { token: adminToken });
+    const factions = (factionsResponse as { entities?: any[] }).entities || [];
     
     const foundParent = factions.find((f: any) => f.name === parentFactionName);
     const foundSub = factions.find((f: any) => f.name === subFactionName);
@@ -116,30 +78,17 @@ When('the admin links faction {string} as sub-faction of {string}', async ({ pag
     );
   }
   
-  // Get admin token for API calls
-  const adminToken = await getAdminToken(request);
-  
-  // Create the relationship using Playwright's request context
-  const headers: Record<string, string> = { 
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${adminToken}`
-  };
-  
-  const relResponse = await request.post(
-    `${WORLD_SERVICE_URL}/worlds/${worldId}/factions/${parentFaction.id}/relationships`,
-    {
-      headers,
-      data: {
+  // Create the relationship via API
+  try {
+    await api.call("world", "POST", `/worlds/${worldId}/factions/${parentFaction.id}/relationships`, {
+      token: adminToken,
+      body: {
         targetFactionId: subFaction.id,
         relationshipType: "contains"
-      },
-      ignoreHTTPSErrors: true
-    }
-  );
-  
-  if (!relResponse.ok()) {
-    const error = await relResponse.json().catch(() => ({}));
-    throw new Error(`Failed to create relationship: ${(error as any).error || relResponse.statusText()}`);
+      }
+    });
+  } catch (error: any) {
+    throw new Error(`Failed to create relationship: ${error.message || "Unknown error"}`);
   }
   
   // Wait for the relationship to be reflected in the UI
@@ -271,7 +220,7 @@ Then('faction {string} shows it is part of {string}', async ({ page }, subFactio
 When('the admin views faction {string}', async ({ page }, factionName: string) => {
   // Navigate to factions tab if not already there
   const addFactionButton = page.getByRole("button", { name: "Add faction" });
-  const isOnFactionsTab = await addFactionButton.isVisible({ timeout: 1000 }).catch(() => false);
+  const isOnFactionsTab = await isVisibleSafely(addFactionButton, 1000);
   
   if (!isOnFactionsTab) {
     await page.getByRole("tab", { name: "Factions" }).click();

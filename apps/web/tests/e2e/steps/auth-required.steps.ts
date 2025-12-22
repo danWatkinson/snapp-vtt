@@ -1,12 +1,12 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { navigateAndWaitForReady } from "../helpers/utils";
 
 const { When, Then } = createBdd();
 
 When("an unidentified user visits the site", async ({ page }) => {
   // Navigate to the home page
-  await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
-  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+  await navigateAndWaitForReady(page);
 });
 
 Then("they see the guest view", async ({ page }) => {

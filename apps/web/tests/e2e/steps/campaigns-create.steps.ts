@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView } from "../helpers";
+import { selectWorldAndEnterPlanningMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView, getErrorMessage } from "../helpers";
+import { createApiClient } from "../helpers/api";
 import { STABILITY_WAIT_SHORT } from "../helpers/constants";
 import { safeWait } from "../helpers/utils";
 import type { APIRequestContext, Page } from "@playwright/test";
@@ -8,98 +9,18 @@ import type { APIRequestContext, Page } from "@playwright/test";
 
 const { When, Then } = createBdd();
 
-const AUTH_SERVICE_URL =
-  process.env.AUTH_SERVICE_URL ??
-  process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ??
-  "https://localhost:4400";
-
-const CAMPAIGN_SERVICE_URL =
-  process.env.CAMPAIGN_SERVICE_URL ??
-  process.env.NEXT_PUBLIC_CAMPAIGN_SERVICE_URL ??
-  "https://localhost:4600";
-
-const WORLD_SERVICE_URL =
-  process.env.WORLD_SERVICE_URL ??
-  process.env.NEXT_PUBLIC_WORLD_SERVICE_URL ??
-  "https://localhost:4501";
-
-// Helper to get admin token for API calls
-async function getAdminTokenForCampaign(request: APIRequestContext): Promise<string> {
-  const url = `${AUTH_SERVICE_URL}/auth/login`;
-  const response = await request.fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    data: { username: "admin", password: "admin123" },
-    ignoreHTTPSErrors: true
-  });
-
-  if (!response.ok()) {
-    const status = response.status();
-    const errorBody = await response.json().catch(() => ({}));
-    const errorMessage = errorBody.error ?? `HTTP ${status}`;
-    throw new Error(
-      `Login failed: ${errorMessage} (status ${status}). Check that auth service is running.`
-    );
-  }
-
-  const body = await response.json();
-  if (!body.token) {
-    throw new Error("Login response missing token");
-  }
-  return body.token;
-}
-
-// Helper to make API calls to campaign service
-async function campaignApiCall(
-  request: APIRequestContext,
-  method: string,
-  path: string,
-  options: { body?: any; token?: string } = {}
-) {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json"
-  };
-  if (options.token) {
-    headers.Authorization = `Bearer ${options.token}`;
-  }
-
-  const url = `${CAMPAIGN_SERVICE_URL}${path}`;
-  const response = await request.fetch(url, {
-    method,
-    headers,
-    data: options.body,
-    ignoreHTTPSErrors: true
-  });
-
-  if (!response.ok()) {
-    const status = response.status();
-    const errorBody = await response.json().catch(() => ({}));
-    const errorMessage = errorBody.error ?? `API call failed with status ${status}`;
-    throw new Error(`${errorMessage} (${method} ${url})`);
-  }
-
-  return response.json();
-}
-
 // Helper to get or create a test world via API
 async function getOrCreateTestWorld(request: APIRequestContext, adminToken: string): Promise<string> {
   const worldName = "Eldoria"; // Use a standard test world name
+  const api = createApiClient(request);
   
   try {
     // Try to get existing worlds
-    const worldsResponse = await request.fetch(`${WORLD_SERVICE_URL}/worlds`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      ignoreHTTPSErrors: true
-    });
-    
-    if (worldsResponse.ok()) {
-      const body = await worldsResponse.json() as { worlds?: Array<{ id: string; name: string }> };
-      const worlds = body.worlds || [];
-      const existingWorld = worlds.find((w) => w.name.toLowerCase() === worldName.toLowerCase());
-      if (existingWorld) {
-        return existingWorld.id;
-      }
+    const worldsResponse = await api.call("world", "GET", "/worlds", { token: adminToken });
+    const worlds = (worldsResponse as { worlds?: Array<{ id: string; name: string }> }).worlds || [];
+    const existingWorld = worlds.find((w) => w.name.toLowerCase() === worldName.toLowerCase());
+    if (existingWorld) {
+      return existingWorld.id;
     }
   } catch {
     // If GET fails, try to create
@@ -107,37 +28,21 @@ async function getOrCreateTestWorld(request: APIRequestContext, adminToken: stri
   
   // Create a new world
   try {
-    const createResponse = await request.fetch(`${WORLD_SERVICE_URL}/worlds`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`
-      },
-      data: { name: worldName, description: "A test world for campaigns" },
-      ignoreHTTPSErrors: true
+    const createResponse = await api.call("world", "POST", "/worlds", {
+      token: adminToken,
+      body: { name: worldName, description: "A test world for campaigns" }
     });
-    
-    if (createResponse.ok()) {
-      const body = await createResponse.json() as { world?: { id: string } };
-      if (body.world?.id) {
-        return body.world.id;
-      }
+    const worldId = (createResponse as { world?: { id: string } }).world?.id;
+    if (worldId) {
+      return worldId;
     }
     
-    // If creation failed, try to get worlds again (maybe it was created concurrently)
-    const worldsResponse = await request.fetch(`${WORLD_SERVICE_URL}/worlds`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      ignoreHTTPSErrors: true
-    });
-    
-    if (worldsResponse.ok()) {
-      const body = await worldsResponse.json() as { worlds?: Array<{ id: string; name: string }> };
-      const worlds = body.worlds || [];
-      const existingWorld = worlds.find((w) => w.name.toLowerCase() === worldName.toLowerCase());
-      if (existingWorld) {
-        return existingWorld.id;
-      }
+    // If creation didn't return ID, try to get worlds again (maybe it was created concurrently)
+    const worldsResponse = await api.call("world", "GET", "/worlds", { token: adminToken });
+    const worlds = (worldsResponse as { worlds?: Array<{ id: string; name: string }> }).worlds || [];
+    const existingWorld = worlds.find((w) => w.name.toLowerCase() === worldName.toLowerCase());
+    if (existingWorld) {
+      return existingWorld.id;
     }
   } catch {
     // Fall through to error
@@ -169,8 +74,9 @@ When('the test campaign exists', async ({ page, request }) => {
   if (useApi) {
     // API-based creation (for Background - no UI interaction)
     try {
+      const api = createApiClient(request);
       // Get admin token for API calls
-      const adminToken = await getAdminTokenForCampaign(request);
+      const adminToken = await api.getAdminToken();
       
       // Get or create a test world (campaigns require a world)
       const worldId = await getOrCreateTestWorld(request, adminToken);
@@ -178,18 +84,11 @@ When('the test campaign exists', async ({ page, request }) => {
       // Get the world name from the worldId so we can select it in UI scenarios
       let worldName = "Eldoria"; // Default fallback
       try {
-        const worldsResponse = await request.fetch(`${WORLD_SERVICE_URL}/worlds`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          ignoreHTTPSErrors: true
-        });
-        if (worldsResponse.ok()) {
-          const body = await worldsResponse.json() as { worlds?: Array<{ id: string; name: string }> };
-          const worlds = body.worlds || [];
-          const world = worlds.find((w) => w.id === worldId);
-          if (world) {
-            worldName = world.name;
-          }
+        const worldsResponse = await api.call("world", "GET", "/worlds", { token: adminToken });
+        const worlds = (worldsResponse as { worlds?: Array<{ id: string; name: string }> }).worlds || [];
+        const world = worlds.find((w) => w.id === worldId);
+        if (world) {
+          worldName = world.name;
         }
       } catch {
         // If we can't get world name, use default
@@ -197,8 +96,8 @@ When('the test campaign exists', async ({ page, request }) => {
       
       // Check if campaign already exists (filter by world)
       try {
-        const campaignsResponse = await campaignApiCall(request, "GET", `/worlds/${worldId}/campaigns`, { token: adminToken });
-        const campaigns = campaignsResponse.campaigns || [];
+        const campaignsResponse = await api.call("campaign", "GET", `/worlds/${worldId}/campaigns`, { token: adminToken });
+        const campaigns = (campaignsResponse as { campaigns?: any[] }).campaigns || [];
         const existingCampaign = campaigns.find((c: any) => c.name === uniqueCampaignName);
         if (existingCampaign) {
           // Campaign exists - store the name and world name for other steps to use
@@ -217,13 +116,13 @@ When('the test campaign exists', async ({ page, request }) => {
       }
       
       // Create campaign via API with worldId
-      const createResponse = await campaignApiCall(request, "POST", "/campaigns", {
+      const createResponse = await api.call("campaign", "POST", "/campaigns", {
         token: adminToken,
         body: { name: uniqueCampaignName, summary: "A long-running campaign about ancient draconic power returning.", worldId }
       });
       
       // Response format: { campaign: Campaign }
-      const createdCampaign = createResponse.campaign;
+      const createdCampaign = (createResponse as { campaign?: any }).campaign;
       if (!createdCampaign) {
         throw new Error("Campaign creation response missing campaign data");
       }
@@ -243,7 +142,7 @@ When('the test campaign exists', async ({ page, request }) => {
       const error = err as Error;
       if (error.message.includes("Cannot connect") || error.message.includes("ECONNREFUSED")) {
         throw new Error(
-          `Cannot connect to campaign service at ${CAMPAIGN_SERVICE_URL}. Ensure the campaign service is running.`
+          `Cannot connect to campaign service. Ensure the campaign service is running.`
         );
       }
       // If campaign already exists (409), that's fine - just store the name
@@ -441,11 +340,10 @@ When(
       }
       
       // Campaign not visible - check for errors
-      const errorVisible = await page.getByTestId("error-message").isVisible({ timeout: 1000 }).catch(() => false);
-      if (errorVisible) {
-        const errorText = await page.getByTestId("error-message").textContent();
+      const errorText = await getErrorMessage(page, 1000);
+      if (errorText) {
         // Handle "already exists" errors gracefully
-        await handleAlreadyExistsError(page, errorText || null, "campaign", /create campaign/i);
+        await handleAlreadyExistsError(page, errorText, "campaign", /create campaign/i);
         return; // Campaign already exists, it should appear in the list
       }
       
@@ -466,11 +364,10 @@ When(
       }
       
       // Check for errors
-      const errorVisible = await page.getByTestId("error-message").isVisible({ timeout: 1000 }).catch(() => false);
-      if (errorVisible) {
-        const errorText = await page.getByTestId("error-message").textContent();
+      const errorText = await getErrorMessage(page, 1000);
+      if (errorText) {
         // Handle "already exists" errors gracefully
-        await handleAlreadyExistsError(page, errorText || null, "campaign", /create campaign/i);
+        await handleAlreadyExistsError(page, errorText, "campaign", /create campaign/i);
         return; // Campaign already exists, it should appear in the list
       }
       
@@ -565,11 +462,10 @@ When(
       }
       
       // Campaign not visible - check for errors
-      const errorVisible = await page.getByTestId("error-message").isVisible({ timeout: 1000 }).catch(() => false);
-      if (errorVisible) {
-        const errorText = await page.getByTestId("error-message").textContent();
+      const errorText = await getErrorMessage(page, 1000);
+      if (errorText) {
         // Handle "already exists" errors gracefully
-        await handleAlreadyExistsError(page, errorText || null, "campaign", /create campaign/i);
+        await handleAlreadyExistsError(page, errorText, "campaign", /create campaign/i);
         return; // Campaign already exists, it should appear in the list
       }
       
@@ -590,11 +486,10 @@ When(
       }
       
       // Check for errors
-      const errorVisible = await page.getByTestId("error-message").isVisible({ timeout: 1000 }).catch(() => false);
-      if (errorVisible) {
-        const errorText = await page.getByTestId("error-message").textContent();
+      const errorText = await getErrorMessage(page, 1000);
+      if (errorText) {
         // Handle "already exists" errors gracefully
-        await handleAlreadyExistsError(page, errorText || null, "campaign", /create campaign/i);
+        await handleAlreadyExistsError(page, errorText, "campaign", /create campaign/i);
         return; // Campaign already exists, it should appear in the list
       }
       

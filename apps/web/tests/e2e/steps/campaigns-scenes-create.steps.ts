@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { getStoredWorldName } from "../helpers";
+import { getStoredWorldName, checkForErrorAndThrow } from "../helpers";
 import { safeWait } from "../helpers/utils";
 // Note: "the admin navigates to the Campaigns planning screen" and "the campaign Rise of the Dragon King exists" 
 // are defined in campaigns-create.steps.ts
@@ -141,13 +141,8 @@ When('the admin ensures scene "The Throne Room" exists in the session', async ({
     // Wait a bit for any error messages or dialog state changes
     await safeWait(page, 500);
     
-    const errorMessage = page.getByTestId("error-message");
-    const hasError = await errorMessage.isVisible({ timeout: 3000 }).catch(() => false);
-    
-    if (hasError) {
-      const errorText = await errorMessage.textContent();
-      throw new Error(`Scene creation failed: ${errorText || "Unknown error"}`);
-    }
+    // Check for errors and throw if found
+    await checkForErrorAndThrow(page, "Scene creation", 3000);
     
     // Wait for the dialog to close - this indicates successful creation
     await expect(page.getByRole("dialog", { name: "Add scene" })).toBeHidden({ timeout: 10000 });

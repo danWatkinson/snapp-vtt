@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 import { ensureCampaignExists, getUniqueCampaignName, getStoredCampaignName, getStoredWorldName, ensureLoginDialogClosed, loginAs, selectWorldAndEnterPlanningMode, waitForAssetUploaded, waitForPlanningMode, getUniqueUsername } from "../helpers";
-import { safeWait } from "../helpers/utils";
+import { safeWait, navigateAndWaitForReady } from "../helpers/utils";
 import { Buffer } from "buffer";
 import path from "path";
 
@@ -78,8 +78,7 @@ When("the world builder uploads an image asset {string}", async ({ page }, fileN
   
   if (!isOnAssetsScreen) {
     // Ensure we're on the page before checking login state
-    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
-    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    await navigateAndWaitForReady(page);
     
     // Intercept image requests and return a valid 1x1 PNG
     await page.route("**/mock-assets/**", async (route) => {
@@ -282,8 +281,7 @@ When("the world builder uploads an audio asset {string}", async ({ page }, fileN
   
   if (!isOnAssetsScreen) {
     // Ensure we're on the page before checking login state
-    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
-    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    await navigateAndWaitForReady(page);
     
     // Intercept image requests and return a valid 1x1 PNG
     await page.route("**/mock-assets/**", async (route) => {

@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 import { ensureCampaignExists, getUniqueUsername, loginAs } from "../helpers";
+import { navigateAndWaitForReady } from "../helpers/utils";
 
 const { Then, When } = createBdd();
 
@@ -46,8 +47,7 @@ When('the world builder creates a campaign', async ({ page }) => {
     const password = "worldbuilder123";
     
     // Navigate to home page if not already there
-    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
-    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    await navigateAndWaitForReady(page);
     
     // Sign in
     await loginAs(page, uniqueUsername, password);

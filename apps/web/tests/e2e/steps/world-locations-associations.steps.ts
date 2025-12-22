@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 import { waitForEntitiesLoaded } from "../helpers/entities";
+import { isVisibleSafely } from "../helpers/utils";
 
 const { When, Then } = createBdd();
 
@@ -26,7 +27,7 @@ async function ensureLocationExists(
   const exists = await locationExists(page, locationName);
   if (!exists) {
     const addLocationButton = page.getByRole("button", { name: "Add location" });
-    const isOnLocationsTab = await addLocationButton.isVisible({ timeout: 1000 }).catch(() => false);
+    const isOnLocationsTab = await isVisibleSafely(addLocationButton, 1000);
     
     if (!isOnLocationsTab) {
       await page.getByRole("tab", { name: "Locations" }).click();

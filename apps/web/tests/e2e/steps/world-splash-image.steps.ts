@@ -2,7 +2,7 @@ import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 import { getStoredWorldName, waitForWorldUpdated, waitForModalOpen, selectWorldAndEnterPlanningMode, getUniqueCampaignName, waitForPlanningMode } from "../helpers";
 import { STABILITY_WAIT_MAX, STABILITY_WAIT_SHORT } from "../helpers/constants";
-import { safeWait } from "../helpers/utils";
+import { safeWait, isVisibleSafely } from "../helpers/utils";
 
 const { When, Then } = createBdd();
 
@@ -11,13 +11,13 @@ When(
   async ({ page }, worldName: string) => {
     // Check if world is already selected
     const settingsButton = page.getByRole("button", { name: "World settings" });
-    const isWorldSelected = await settingsButton.isVisible({ timeout: 1000 }).catch(() => false);
+    const isWorldSelected = await isVisibleSafely(settingsButton, 1000);
     
     if (!isWorldSelected) {
       // Need to navigate and select the world
       // Check if we're in planning mode
       const planningTabs = page.getByRole("tablist", { name: "World planning views" });
-      const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
+      const isInPlanningMode = await isVisibleSafely(planningTabs, 1000);
       
       if (!isInPlanningMode) {
         // Navigate to World Entities planning screen (this will select a world if none selected)
@@ -216,7 +216,7 @@ When(
       .first();
     
     // Check if button is visible, if not try without extension
-    const isVisible = await assetButton.isVisible({ timeout: 1000 }).catch(() => false);
+    const isVisible = await isVisibleSafely(assetButton, 1000);
     if (!isVisible) {
       assetButton = settingsModal
         .getByRole("button")
@@ -296,12 +296,12 @@ Then(
     // The world selector is only visible when no world is selected
     // If a world is currently selected, we need to leave it first
     const logoutButton = page.getByRole("button", { name: "Log out" });
-    const isLoggedIn = await logoutButton.isVisible({ timeout: 1000 }).catch(() => false);
+    const isLoggedIn = await isVisibleSafely(logoutButton, 1000);
     
     if (isLoggedIn) {
       // Check if a world is selected - if so, leave it via Snapp menu
       const worldSettingsButton = page.getByRole("button", { name: "World settings" });
-      const worldSelected = await worldSettingsButton.isVisible({ timeout: 1000 }).catch(() => false);
+      const worldSelected = await isVisibleSafely(worldSettingsButton, 1000);
       
       if (worldSelected) {
         // Leave the world to show the world selector
@@ -348,7 +348,7 @@ Then(
   async ({ page }, worldName: string) => {
     // Ensure we're in planning mode with the world selected
     const settingsButton = page.getByRole("button", { name: "World settings" });
-    const isWorldSelected = await settingsButton.isVisible({ timeout: 1000 }).catch(() => false);
+    const isWorldSelected = await isVisibleSafely(settingsButton, 1000);
     
     if (!isWorldSelected) {
       // Navigate to World Entities planning screen and select world
@@ -369,7 +369,7 @@ Then(
       const planningTabs = page.getByRole("tablist", { name: "World planning views" });
       const isInPlanningMode = await planningTabs.isVisible({ timeout: 2000 }).catch(() => false);
       const currentSettingsButton = page.getByRole("button", { name: "World settings" });
-      const worldSelectedInPlanningMode = await currentSettingsButton.isVisible({ timeout: 1000 }).catch(() => false);
+      const worldSelectedInPlanningMode = await isVisibleSafely(currentSettingsButton, 1000);
       
       if (isInPlanningMode && worldSelectedInPlanningMode) {
         // We're in planning mode with a world selected - assume it's correct for now
@@ -504,12 +504,12 @@ Then(
     // The world selector is only visible when no world is selected
     // If a world is currently selected, we need to leave it first
     const logoutButton = page.getByRole("button", { name: "Log out" });
-    const isLoggedIn = await logoutButton.isVisible({ timeout: 1000 }).catch(() => false);
+    const isLoggedIn = await isVisibleSafely(logoutButton, 1000);
     
     if (isLoggedIn) {
       // Check if a world is selected - if so, leave it via Snapp menu
       const worldSettingsButton = page.getByRole("button", { name: "World settings" });
-      const worldSelected = await worldSettingsButton.isVisible({ timeout: 1000 }).catch(() => false);
+      const worldSelected = await isVisibleSafely(worldSettingsButton, 1000);
       
       if (worldSelected) {
         // Leave the world to show the world selector

@@ -1,44 +1,9 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { createApiClient } from "../helpers/api";
 import type { APIRequestContext } from "@playwright/test";
 
 const { When, Then } = createBdd();
-
-const AUTH_SERVICE_URL =
-  process.env.AUTH_SERVICE_URL ??
-  process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ??
-  "https://localhost:4400";
-
-const WORLD_SERVICE_URL =
-  process.env.WORLD_SERVICE_URL ??
-  process.env.NEXT_PUBLIC_WORLD_SERVICE_URL ??
-  "https://localhost:4501";
-
-// Helper to get admin token for API calls
-async function getAdminToken(request: APIRequestContext): Promise<string> {
-  const url = `${AUTH_SERVICE_URL}/auth/login`;
-  const response = await request.fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    data: { username: "admin", password: "admin123" },
-    ignoreHTTPSErrors: true
-  });
-
-  if (!response.ok()) {
-    const status = response.status();
-    const errorBody = await response.json().catch(() => ({}));
-    const errorMessage = (errorBody as any).error ?? `HTTP ${status}`;
-    throw new Error(
-      `Login failed: ${errorMessage} (status ${status}). Check that auth service is running at ${AUTH_SERVICE_URL}.`
-    );
-  }
-
-  const body = await response.json();
-  if (!body.token) {
-    throw new Error("Login response missing token");
-  }
-  return body.token;
-}
 
 // Note: "world {string} exists and is selected with factions tab" is defined in world-entities-create.steps.ts
 // Note: "the admin ensures faction {string} exists" is defined in world-entities-create.steps.ts
@@ -74,10 +39,10 @@ When('the admin links creature {string} as member of {string}', async ({ page, r
   await page.waitForTimeout(1000);
   
   // Get all worlds first
-  const worldsResponse = await request.get(`${WORLD_SERVICE_URL}/worlds`, {
-    ignoreHTTPSErrors: true
-  });
-  const worldsData = await worldsResponse.json();
+  const api = createApiClient(request);
+  const adminToken = await api.getAdminToken();
+  const worldsResponse = await api.call("world", "GET", "/worlds", { token: adminToken });
+  const worldsData = worldsResponse;
   const worlds = worldsData.worlds;
   
   if (worlds.length === 0) {
@@ -90,17 +55,11 @@ When('the admin links creature {string} as member of {string}', async ({ page, r
   let worldId: string | null = null;
   
   for (const world of worlds) {
-    const factionsResponse = await request.get(`${WORLD_SERVICE_URL}/worlds/${world.id}/entities?type=faction`, {
-      ignoreHTTPSErrors: true
-    });
-    const factionsData = await factionsResponse.json();
-    const factions = factionsData.entities;
+    const factionsResponse = await api.call("world", "GET", `/worlds/${world.id}/entities?type=faction`, { token: adminToken });
+    const factions = (factionsResponse as { entities?: any[] }).entities || [];
     
-    const creaturesResponse = await request.get(`${WORLD_SERVICE_URL}/worlds/${world.id}/entities?type=creature`, {
-      ignoreHTTPSErrors: true
-    });
-    const creaturesData = await creaturesResponse.json();
-    const creatures = creaturesData.entities;
+    const creaturesResponse = await api.call("world", "GET", `/worlds/${world.id}/entities?type=creature`, { token: adminToken });
+    const creatures = (creaturesResponse as { entities?: any[] }).entities || [];
     
     const foundFaction = factions.find((f: any) => f.name === factionName);
     const foundCreature = creatures.find((c: any) => c.name === creatureName);
@@ -120,29 +79,16 @@ When('the admin links creature {string} as member of {string}', async ({ page, r
     );
   }
   
-  // Get admin token for API calls
-  const adminToken = await getAdminToken(request);
-  
-  // Create the membership relationship using the members endpoint
-  const headers: Record<string, string> = { 
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${adminToken}`
-  };
-  
-  const relResponse = await request.post(
-    `${WORLD_SERVICE_URL}/worlds/${worldId}/factions/${faction.id}/members`,
-    {
-      headers,
-      data: {
+  // Create the relationship via API
+  try {
+    await api.call("world", "POST", `/worlds/${worldId}/factions/${faction.id}/members`, {
+      token: adminToken,
+      body: {
         creatureId: creature.id
-      },
-      ignoreHTTPSErrors: true
-    }
-  );
-  
-  if (!relResponse.ok()) {
-    const error = await relResponse.json().catch(() => ({}));
-    throw new Error(`Failed to create membership: ${(error as any).error || relResponse.statusText()}`);
+      }
+    });
+  } catch (error: any) {
+    throw new Error(`Failed to create membership: ${error.message || "Unknown error"}`);
   }
   
   // Wait for the relationship to be reflected in the UI

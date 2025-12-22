@@ -1,44 +1,10 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { createApiClient } from "../helpers/api";
+import { isVisibleSafely } from "../helpers/utils";
 import type { APIRequestContext } from "@playwright/test";
 
 const { When, Then } = createBdd();
-
-const AUTH_SERVICE_URL =
-  process.env.AUTH_SERVICE_URL ??
-  process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ??
-  "https://localhost:4400";
-
-const WORLD_SERVICE_URL =
-  process.env.WORLD_SERVICE_URL ??
-  process.env.NEXT_PUBLIC_WORLD_SERVICE_URL ??
-  "https://localhost:4501";
-
-// Helper to get admin token for API calls
-async function getAdminToken(request: APIRequestContext): Promise<string> {
-  const url = `${AUTH_SERVICE_URL}/auth/login`;
-  const response = await request.fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    data: { username: "admin", password: "admin123" },
-    ignoreHTTPSErrors: true
-  });
-
-  if (!response.ok()) {
-    const status = response.status();
-    const errorBody = await response.json().catch(() => ({}));
-    const errorMessage = (errorBody as any).error ?? `HTTP ${status}`;
-    throw new Error(
-      `Login failed: ${errorMessage} (status ${status}). Check that auth service is running at ${AUTH_SERVICE_URL}.`
-    );
-  }
-
-  const body = await response.json();
-  if (!body.token) {
-    throw new Error("Login response missing token");
-  }
-  return body.token;
-}
 
 // Note: "world {string} exists and is selected with events tab" is defined in world-events-create.steps.ts
 // Note: "the admin ensures location {string} exists" is defined in world-locations-create.steps.ts
@@ -75,11 +41,10 @@ When('the admin links event {string} as sub-event of {string}', async ({ page, r
   await page.waitForTimeout(1000);
   
   // Get all worlds first
-  const worldsResponse = await request.get(`${WORLD_SERVICE_URL}/worlds`, {
-    ignoreHTTPSErrors: true
-  });
-  const worldsData = await worldsResponse.json();
-  const worlds = worldsData.worlds;
+  const api = createApiClient(request);
+  const adminToken = await api.getAdminToken();
+  const worldsResponse = await api.call("world", "GET", "/worlds", { token: adminToken });
+  const worlds = (worldsResponse as { worlds?: any[] }).worlds || [];
   
   if (worlds.length === 0) {
     throw new Error("No worlds found. Ensure a world exists before linking events.");
@@ -92,11 +57,8 @@ When('the admin links event {string} as sub-event of {string}', async ({ page, r
   let worldId: string | null = null;
   
   for (const world of worlds) {
-    const eventsResponse = await request.get(`${WORLD_SERVICE_URL}/worlds/${world.id}/entities?type=event`, {
-      ignoreHTTPSErrors: true
-    });
-    const eventsData = await eventsResponse.json();
-    const events = eventsData.entities;
+    const eventsResponse = await api.call("world", "GET", `/worlds/${world.id}/entities?type=event`, { token: adminToken });
+    const events = (eventsResponse as { entities?: any[] }).entities || [];
     
     const foundParent = events.find((e: any) => e.name === parentEventName);
     const foundSub = events.find((e: any) => e.name === subEventName);
@@ -116,30 +78,17 @@ When('the admin links event {string} as sub-event of {string}', async ({ page, r
     );
   }
   
-  // Get admin token for API calls
-  const adminToken = await getAdminToken(request);
-  
-  // Create the relationship using Playwright's request context
-  const headers: Record<string, string> = { 
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${adminToken}`
-  };
-  
-  const relResponse = await request.post(
-    `${WORLD_SERVICE_URL}/worlds/${worldId}/events/${parentEvent.id}/relationships`,
-    {
-      headers,
-      data: {
+  // Create the relationship via API
+  try {
+    await api.call("world", "POST", `/worlds/${worldId}/events/${parentEvent.id}/relationships`, {
+      token: adminToken,
+      body: {
         targetEventId: subEvent.id,
         relationshipType: "contains"
-      },
-      ignoreHTTPSErrors: true
-    }
-  );
-  
-  if (!relResponse.ok()) {
-    const error = await relResponse.json().catch(() => ({}));
-    throw new Error(`Failed to create relationship: ${(error as any).error || relResponse.statusText()}`);
+      }
+    });
+  } catch (error: any) {
+    throw new Error(`Failed to create relationship: ${error.message || "Unknown error"}`);
   }
   
   // Wait for the relationship to be reflected in the UI
@@ -271,7 +220,7 @@ Then('event {string} shows it is part of {string}', async ({ page }, subEventNam
 When('the admin views event {string}', async ({ page }, eventName: string) => {
   // Navigate to events tab if not already there
   const addEventButton = page.getByRole("button", { name: "Add event" });
-  const isOnEventsTab = await addEventButton.isVisible({ timeout: 1000 }).catch(() => false);
+  const isOnEventsTab = await isVisibleSafely(addEventButton, 1000);
   
   if (!isOnEventsTab) {
     await page.getByRole("tab", { name: "Events" }).click();

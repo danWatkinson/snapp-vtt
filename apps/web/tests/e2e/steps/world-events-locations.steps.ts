@@ -1,5 +1,7 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { navigateToEventsTab } from "../helpers/tabs";
+import { verifyEntityInList } from "../helpers/verification";
 
 const { When, Then } = createBdd();
 
@@ -8,8 +10,7 @@ const { When, Then } = createBdd();
 // Note: "the admin creates location {string} with parent {string}" is defined in world-locations-associations.steps.ts
 
 When("the admin navigates to the events tab", async ({ page }) => {
-  await page.getByRole("tab", { name: "Events" }).click();
-  await expect(page.getByRole("button", { name: "Add event" })).toBeVisible();
+  await navigateToEventsTab(page);
 });
 
 When('the admin creates event {string} at location {string}', async ({ page }, eventName: string, locationName: string) => {
@@ -66,9 +67,7 @@ When('the admin creates event {string} at location {string}', async ({ page }, e
   await expect(dialog).not.toBeVisible({ timeout: 3000 });
   
   // Wait for the event to appear in the list
-  await expect(
-    page.getByRole("listitem").filter({ hasText: eventName }).first()
-  ).toBeVisible({ timeout: 3000 });
+  await verifyEntityInList(page, eventName);
 });
 
 When('the admin creates event {string} without a location', async ({ page }, eventName: string) => {
@@ -99,9 +98,7 @@ When('the admin creates event {string} without a location', async ({ page }, eve
   await expect(dialog).not.toBeVisible({ timeout: 3000 });
   
   // Wait for the event to appear in the list
-  await expect(
-    page.getByRole("listitem").filter({ hasText: eventName }).first()
-  ).toBeVisible({ timeout: 3000 });
+  await verifyEntityInList(page, eventName);
 });
 
 // Note: "the admin navigates to the locations tab" is defined in world-locations-create.steps.ts

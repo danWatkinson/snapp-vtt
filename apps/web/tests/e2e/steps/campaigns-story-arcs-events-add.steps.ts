@@ -1,7 +1,8 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterPlanningMode, getUniqueCampaignName, ensureCampaignExists } from "../helpers";
-import { safeWait } from "../helpers/utils";
+import { selectWorldAndEnterPlanningMode, getStoredCampaignName, ensureCampaignExists } from "../helpers";
+import { navigateToCampaignView, isOnCampaignView } from "../helpers/navigation";
+import { createStoryArc } from "../helpers/entityCreation";
 import { STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 // Note: "the campaign \"Rise of the Dragon King\" exists" is defined in campaigns-create.steps.ts
 // Note: "the admin navigates to the \"Story Arcs\" planning screen" and
@@ -11,88 +12,23 @@ const { When, Then } = createBdd();
 
 When('story arc "The Ancient Prophecy" exists', async ({ page }) => {
   // Navigate to story arcs view first (if not already there)
-  const addStoryArcButton = page.getByRole("button", { name: "Add story arc" });
-  const isOnStoryArcsView = await addStoryArcButton.isVisible({ timeout: 1000 }).catch(() => false);
-  
-  if (!isOnStoryArcsView) {
-    // Use already-imported utilities from top of file
-    const campaignViews = page.getByRole("tablist", { name: "Campaign views" });
-    const isCampaignSelected = await campaignViews.isVisible({ timeout: 1000 }).catch(() => false);
+  if (!(await isOnCampaignView(page, "story-arcs"))) {
+    // Get test campaign name
+    const campaignName = await getStoredCampaignName(page, "Rise of the Dragon King");
     
-    if (!isCampaignSelected) {
-      // Get test campaign name
-      let campaignName: string | null = null;
-      for (let i = 0; i < 5; i++) {
-        try {
-          campaignName = await page.evaluate(() => {
-            return (window as any).__testCampaignName;
-          });
-          if (campaignName) break;
-        } catch {
-          await safeWait(page, 200);
-        }
-      }
-      
-      if (!campaignName) {
-        campaignName = getUniqueCampaignName("Rise of the Dragon King");
-      }
-      
-      // Use ensureCampaignExists which handles world selection, campaign finding/creation, etc.
-      // This ensures we use the stored world name if available from Background steps
-      await ensureCampaignExists(
-        page,
-        campaignName,
-        "A long-running campaign about ancient draconic power returning."
-      );
-    }
+    // Use ensureCampaignExists which handles world selection, campaign finding/creation, etc.
+    await ensureCampaignExists(
+      page,
+      campaignName,
+      "A long-running campaign about ancient draconic power returning."
+    );
     
-    // Ensure campaign views are visible before navigating to story arcs tab
-    const finalCampaignViews = page.getByRole("tablist", { name: "Campaign views" });
-    await expect(finalCampaignViews).toBeVisible({ timeout: 5000 });
-    
-    // Navigate to story arcs tab
-    await finalCampaignViews.getByRole("tab", { name: "Story arcs" }).click();
-    await expect(addStoryArcButton).toBeVisible();
+    // Navigate to story arcs view
+    await navigateToCampaignView(page, "story-arcs");
   }
   
-  const hasStoryArc = await page
-    .getByRole("listitem")
-    .filter({ hasText: "The Ancient Prophecy" })
-    .first()
-    .isVisible()
-    .catch(() => false);
-
-  if (!hasStoryArc) {
-    await addStoryArcButton.click();
-    await expect(page.getByRole("dialog", { name: "Add story arc" })).toBeVisible();
-
-    await page.getByLabel("Story arc name").fill("The Ancient Prophecy");
-    await page
-      .getByLabel("Summary")
-      .fill("An ancient prophecy foretells the return of the dragon king.");
-    await page.getByRole("button", { name: "Save story arc" }).click();
-
-    await Promise.race([
-      page
-        .getByRole("dialog", { name: /add story arc/i })
-        .waitFor({ state: "hidden", timeout: 3000 })
-        .catch(() => null),
-      page.getByTestId("error-message").waitFor({ timeout: 3000 }).catch(() => null)
-    ]);
-
-    const errorMessage = await page.getByTestId("error-message").isVisible().catch(() => false);
-    if (errorMessage) {
-      const errorText = await page.getByTestId("error-message").textContent() ?? "";
-      throw new Error(`Story arc creation failed: ${errorText}`);
-    }
-    
-    // Wait for the story arc to appear in the list
-    const storyArcItem = page.getByRole("listitem").filter({ hasText: "The Ancient Prophecy" }).first();
-    await expect(storyArcItem).toBeVisible({ timeout: 3000 });
-    
-    // Wait for the "View events" button to be visible (indicates UI is fully rendered)
-    await expect(storyArcItem.getByRole("button", { name: "View events" })).toBeVisible({ timeout: 3000 });
-  }
+  // Create story arc if it doesn't exist
+  await createStoryArc(page, "The Ancient Prophecy", "An ancient prophecy foretells the return of the dragon king.");
 });
 
 When('the admin views events for story arc "The Ancient Prophecy"', async ({ page }) => {

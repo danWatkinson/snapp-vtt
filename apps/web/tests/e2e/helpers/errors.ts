@@ -143,3 +143,59 @@ export async function handleAlreadyExistsError(
   // Not an "already exists" error - throw
   throw new Error(`Operation failed: ${errorText}`);
 }
+
+/**
+ * Check if an error message is currently visible in the UI.
+ * 
+ * @param page - Playwright page object
+ * @param timeout - Maximum time to wait in milliseconds (default: 1000)
+ * @returns True if error message is visible, false otherwise
+ */
+export async function hasErrorMessage(
+  page: Page,
+  timeout: number = 1000
+): Promise<boolean> {
+  const errorElement = page.getByTestId("error-message");
+  return await isVisibleSafely(errorElement, timeout);
+}
+
+/**
+ * Get the error message text if it's visible in the UI.
+ * 
+ * @param page - Playwright page object
+ * @param timeout - Maximum time to wait in milliseconds (default: 1000)
+ * @returns The error message text, or null if no error is visible
+ */
+export async function getErrorMessage(
+  page: Page,
+  timeout: number = 1000
+): Promise<string | null> {
+  const hasError = await hasErrorMessage(page, timeout);
+  if (!hasError) {
+    return null;
+  }
+  
+  const errorElement = page.getByTestId("error-message");
+  const errorText = await errorElement.textContent().catch(() => null);
+  return errorText?.trim() || null;
+}
+
+/**
+ * Check for error message after an operation and throw if found.
+ * Useful for form submissions and other operations that may fail.
+ * 
+ * @param page - Playwright page object
+ * @param operationName - Name of the operation (for error message)
+ * @param timeout - Maximum time to wait for error in milliseconds (default: 3000)
+ * @throws Error if an error message is found
+ */
+export async function checkForErrorAndThrow(
+  page: Page,
+  operationName: string,
+  timeout: number = 3000
+): Promise<void> {
+  const errorText = await getErrorMessage(page, timeout);
+  if (errorText) {
+    throw new Error(`${operationName} failed: ${errorText}`);
+  }
+}
