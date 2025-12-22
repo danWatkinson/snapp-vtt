@@ -10,7 +10,7 @@ import {
   useUsers,
   useTimeline,
   useAllWorldEvents
-} from "./useDataFetching";
+} from "./data-fetching";
 import { listUsers } from "../clients/authClient";
 import { fetchWorlds, fetchWorldEntities } from "../clients/worldClient";
 import {

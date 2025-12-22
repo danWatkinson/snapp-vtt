@@ -1,31 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useModals } from "./useModals";
 import { useFormState } from "./useFormState";
 import { useSelection } from "./useSelection";
-import { dispatchTransitionEvent } from "../utils/eventDispatcher";
-import {
-  WORLD_SELECTED_EVENT,
-  WORLD_DESELECTED_EVENT,
-  CAMPAIGN_SELECTED_EVENT,
-  CAMPAIGN_DESELECTED_EVENT,
-  PLANNING_MODE_ENTERED_EVENT,
-  PLANNING_MODE_EXITED_EVENT,
-  PLANNING_SUBTAB_CHANGED_EVENT,
-  CAMPAIGN_VIEW_CHANGED_EVENT,
-  MAIN_TAB_CHANGED_EVENT,
-  WORLDS_LOADED_EVENT,
-  CAMPAIGNS_LOADED_EVENT,
-  ENTITIES_LOADED_EVENT,
-  SESSIONS_LOADED_EVENT,
-  PLAYERS_LOADED_EVENT,
-  STORY_ARCS_LOADED_EVENT,
-  SCENES_LOADED_EVENT,
-  TIMELINE_LOADED_EVENT,
-  USERS_LOADED_EVENT,
-  ASSETS_LOADED_EVENT,
-  ERROR_OCCURRED_EVENT,
-  ERROR_CLEARED_EVENT
-} from "../auth/authEvents";
+import { useSelectionEvents } from "./events/useSelectionEvents";
+import { useNavigationEvents } from "./events/useNavigationEvents";
+import { useDataLoadedEvents } from "./events/useDataLoadedEvents";
+import { useErrorEvents } from "./events/useErrorEvents";
 import type { LoginResponse, User } from "../clients/authClient";
 import type { World, WorldEntity } from "../clients/worldClient";
 import type {
@@ -124,309 +104,49 @@ export function useHomePageState() {
     "all" | "location" | "creature" | "faction" | "event"
   >("all");
 
-  // Track previous selection state to detect changes
-  const prevSelectedIdsRef = useRef(selectedIds);
-  const prevActiveModeRef = useRef(activeMode);
-  const prevPlanningSubTabRef = useRef(planningSubTab);
-  const prevCampaignViewRef = useRef(campaignView);
-  const prevActiveTabRef = useRef(activeTab);
-  
-  // Track previous loaded states to detect changes
-  const prevWorldsLoadedRef = useRef(worldsLoaded);
-  const prevCampaignsLoadedRef = useRef(campaignsLoaded);
-  const prevEntitiesLoadedForRef = useRef(entitiesLoadedFor);
-  const prevCrossRefLoadedForRef = useRef(crossRefEntitiesLoadedFor);
-  const prevSessionsLoadedForRef = useRef(sessionsLoadedFor);
-  const prevPlayersLoadedForRef = useRef(playersLoadedFor);
-  const prevStoryArcsLoadedForRef = useRef(storyArcsLoadedFor);
-  const prevScenesLoadedForRef = useRef(scenesLoadedFor);
-  const prevTimelineLoadedForRef = useRef(timelineLoadedFor);
-  const prevUsersLoadedRef = useRef(usersLoaded);
-  const prevAssetsLoadedRef = useRef(assetsLoaded);
-  
-  // Track previous error state to detect changes
-  const prevErrorRef = useRef(error);
+  // Use extracted event hooks
+  useSelectionEvents({
+    selectedIds,
+    worlds,
+    campaigns
+  });
 
-  // Dispatch selection events when selectedIds changes
-  useEffect(() => {
-    const prevSelectedIds = prevSelectedIdsRef.current;
-    
-    // World selection events
-    if (selectedIds.worldId !== prevSelectedIds.worldId) {
-      if (selectedIds.worldId) {
-        // World selected
-        const selectedWorld = worlds.find(w => w.id === selectedIds.worldId);
-        dispatchTransitionEvent(WORLD_SELECTED_EVENT, {
-          worldId: selectedIds.worldId,
-          worldName: selectedWorld?.name || "Unknown",
-          previousWorldId: prevSelectedIds.worldId
-        });
-      } else if (prevSelectedIds.worldId) {
-        // World deselected
-        const previousWorld = worlds.find(w => w.id === prevSelectedIds.worldId);
-        dispatchTransitionEvent(WORLD_DESELECTED_EVENT, {
-          previousWorldId: prevSelectedIds.worldId,
-          previousWorldName: previousWorld?.name || "Unknown"
-        });
-      }
-    }
-    
-    // Campaign selection events
-    if (selectedIds.campaignId !== prevSelectedIds.campaignId) {
-      if (selectedIds.campaignId) {
-        // Campaign selected
-        const selectedCampaign = campaigns.find(c => c.id === selectedIds.campaignId);
-        dispatchTransitionEvent(CAMPAIGN_SELECTED_EVENT, {
-          campaignId: selectedIds.campaignId,
-          campaignName: selectedCampaign?.name || "Unknown",
-          worldId: selectedIds.worldId, // Context: which world this campaign belongs to
-          previousCampaignId: prevSelectedIds.campaignId
-        });
-      } else if (prevSelectedIds.campaignId) {
-        // Campaign deselected
-        const previousCampaign = campaigns.find(c => c.id === prevSelectedIds.campaignId);
-        dispatchTransitionEvent(CAMPAIGN_DESELECTED_EVENT, {
-          previousCampaignId: prevSelectedIds.campaignId,
-          previousCampaignName: previousCampaign?.name || "Unknown",
-          worldId: selectedIds.worldId
-        });
-      }
-    }
-    
-    prevSelectedIdsRef.current = selectedIds;
-  }, [selectedIds, worlds, campaigns]);
+  useNavigationEvents({
+    activeMode,
+    planningSubTab,
+    campaignView,
+    activeTab,
+    selectedIds,
+    worlds,
+    campaigns
+  });
 
-  // Dispatch planning mode events when activeMode changes
-  useEffect(() => {
-    const prevActiveMode = prevActiveModeRef.current;
-    
-    if (activeMode === "plan" && prevActiveMode !== "plan") {
-      // Planning mode entered
-      dispatchTransitionEvent(PLANNING_MODE_ENTERED_EVENT, {
-        worldId: selectedIds.worldId,
-        worldName: worlds.find(w => w.id === selectedIds.worldId)?.name || null,
-        planningSubTab: planningSubTab
-      });
-    } else if (activeMode !== "plan" && prevActiveMode === "plan") {
-      // Planning mode exited
-      dispatchTransitionEvent(PLANNING_MODE_EXITED_EVENT, {
-        previousWorldId: selectedIds.worldId,
-        previousWorldName: worlds.find(w => w.id === selectedIds.worldId)?.name || null
-      });
-    }
-    
-    prevActiveModeRef.current = activeMode;
-  }, [activeMode, selectedIds.worldId, worlds, planningSubTab]);
+  useDataLoadedEvents({
+    worldsLoaded,
+    campaignsLoaded,
+    entitiesLoadedFor,
+    crossRefEntitiesLoadedFor,
+    sessionsLoadedFor,
+    playersLoadedFor,
+    storyArcsLoadedFor,
+    scenesLoadedFor,
+    timelineLoadedFor,
+    usersLoaded,
+    assetsLoaded,
+    worlds,
+    campaigns,
+    entities,
+    sessions,
+    players,
+    storyArcs,
+    scenes,
+    users,
+    assets,
+    selectedIds,
+    selectedEntityType
+  });
 
-  // Dispatch planning sub-tab change events
-  useEffect(() => {
-    const prevPlanningSubTab = prevPlanningSubTabRef.current;
-    
-    if (planningSubTab !== prevPlanningSubTab && activeMode === "plan") {
-      // Only dispatch if we're in planning mode
-      dispatchTransitionEvent(PLANNING_SUBTAB_CHANGED_EVENT, {
-        subTab: planningSubTab,
-        previousSubTab: prevPlanningSubTab,
-        worldId: selectedIds.worldId,
-        worldName: worlds.find(w => w.id === selectedIds.worldId)?.name || null
-      });
-    }
-    
-    prevPlanningSubTabRef.current = planningSubTab;
-  }, [planningSubTab, activeMode, selectedIds.worldId, worlds]);
-
-  // Dispatch campaign view change events
-  useEffect(() => {
-    const prevCampaignView = prevCampaignViewRef.current;
-    
-    if (campaignView !== prevCampaignView) {
-      dispatchTransitionEvent(CAMPAIGN_VIEW_CHANGED_EVENT, {
-        view: campaignView,
-        previousView: prevCampaignView,
-        campaignId: selectedIds.campaignId,
-        campaignName: campaigns.find(c => c.id === selectedIds.campaignId)?.name || null,
-        worldId: selectedIds.worldId
-      });
-    }
-    
-    prevCampaignViewRef.current = campaignView;
-  }, [campaignView, selectedIds.campaignId, selectedIds.worldId, campaigns]);
-
-  // Dispatch main tab change events
-  useEffect(() => {
-    const prevActiveTab = prevActiveTabRef.current;
-    
-    if (activeTab !== prevActiveTab) {
-      dispatchTransitionEvent(MAIN_TAB_CHANGED_EVENT, {
-        tab: activeTab,
-        previousTab: prevActiveTab
-      });
-    }
-    
-    prevActiveTabRef.current = activeTab;
-  }, [activeTab]);
-
-  // Dispatch data loaded events when loaded flags change from false to true
-  useEffect(() => {
-    const prevWorldsLoaded = prevWorldsLoadedRef.current;
-    if (worldsLoaded && !prevWorldsLoaded) {
-      dispatchTransitionEvent(WORLDS_LOADED_EVENT, {
-        count: worlds.length
-      });
-    }
-    prevWorldsLoadedRef.current = worldsLoaded;
-  }, [worldsLoaded, worlds.length]);
-
-  useEffect(() => {
-    const prevCampaignsLoaded = prevCampaignsLoadedRef.current;
-    if (campaignsLoaded && !prevCampaignsLoaded) {
-      dispatchTransitionEvent(CAMPAIGNS_LOADED_EVENT, {
-        count: campaigns.length
-      });
-    }
-    prevCampaignsLoadedRef.current = campaignsLoaded;
-  }, [campaignsLoaded, campaigns.length]);
-
-  useEffect(() => {
-    const prevEntitiesLoadedFor = prevEntitiesLoadedForRef.current;
-    if (entitiesLoadedFor && entitiesLoadedFor !== prevEntitiesLoadedFor) {
-      // Check if we need cross-referenced entities
-      const needsCrossRef = (selectedEntityType === "event") || (selectedEntityType === "location");
-      
-      if (needsCrossRef) {
-        // Wait for cross-referenced entities to load before firing event
-        // The event will be fired when crossRefEntitiesLoadedFor matches
-      } else {
-        // No cross-referenced entities needed, fire event immediately
-      dispatchTransitionEvent(ENTITIES_LOADED_EVENT, {
-        worldId: selectedIds.worldId,
-        entityType: selectedEntityType,
-        count: entities.length,
-        cacheKey: entitiesLoadedFor
-      });
-      }
-    }
-    prevEntitiesLoadedForRef.current = entitiesLoadedFor;
-  }, [entitiesLoadedFor, selectedIds.worldId, selectedEntityType, entities.length]);
-
-  // Fire ENTITIES_LOADED_EVENT when cross-referenced entities are loaded
-  useEffect(() => {
-    const prevCrossRefLoadedFor = prevCrossRefLoadedForRef.current;
-    if (crossRefEntitiesLoadedFor && crossRefEntitiesLoadedFor !== prevCrossRefLoadedFor) {
-      // Only fire if primary entities are also loaded
-      const expectedCacheKey = `${selectedIds.worldId}-${selectedEntityType}`;
-      if (entitiesLoadedFor === expectedCacheKey) {
-        dispatchTransitionEvent(ENTITIES_LOADED_EVENT, {
-          worldId: selectedIds.worldId,
-          entityType: selectedEntityType,
-          count: entities.length,
-          cacheKey: entitiesLoadedFor,
-          crossRefLoaded: true
-        });
-      }
-    }
-    prevCrossRefLoadedForRef.current = crossRefEntitiesLoadedFor;
-  }, [crossRefEntitiesLoadedFor, entitiesLoadedFor, selectedIds.worldId, selectedEntityType, entities.length]);
-
-  useEffect(() => {
-    const prevSessionsLoadedFor = prevSessionsLoadedForRef.current;
-    if (sessionsLoadedFor && sessionsLoadedFor !== prevSessionsLoadedFor) {
-      dispatchTransitionEvent(SESSIONS_LOADED_EVENT, {
-        campaignId: selectedIds.campaignId,
-        count: sessions.length,
-        cacheKey: sessionsLoadedFor
-      });
-    }
-    prevSessionsLoadedForRef.current = sessionsLoadedFor;
-  }, [sessionsLoadedFor, selectedIds.campaignId, sessions.length]);
-
-  useEffect(() => {
-    const prevPlayersLoadedFor = prevPlayersLoadedForRef.current;
-    if (playersLoadedFor && playersLoadedFor !== prevPlayersLoadedFor) {
-      dispatchTransitionEvent(PLAYERS_LOADED_EVENT, {
-        campaignId: selectedIds.campaignId,
-        count: players.length,
-        cacheKey: playersLoadedFor
-      });
-    }
-    prevPlayersLoadedForRef.current = playersLoadedFor;
-  }, [playersLoadedFor, selectedIds.campaignId, players.length]);
-
-  useEffect(() => {
-    const prevStoryArcsLoadedFor = prevStoryArcsLoadedForRef.current;
-    if (storyArcsLoadedFor && storyArcsLoadedFor !== prevStoryArcsLoadedFor) {
-      dispatchTransitionEvent(STORY_ARCS_LOADED_EVENT, {
-        campaignId: selectedIds.campaignId,
-        count: storyArcs.length,
-        cacheKey: storyArcsLoadedFor
-      });
-    }
-    prevStoryArcsLoadedForRef.current = storyArcsLoadedFor;
-  }, [storyArcsLoadedFor, selectedIds.campaignId, storyArcs.length]);
-
-  useEffect(() => {
-    const prevScenesLoadedFor = prevScenesLoadedForRef.current;
-    if (scenesLoadedFor && scenesLoadedFor !== prevScenesLoadedFor) {
-      dispatchTransitionEvent(SCENES_LOADED_EVENT, {
-        sessionId: selectedIds.sessionId,
-        count: scenes.length,
-        cacheKey: scenesLoadedFor
-      });
-    }
-    prevScenesLoadedForRef.current = scenesLoadedFor;
-  }, [scenesLoadedFor, selectedIds.sessionId, scenes.length]);
-
-  useEffect(() => {
-    const prevTimelineLoadedFor = prevTimelineLoadedForRef.current;
-    if (timelineLoadedFor && timelineLoadedFor !== prevTimelineLoadedFor) {
-      dispatchTransitionEvent(TIMELINE_LOADED_EVENT, {
-        campaignId: selectedIds.campaignId,
-        cacheKey: timelineLoadedFor
-      });
-    }
-    prevTimelineLoadedForRef.current = timelineLoadedFor;
-  }, [timelineLoadedFor, selectedIds.campaignId]);
-
-  useEffect(() => {
-    const prevUsersLoaded = prevUsersLoadedRef.current;
-    if (usersLoaded && !prevUsersLoaded) {
-      dispatchTransitionEvent(USERS_LOADED_EVENT, {
-        count: users.length
-      });
-    }
-    prevUsersLoadedRef.current = usersLoaded;
-  }, [usersLoaded, users.length]);
-
-  useEffect(() => {
-    const prevAssetsLoaded = prevAssetsLoadedRef.current;
-    if (assetsLoaded && !prevAssetsLoaded) {
-      dispatchTransitionEvent(ASSETS_LOADED_EVENT, {
-        count: assets.length
-      });
-    }
-    prevAssetsLoadedRef.current = assetsLoaded;
-  }, [assetsLoaded, assets.length]);
-
-  // Dispatch error events when error state changes
-  useEffect(() => {
-    const prevError = prevErrorRef.current;
-    
-    if (error && !prevError) {
-      // Error occurred
-      dispatchTransitionEvent(ERROR_OCCURRED_EVENT, {
-        message: error,
-        timestamp: Date.now()
-      });
-    } else if (!error && prevError) {
-      // Error cleared
-      dispatchTransitionEvent(ERROR_CLEARED_EVENT, {
-        previousMessage: prevError,
-        timestamp: Date.now()
-      });
-    }
-    
-    prevErrorRef.current = error;
-  }, [error]);
+  useErrorEvents({ error });
 
   return {
     // Navigation

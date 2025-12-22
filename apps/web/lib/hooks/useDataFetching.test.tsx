@@ -13,7 +13,7 @@ import {
   useUsers,
   useTimeline,
   useAllWorldEvents
-} from "./useDataFetching";
+} from "./data-fetching";
 
 describe("useDataFetching", () => {
   beforeEach(() => {
