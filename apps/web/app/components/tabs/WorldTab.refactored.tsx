@@ -10,7 +10,7 @@ import SectionHeader from "../ui/SectionHeader";
 import Form from "../ui/Form";
 import WorldPlanningHeader from "../navigation/WorldPlanningHeader";
 import { getNameById } from "../../../lib/helpers/entityHelpers";
-import { useMemo, useEffect, useCallback } from "react";
+import { useMemo, useEffect } from "react";
 import LoadingIndicator from "../ui/LoadingIndicator";
 import { useEntityCrossReferences } from "../../../lib/hooks/useEntityCrossReferences";
 import WorldSelection from "./WorldSelection";
@@ -36,15 +36,8 @@ export default function WorldTab() {
     setCrossRefEntitiesLoadedFor,
     setEntities,
     openModal,
-    closeModal,
-    setActiveMode,
-    setActiveTab,
-    setPlanningSubTab
+    closeModal
   } = useHomePage();
-
-  // Wrapper functions for modal handlers to match useTabHelpers signature
-  const openModalWrapper = useCallback((key: string) => openModal(key as any), [openModal]);
-  const closeModalWrapper = useCallback((key: string) => closeModal(key as any), [closeModal]);
 
   // Use tab helpers to consolidate setup
   const {
@@ -95,8 +88,8 @@ export default function WorldTab() {
     selections: ["worldId"],
     modals: ["world", "entity"],
     setSelectionField,
-    openModal: openModalWrapper,
-    closeModal: closeModalWrapper,
+    openModal,
+    closeModal,
     selectedIds,
     modalsState: modals
   });
@@ -169,9 +162,6 @@ export default function WorldTab() {
             setSelectionField("worldId", worldId);
             setSelectedEntityType("all");
             setEntitiesLoadedFor(null);
-            setActiveMode("plan");
-            setActiveTab("World");
-            setPlanningSubTab("World Entities");
           }}
           onEntityTypeReset={() => {
             setSelectedEntityType("all");
