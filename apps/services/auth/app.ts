@@ -1,9 +1,9 @@
-import express, {
+import {
   Request as ExpressRequest,
-  Response,
-  NextFunction
+  Response
 } from "express";
-import cors from "cors";
+import { createServiceApp } from "../../../packages/express-app";
+import { authenticate } from "../../../packages/auth-middleware";
 import { AuthService, AuthServiceConfig } from "./authService";
 import { InMemoryUserStore, Role } from "./userStore";
 
@@ -19,13 +19,6 @@ type AuthedRequest = ExpressRequest & {
   };
 };
 
-function bearerTokenFromHeader(headerValue?: string): string | null {
-  if (!headerValue) return null;
-  const [scheme, token] = headerValue.split(" ");
-  if (scheme?.toLowerCase() !== "bearer" || !token) return null;
-  return token;
-}
-
 export function createApp(deps: AppDependencies = {}) {
   const userStore = deps.userStore ?? new InMemoryUserStore();
   const authConfig: AuthServiceConfig = deps.authConfig ?? {
@@ -35,17 +28,12 @@ export function createApp(deps: AppDependencies = {}) {
 
   const authService = new AuthService(userStore, authConfig);
 
-  const app = express();
-  app.use(
-    cors({
-      origin: "https://localhost:3000"
-    })
-  );
-  app.use(express.json());
-
-  // Bootstrap endpoint for tests - allows creating first admin user without auth
-  // Only available when no users exist (for test/bootstrap scenarios)
-  app.post("/bootstrap/admin", async (req: ExpressRequest, res: Response) => {
+  const app = createServiceApp({
+    serviceName: "auth",
+    routes: (app) => {
+      // Bootstrap endpoint for tests - allows creating first admin user without auth
+      // Only available when no users exist (for test/bootstrap scenarios)
+      app.post("/bootstrap/admin", async (req: ExpressRequest, res: Response) => {
     const users = userStore.listUsers();
     if (users.length > 0) {
       return res.status(403).json({ error: "Bootstrap only available when no users exist" });
@@ -66,62 +54,8 @@ export function createApp(deps: AppDependencies = {}) {
     }
   });
 
-  // Response logging middleware
-  app.use((req: ExpressRequest, res: Response, next: NextFunction) => {
-    const startTime = process.hrtime.bigint();
-    const originalSend = res.send;
-    const originalJson = res.json;
-    
-    const logResponse = () => {
-      const service = "auth";
-      const operation = req.method;
-      const responseCode = res.statusCode;
-      const requestedUrl = req.originalUrl || req.url;
-      const endTime = process.hrtime.bigint();
-      const responseTimeMs = Number(endTime - startTime) / 1_000_000; // Convert nanoseconds to milliseconds
-      // Service color: cyan for auth
-      const serviceColor = '\x1b[36m';
-      // Response code color: green for 2xx (success), red for others
-      const responseColor = responseCode >= 200 && responseCode < 300 ? '\x1b[32m' : '\x1b[31m';
-      const resetCode = '\x1b[0m';
-      // eslint-disable-next-line no-console
-      console.log(`${serviceColor}${service}${resetCode} [${operation}] ${responseColor}${responseCode}${resetCode} [${requestedUrl}] [${responseTimeMs.toFixed(2)}ms]`);
-    };
-    
-    res.send = function (body) {
-      logResponse();
-      return originalSend.call(this, body);
-    };
-    
-    res.json = function (body) {
-      logResponse();
-      return originalJson.call(this, body);
-    };
-    
-    next();
-  });
-
-  const authenticate =
-    (requiredRole?: Role) =>
-    (req: AuthedRequest, res: Response, next: NextFunction) => {
-      try {
-        const header = req.header("authorization");
-        const token = bearerTokenFromHeader(header);
-        if (!token) {
-          return res.status(401).json({ error: "Missing bearer token" });
-        }
-        const payload = authService.verifyToken(token);
-        req.auth = { userId: payload.sub, roles: payload.roles };
-        if (requiredRole && !payload.roles.includes(requiredRole)) {
-          return res.status(403).json({ error: "Forbidden" });
-        }
-        next();
-      } catch (err) {
-        return res.status(401).json({ error: "Invalid token" });
-      }
-    };
-
-  // authenticate() without requiredRole allows any authenticated user
+  // Use shared authenticate middleware from @snapp/auth-middleware
+  // It handles JWT verification and role checking (including admin bypass)
 
   // GET /users – list all users (admin-only)
   app.get("/users", authenticate("admin"), (req: AuthedRequest, res: Response) => {
@@ -371,6 +305,8 @@ export function createApp(deps: AppDependencies = {}) {
       }
     }
   );
+    }
+  });
 
   return app;
 }

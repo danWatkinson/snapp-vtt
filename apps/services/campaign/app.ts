@@ -1,5 +1,5 @@
-import express, { Request, Response } from "express";
-import cors from "cors";
+import { Request, Response } from "express";
+import { createServiceApp } from "../../../packages/express-app";
 import {
   InMemoryCampaignStore,
   type Campaign,
@@ -15,54 +15,14 @@ export interface CampaignAppDependencies {
 
 export function createCampaignApp(
   deps: CampaignAppDependencies = {}
-): express.Express {
+) {
   const store = deps.store ?? new InMemoryCampaignStore();
 
-  const app = express();
-  app.use(
-    cors({
-      origin: "https://localhost:3000"
-    })
-  );
-  app.use(express.json());
-
-  // Response logging middleware
-  app.use((req: Request, res: Response, next) => {
-    const startTime = process.hrtime.bigint();
-    const originalSend = res.send;
-    const originalJson = res.json;
-    
-    const logResponse = () => {
-      const service = "campaign";
-      const operation = req.method;
-      const responseCode = res.statusCode;
-      const requestedUrl = req.originalUrl || req.url;
-      const endTime = process.hrtime.bigint();
-      const responseTimeMs = Number(endTime - startTime) / 1_000_000; // Convert nanoseconds to milliseconds
-      // Service color: magenta for campaign
-      const serviceColor = '\x1b[35m';
-      // Response code color: green for 2xx (success), red for others
-      const responseColor = responseCode >= 200 && responseCode < 300 ? '\x1b[32m' : '\x1b[31m';
-      const resetCode = '\x1b[0m';
-      // eslint-disable-next-line no-console
-      console.log(`${serviceColor}${service}${resetCode} [${operation}] ${responseColor}${responseCode}${resetCode} [${requestedUrl}] [${responseTimeMs.toFixed(2)}ms]`);
-    };
-    
-    res.send = function (body) {
-      logResponse();
-      return originalSend.call(this, body);
-    };
-    
-    res.json = function (body) {
-      logResponse();
-      return originalJson.call(this, body);
-    };
-    
-    next();
-  });
-
-  // Campaigns by world
-  app.get("/worlds/:worldId/campaigns", (req: Request, res: Response) => {
+  const app = createServiceApp({
+    serviceName: "campaign",
+    routes: (app) => {
+      // Campaigns by world
+      app.get("/worlds/:worldId/campaigns", (req: Request, res: Response) => {
     const { worldId } = req.params;
     const campaigns = store.listCampaignsByWorld(worldId);
     res.json({ campaigns });
@@ -236,6 +196,8 @@ export function createCampaignApp(
       res.json(timeline);
     } catch (err) {
       res.status(400).json({ error: (err as Error).message });
+    }
+  });
     }
   });
 

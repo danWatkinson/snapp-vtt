@@ -1,4 +1,5 @@
-import { AuthenticationError, isAuthenticationError } from "../auth/authErrors";
+import { apiRequest, extractProperty } from "./baseClient";
+import { serviceUrls } from "../config/services";
 
 export type MediaType = "image" | "audio";
 
@@ -16,9 +17,6 @@ export interface DigitalAsset {
   storageUrl: string;
 }
 
-const ASSET_SERVICE_URL =
-  process.env.NEXT_PUBLIC_ASSET_SERVICE_URL ?? "https://localhost:4700";
-
 export async function fetchAssets(
   token: string,
   options: { mediaType?: MediaType; search?: string } = {}
@@ -27,24 +25,12 @@ export async function fetchAssets(
   if (options.mediaType) params.set("mediaType", options.mediaType);
   if (options.search) params.set("search", options.search);
 
-  const res = await fetch(
-    `${ASSET_SERVICE_URL}/assets${params.toString() ? `?${params.toString()}` : ""}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    }
-  );
-
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    if (isAuthenticationError(res)) {
-      throw new AuthenticationError("Authentication failed", res.status);
-    }
-    throw new Error(body.error ?? "Failed to load assets");
-  }
-
-  return (body.assets ?? []) as DigitalAsset[];
+  const url = `${serviceUrls.assets}/assets${params.toString() ? `?${params.toString()}` : ""}`;
+  const data = await apiRequest<{ assets: DigitalAsset[] }>(url, {
+    method: "GET",
+    token
+  });
+  return extractProperty(data, "assets");
 }
 
 export async function createAsset(
@@ -57,23 +43,14 @@ export async function createAsset(
     tags?: string[];
   }
 ): Promise<DigitalAsset> {
-  const res = await fetch(`${ASSET_SERVICE_URL}/assets`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify(input)
-  });
-
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    if (isAuthenticationError(res)) {
-      throw new AuthenticationError("Authentication failed", res.status);
+  const data = await apiRequest<{ asset: DigitalAsset }>(
+    `${serviceUrls.assets}/assets`,
+    {
+      method: "POST",
+      token,
+      body: input
     }
-    throw new Error(body.error ?? "Failed to create asset");
-  }
-
-  return body.asset as DigitalAsset;
+  );
+  return extractProperty(data, "asset");
 }
 

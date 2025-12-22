@@ -1,5 +1,5 @@
-import express, { Request, Response } from "express";
-import cors from "cors";
+import { Request, Response } from "express";
+import { createServiceApp } from "../../../packages/express-app";
 import { authenticate } from "../../../packages/auth-middleware";
 
 export type MediaType = "image" | "audio";
@@ -97,58 +97,13 @@ function inferMediaType(mimeType: string): MediaType | null {
 export function createAssetApp(deps: AssetAppDependencies = {}) {
   const store = deps.store ?? new InMemoryAssetStore();
 
-  const app = express();
-  app.use(
-    cors({
-      origin: "https://localhost:3000"
-    })
-  );
-
-  // NOTE: For simplicity in this MVP, we treat uploads as JSON metadata only.
-  // A future iteration can replace this with multer or another multipart parser
-  // and integrate with real file storage.
-  app.use(express.json());
-
-  // Response logging middleware
-  app.use((req: Request, res: Response, next) => {
-    const startTime = process.hrtime.bigint();
-    const originalSend = res.send;
-    const originalJson = res.json;
-
-    const logResponse = () => {
-      const service = "assets";
-      const operation = req.method;
-      const responseCode = res.statusCode;
-      const requestedUrl = req.originalUrl || req.url;
-      const endTime = process.hrtime.bigint();
-      const responseTimeMs = Number(endTime - startTime) / 1_000_000;
-      const serviceColor = "\x1b[35m"; // magenta for assets
-      const responseColor =
-        responseCode >= 200 && responseCode < 300 ? "\x1b[32m" : "\x1b[31m";
-      const resetCode = "\x1b[0m";
-      // eslint-disable-next-line no-console
-      console.log(
-        `${serviceColor}${service}${resetCode} [${operation}] ${responseColor}${responseCode}${resetCode} [${requestedUrl}] [${responseTimeMs.toFixed(2)}ms]`
-      );
-    };
-
-    res.send = function (body) {
-      logResponse();
-      return originalSend.call(this, body);
-    };
-
-    res.json = function (body) {
-      logResponse();
-      return originalJson.call(this, body);
-    };
-
-    next();
-  });
-
-  // POST /assets – create a new digital asset (metadata only MVP)
-  // Requires "gm" role (Game Master / World Builder role)
-  // Admin users also have access (admin bypasses role requirements)
-  app.post("/assets", authenticate("gm"), (req: Request, res: Response) => {
+  const app = createServiceApp({
+    serviceName: "assets",
+    routes: (app) => {
+      // POST /assets – create a new digital asset (metadata only MVP)
+      // Requires "gm" role (Game Master / World Builder role)
+      // Admin users also have access (admin bypasses role requirements)
+      app.post("/assets", authenticate("gm"), (req: Request, res: Response) => {
     const auth = (req as any).auth as { userId: string } | undefined;
     if (!auth?.userId) {
       return res.status(401).json({ error: "Unauthenticated" });
@@ -244,6 +199,8 @@ export function createAssetApp(deps: AssetAppDependencies = {}) {
     }
 
     return res.status(200).json({ asset });
+  });
+    }
   });
 
   return app;

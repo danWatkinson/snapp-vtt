@@ -39,18 +39,14 @@ export interface WorldLocation extends WorldEntity {
   type: "location";
 }
 
-import { AuthenticationError, isAuthenticationError } from "../auth/authErrors";
-
-const WORLD_SERVICE_URL =
-  process.env.NEXT_PUBLIC_WORLD_SERVICE_URL ?? "https://localhost:4501";
+import { apiRequest, extractProperty } from "./baseClient";
+import { serviceUrls } from "../config/services";
 
 export async function fetchWorlds(): Promise<World[]> {
-  const res = await fetch(`${WORLD_SERVICE_URL}/worlds`);
-  if (!res.ok) {
-    throw new Error("Failed to load worlds");
-  }
-  const body = (await res.json()) as { worlds: World[] };
-  return body.worlds;
+  const data = await apiRequest<{ worlds: World[] }>(
+    `${serviceUrls.world}/worlds`
+  );
+  return extractProperty(data, "worlds");
 }
 
 export async function createWorld(
@@ -58,24 +54,12 @@ export async function createWorld(
   description: string,
   token?: string
 ): Promise<World> {
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  const res = await fetch(`${WORLD_SERVICE_URL}/worlds`, {
+  const data = await apiRequest<{ world: World }>(`${serviceUrls.world}/worlds`, {
     method: "POST",
-    headers,
-    body: JSON.stringify({ name, description })
+    token,
+    body: { name, description }
   });
-
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    if (isAuthenticationError(res)) {
-      throw new AuthenticationError("Authentication failed", res.status);
-    }
-    throw new Error(body.error ?? "Failed to create world");
-  }
-  return body.world as World;
+  return extractProperty(data, "world");
 }
 
 export async function updateWorldSplashImage(
@@ -83,24 +67,15 @@ export async function updateWorldSplashImage(
   splashImageAssetId: string | null,
   token?: string
 ): Promise<World> {
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  const res = await fetch(`${WORLD_SERVICE_URL}/worlds/${worldId}`, {
-    method: "PATCH",
-    headers,
-    body: JSON.stringify({ splashImageAssetId })
-  });
-
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    if (isAuthenticationError(res)) {
-      throw new AuthenticationError("Authentication failed", res.status);
+  const data = await apiRequest<{ world: World }>(
+    `${serviceUrls.world}/worlds/${worldId}`,
+    {
+      method: "PATCH",
+      token,
+      body: { splashImageAssetId }
     }
-    throw new Error(body.error ?? "Failed to update world");
-  }
-  return body.world as World;
+  );
+  return extractProperty(data, "world");
 }
 
 export async function fetchWorldEntities(
@@ -108,14 +83,10 @@ export async function fetchWorldEntities(
   type?: "location" | "creature" | "faction" | "concept" | "event"
 ): Promise<WorldEntity[]> {
   const url = type
-    ? `${WORLD_SERVICE_URL}/worlds/${worldId}/entities?type=${type}`
-    : `${WORLD_SERVICE_URL}/worlds/${worldId}/entities`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error("Failed to load entities");
-  }
-  const body = (await res.json()) as { entities: WorldEntity[] };
-  return body.entities;
+    ? `${serviceUrls.world}/worlds/${worldId}/entities?type=${type}`
+    : `${serviceUrls.world}/worlds/${worldId}/entities`;
+  const data = await apiRequest<{ entities: WorldEntity[] }>(url);
+  return extractProperty(data, "entities");
 }
 
 export async function createWorldEntity(
@@ -151,24 +122,15 @@ export async function createWorldEntity(
       body.locationId = locationId;
     }
   }
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  const res = await fetch(`${WORLD_SERVICE_URL}/worlds/${worldId}/entities`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body)
-  });
-
-  const responseBody = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    if (isAuthenticationError(res)) {
-      throw new AuthenticationError("Authentication failed", res.status);
+  const data = await apiRequest<{ entity: WorldEntity }>(
+    `${serviceUrls.world}/worlds/${worldId}/entities`,
+    {
+      method: "POST",
+      token,
+      body
     }
-    throw new Error(responseBody.error ?? `Failed to create ${type}`);
-  }
-  return responseBody.entity as WorldEntity;
+  );
+  return extractProperty(data, "entity");
 }
 
 // Convenience functions for backward compatibility
@@ -199,39 +161,14 @@ export async function addLocationRelationship(
   relationshipType: LocationRelationshipType,
   token?: string
 ): Promise<void> {
-  console.log('[worldClient] addLocationRelationship called:', {
-    worldId,
-    sourceLocationId,
-    targetLocationId,
-    relationshipType,
-    hasToken: !!token
-  });
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  const url = `${WORLD_SERVICE_URL}/worlds/${worldId}/locations/${sourceLocationId}/relationships`;
-  const body = JSON.stringify({ targetLocationId, relationshipType });
-  console.log('[worldClient] POST request:', { url, body });
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body
-  });
-
-  const responseBody = await res.json().catch(() => ({}));
-  console.log('[worldClient] addLocationRelationship response:', {
-    status: res.status,
-    ok: res.ok,
-    body: responseBody
-  });
-  if (!res.ok) {
-    if (isAuthenticationError(res)) {
-      throw new AuthenticationError("Authentication failed", res.status);
+  await apiRequest(
+    `${serviceUrls.world}/worlds/${worldId}/locations/${sourceLocationId}/relationships`,
+    {
+      method: "POST",
+      token,
+      body: { targetLocationId, relationshipType }
     }
-    throw new Error(responseBody.error ?? "Failed to add location relationship");
-  }
-  console.log('[worldClient] Relationship created successfully');
+  );
 }
 
 export async function getLocationRelationships(
@@ -240,26 +177,20 @@ export async function getLocationRelationships(
   relationshipType?: LocationRelationshipType
 ): Promise<LocationRelationship[]> {
   const url = relationshipType
-    ? `${WORLD_SERVICE_URL}/worlds/${worldId}/locations/${locationId}/relationships?type=${relationshipType}`
-    : `${WORLD_SERVICE_URL}/worlds/${worldId}/locations/${locationId}/relationships`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error("Failed to load relationships");
-  }
-  const body = (await res.json()) as { relationships: LocationRelationship[] };
-  return body.relationships;
+    ? `${serviceUrls.world}/worlds/${worldId}/locations/${locationId}/relationships?type=${relationshipType}`
+    : `${serviceUrls.world}/worlds/${worldId}/locations/${locationId}/relationships`;
+  const data = await apiRequest<{ relationships: LocationRelationship[] }>(url);
+  return extractProperty(data, "relationships");
 }
 
 export async function getEventsForLocation(
   worldId: string,
   locationId: string
 ): Promise<WorldEntity[]> {
-  const res = await fetch(`${WORLD_SERVICE_URL}/worlds/${worldId}/locations/${locationId}/events`);
-  if (!res.ok) {
-    throw new Error("Failed to load events for location");
-  }
-  const body = (await res.json()) as { events: WorldEntity[] };
-  return body.events;
+  const data = await apiRequest<{ events: WorldEntity[] }>(
+    `${serviceUrls.world}/worlds/${worldId}/locations/${locationId}/events`
+  );
+  return extractProperty(data, "events");
 }
 
 export async function addEventRelationship(
@@ -269,37 +200,24 @@ export async function addEventRelationship(
   relationshipType: LocationRelationshipType,
   token?: string
 ): Promise<void> {
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  const url = `${WORLD_SERVICE_URL}/worlds/${worldId}/events/${sourceEventId}/relationships`;
-  const body = JSON.stringify({ targetEventId, relationshipType });
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body
-  });
-
-  const responseBody = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    if (isAuthenticationError(res)) {
-      throw new AuthenticationError("Authentication failed", res.status);
+  await apiRequest(
+    `${serviceUrls.world}/worlds/${worldId}/events/${sourceEventId}/relationships`,
+    {
+      method: "POST",
+      token,
+      body: { targetEventId, relationshipType }
     }
-    throw new Error(responseBody.error ?? "Failed to add event relationship");
-  }
+  );
 }
 
 export async function getSubEventsForEvent(
   worldId: string,
   eventId: string
 ): Promise<WorldEntity[]> {
-  const res = await fetch(`${WORLD_SERVICE_URL}/worlds/${worldId}/events/${eventId}/sub-events`);
-  if (!res.ok) {
-    throw new Error("Failed to load sub-events for event");
-  }
-  const body = (await res.json()) as { subEvents: WorldEntity[] };
-  return body.subEvents;
+  const data = await apiRequest<{ subEvents: WorldEntity[] }>(
+    `${serviceUrls.world}/worlds/${worldId}/events/${eventId}/sub-events`
+  );
+  return extractProperty(data, "subEvents");
 }
 
 export async function addFactionRelationship(
@@ -309,37 +227,24 @@ export async function addFactionRelationship(
   relationshipType: LocationRelationshipType,
   token?: string
 ): Promise<void> {
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  const url = `${WORLD_SERVICE_URL}/worlds/${worldId}/factions/${sourceFactionId}/relationships`;
-  const body = JSON.stringify({ targetFactionId, relationshipType });
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body
-  });
-
-  const responseBody = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    if (isAuthenticationError(res)) {
-      throw new AuthenticationError("Authentication failed", res.status);
+  await apiRequest(
+    `${serviceUrls.world}/worlds/${worldId}/factions/${sourceFactionId}/relationships`,
+    {
+      method: "POST",
+      token,
+      body: { targetFactionId, relationshipType }
     }
-    throw new Error(responseBody.error ?? "Failed to add faction relationship");
-  }
+  );
 }
 
 export async function getSubFactionsForFaction(
   worldId: string,
   factionId: string
 ): Promise<WorldEntity[]> {
-  const res = await fetch(`${WORLD_SERVICE_URL}/worlds/${worldId}/factions/${factionId}/sub-factions`);
-  if (!res.ok) {
-    throw new Error("Failed to load sub-factions for faction");
-  }
-  const body = (await res.json()) as { subFactions: WorldEntity[] };
-  return body.subFactions;
+  const data = await apiRequest<{ subFactions: WorldEntity[] }>(
+    `${serviceUrls.world}/worlds/${worldId}/factions/${factionId}/sub-factions`
+  );
+  return extractProperty(data, "subFactions");
 }
 
 export async function addFactionMember(
@@ -348,37 +253,24 @@ export async function addFactionMember(
   creatureId: string,
   token?: string
 ): Promise<void> {
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  const url = `${WORLD_SERVICE_URL}/worlds/${worldId}/factions/${factionId}/members`;
-  const body = JSON.stringify({ creatureId });
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body
-  });
-
-  const responseBody = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    if (isAuthenticationError(res)) {
-      throw new AuthenticationError("Authentication failed", res.status);
+  await apiRequest(
+    `${serviceUrls.world}/worlds/${worldId}/factions/${factionId}/members`,
+    {
+      method: "POST",
+      token,
+      body: { creatureId }
     }
-    throw new Error(responseBody.error ?? "Failed to add faction member");
-  }
+  );
 }
 
 export async function getMembersForFaction(
   worldId: string,
   factionId: string
 ): Promise<WorldEntity[]> {
-  const res = await fetch(`${WORLD_SERVICE_URL}/worlds/${worldId}/factions/${factionId}/members`);
-  if (!res.ok) {
-    throw new Error("Failed to load members for faction");
-  }
-  const body = (await res.json()) as { members: WorldEntity[] };
-  return body.members;
+  const data = await apiRequest<{ members: WorldEntity[] }>(
+    `${serviceUrls.world}/worlds/${worldId}/factions/${factionId}/members`
+  );
+  return extractProperty(data, "members");
 }
 
 

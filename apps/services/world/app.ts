@@ -1,5 +1,5 @@
-import express, { Request, Response } from "express";
-import cors from "cors";
+import { Request, Response } from "express";
+import { createServiceApp } from "../../../packages/express-app";
 import { InMemoryWorldStore } from "./worldStore";
 import {
   InMemoryWorldEntityStore,
@@ -17,50 +17,10 @@ export function createWorldApp(deps: WorldAppDependencies = {}) {
   const store = deps.store ?? new InMemoryWorldStore();
   const entityStore = deps.entityStore ?? new InMemoryWorldEntityStore();
 
-  const app = express();
-  app.use(
-    cors({
-      origin: "https://localhost:3000"
-    })
-  );
-  app.use(express.json());
-
-  // Response logging middleware
-  app.use((req: Request, res: Response, next) => {
-    const startTime = process.hrtime.bigint();
-    const originalSend = res.send;
-    const originalJson = res.json;
-    
-    const logResponse = () => {
-      const service = "world";
-      const operation = req.method;
-      const responseCode = res.statusCode;
-      const requestedUrl = req.originalUrl || req.url;
-      const endTime = process.hrtime.bigint();
-      const responseTimeMs = Number(endTime - startTime) / 1_000_000; // Convert nanoseconds to milliseconds
-      // Service color: yellow for world
-      const serviceColor = '\x1b[33m';
-      // Response code color: green for 2xx (success), red for others
-      const responseColor = responseCode >= 200 && responseCode < 300 ? '\x1b[32m' : '\x1b[31m';
-      const resetCode = '\x1b[0m';
-      // eslint-disable-next-line no-console
-      console.log(`${serviceColor}${service}${resetCode} [${operation}] ${responseColor}${responseCode}${resetCode} [${requestedUrl}] [${responseTimeMs.toFixed(2)}ms]`);
-    };
-    
-    res.send = function (body) {
-      logResponse();
-      return originalSend.call(this, body);
-    };
-    
-    res.json = function (body) {
-      logResponse();
-      return originalJson.call(this, body);
-    };
-    
-    next();
-  });
-
-  app.get("/worlds", (_req: Request, res: Response) => {
+  const app = createServiceApp({
+    serviceName: "world",
+    routes: (app) => {
+      app.get("/worlds", (_req: Request, res: Response) => {
     const worlds = store.listWorlds();
     res.json({ worlds });
   });
@@ -275,6 +235,8 @@ export function createWorldApp(deps: WorldAppDependencies = {}) {
       res.json({ members });
     } catch (err) {
       res.status(400).json({ error: (err as Error).message });
+    }
+  });
     }
   });
 

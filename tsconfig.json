@@ -15,7 +15,8 @@
     "paths": {
       "@apps/*": ["apps/*"],
       "@services/*": ["apps/services/*"],
-      "@packages/*": ["packages/*"]
+      "@packages/*": ["packages/*"],
+      "@snapp/*": ["packages/*"]
     }
   },
   "include": ["apps", "packages", "playwright.config.ts"]
