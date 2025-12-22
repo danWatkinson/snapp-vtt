@@ -3,6 +3,11 @@ import { Express } from "express";
 import { loadCertificates } from "../https-config";
 import { ports } from "../config";
 
+/**
+ * Generic store type for service dependencies
+ */
+export type ServiceStores = Record<string, unknown>;
+
 export interface ServerBootstrapOptions {
   /** Express app instance */
   app: Express;
@@ -79,4 +84,73 @@ export function createHttpsServer(
     }
     throw error;
   }
+}
+
+/**
+ * Options for creating a service server with automatic bootstrap
+ */
+export interface CreateServiceServerOptions<T extends ServiceStores> {
+  /** Service name for logging */
+  serviceName: string;
+  /** Port number (can be overridden by environment variable) */
+  port: number;
+  /** Environment variable name for port override (e.g., "AUTH_PORT") */
+  portEnvVar: string;
+  /** Function to create the Express app from stores */
+  createApp: (stores: T) => Express;
+  /** Function to create the stores */
+  createStores: () => T;
+  /** Optional function to seed stores before starting server */
+  seedStores?: (stores: T) => Promise<void>;
+}
+
+/**
+ * Creates and starts a service server with automatic bootstrap handling.
+ * 
+ * This utility handles:
+ * - Store creation
+ * - Optional seeding (with error handling)
+ * - App creation
+ * - Server startup
+ * - Error handling and process exit
+ * 
+ * @param options - Service configuration
+ * @returns The HTTPS server instance
+ */
+export function createServiceServer<T extends ServiceStores>(
+  options: CreateServiceServerOptions<T>
+): void {
+  const { serviceName, port, portEnvVar, createApp, createStores, seedStores } = options;
+
+  const stores = createStores();
+
+  async function bootstrap() {
+    if (seedStores) {
+      try {
+        // Seed stores before starting the server. If seeding fails, log and continue
+        // so that the service can still start (tests rely on this behaviour).
+        await seedStores(stores);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(`Failed to seed ${serviceName} service:`, err);
+      }
+    }
+
+    const app = createApp(stores);
+
+    createHttpsServer({
+      app,
+      serviceName,
+      port,
+      portEnvVar
+    });
+  }
+
+  bootstrap().catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error(`Unexpected error during ${serviceName} service bootstrap:`, err);
+    if (process.env.NODE_ENV !== "test") {
+      process.exit(1);
+    }
+  });
 }

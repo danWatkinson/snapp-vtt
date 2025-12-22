@@ -98,6 +98,32 @@ export function createPatchRoute<T>(
 }
 
 /**
+ * Creates a PUT route handler with automatic error handling.
+ * 
+ * @param handler - Function that returns the updated resource
+ * @param options - Route options
+ * @returns Express route handler
+ */
+export function createPutRoute<T>(
+  handler: RouteHandler<T>,
+  options: RouteOptions = {}
+): RequestHandler {
+  return async (req: Request, res: Response) => {
+    try {
+      const data = await handler(req);
+      const statusCode = options.statusCode ?? 200;
+      const responseProperty = options.responseProperty ?? "item";
+      
+      return res.status(statusCode).json({ [responseProperty]: data });
+    } catch (err) {
+      const message = (err as Error).message;
+      const statusCode = message.includes("not found") ? 404 : 400;
+      return res.status(statusCode).json({ error: message });
+    }
+  };
+}
+
+/**
  * Creates a DELETE route handler with automatic error handling.
  * 
  * @param handler - Function that performs the deletion (can return void or a message)
@@ -105,7 +131,7 @@ export function createPatchRoute<T>(
  * @returns Express route handler
  */
 export function createDeleteRoute(
-  handler: RouteHandler<void | { message: string }>,
+  handler: RouteHandler<void | { message: string } | Record<string, unknown>>,
   options: RouteOptions = {}
 ): RequestHandler {
   return async (req: Request, res: Response) => {
@@ -113,7 +139,14 @@ export function createDeleteRoute(
       const result = await handler(req);
       const statusCode = options.statusCode ?? 200;
       
-      if (result && typeof result === "object" && "message" in result) {
+      if (result && typeof result === "object") {
+        if ("message" in result) {
+          return res.status(statusCode).json(result);
+        }
+        // If result has a response property, use it; otherwise return the result as-is
+        if (options.responseProperty && options.responseProperty in result) {
+          return res.status(statusCode).json({ [options.responseProperty]: result[options.responseProperty] });
+        }
         return res.status(statusCode).json(result);
       }
       return res.status(statusCode).json({ message: "Deleted successfully" });

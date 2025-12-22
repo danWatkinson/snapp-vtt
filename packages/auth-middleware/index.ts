@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import { TokenVerifier } from "./tokenVerifier";
 import { Role, AuthenticatedRequest } from "./types";
 
+// Export type for use in route handlers
+export type AuthedRequest = Request & AuthenticatedRequest;
+
 function bearerTokenFromHeader(headerValue?: string): string | null {
   if (!headerValue) return null;
   const [scheme, token] = headerValue.split(" ");
@@ -51,5 +54,36 @@ import { auth } from "../config";
 // Convenience function that creates middleware with optional role requirement
 export function authenticate(requiredRole?: Role) {
   return createAuthenticateMiddleware({ jwtSecret: auth.jwtSecret, requiredRole });
+}
+
+/**
+ * Checks if the authenticated user is either the target user (self) or an admin.
+ * Useful for routes that allow users to access their own resources or admins to access any resource.
+ * 
+ * @param req - Authenticated request
+ * @param targetUserId - The user ID being accessed
+ * @returns True if user is self or admin, false otherwise
+ */
+export function isSelfOrAdmin(req: AuthedRequest, targetUserId: string): boolean {
+  if (!req.auth) {
+    return false;
+  }
+  const isSelf = req.auth.userId === targetUserId;
+  const isAdmin = req.auth.roles.includes("admin");
+  return isSelf || isAdmin;
+}
+
+/**
+ * Throws an error if the user is not self or admin.
+ * Use this in route handlers to enforce self/admin authorization.
+ * 
+ * @param req - Authenticated request
+ * @param targetUserId - The user ID being accessed
+ * @throws Error with "Forbidden" message if not authorized
+ */
+export function requireSelfOrAdmin(req: AuthedRequest, targetUserId: string): void {
+  if (!isSelfOrAdmin(req, targetUserId)) {
+    throw new Error("Forbidden");
+  }
 }
 

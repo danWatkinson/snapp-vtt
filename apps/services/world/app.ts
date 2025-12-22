@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request } from "express";
 import { createServiceApp } from "../../../packages/express-app";
 import { InMemoryWorldStore } from "./worldStore";
 import {
@@ -116,102 +116,70 @@ export function createWorldApp(deps: WorldAppDependencies = {}) {
   ));
 
   // Add relationship between two events (for composite events)
-  app.post("/worlds/:worldId/events/:sourceEventId/relationships", authenticate("gm"), (req: Request, res: Response) => {
-    const { worldId, sourceEventId } = req.params;
-    const { targetEventId, relationshipType } = req.body as {
-      targetEventId?: string;
-      relationshipType?: LocationRelationshipType;
-    };
-    try {
-      if (!targetEventId) {
-        res.status(400).json({ error: "targetEventId is required" });
-        return;
-      }
-      if (!relationshipType) {
-        res.status(400).json({ error: "relationshipType is required" });
-        return;
-      }
+  app.post("/worlds/:worldId/events/:sourceEventId/relationships", authenticate("gm"), createPostVoidRoute(
+    (req: Request) => {
+      requireFields(req, ["targetEventId", "relationshipType"]);
+      const { sourceEventId } = req.params;
+      const { targetEventId, relationshipType } = req.body as {
+        targetEventId: string;
+        relationshipType: LocationRelationshipType;
+      };
       entityStore.addRelationship(sourceEventId, targetEventId, relationshipType);
-      res.status(201).json({ success: true });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
     }
-  });
+  ));
 
   // Get sub-events for a composite event
-  app.get("/worlds/:worldId/events/:eventId/sub-events", (req: Request, res: Response) => {
-    const { eventId } = req.params;
-    try {
-      const subEvents = entityStore.getSubEventsForEvent(eventId);
-      res.json({ subEvents });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+  app.get("/worlds/:worldId/events/:eventId/sub-events", createGetRoute(
+    (req: Request) => {
+      const { eventId } = req.params;
+      return entityStore.getSubEventsForEvent(eventId);
+    },
+    { responseProperty: "subEvents" }
+  ));
 
   // Add relationship between two factions (for nested factions)
-  app.post("/worlds/:worldId/factions/:sourceFactionId/relationships", authenticate("gm"), (req: Request, res: Response) => {
-    const { worldId, sourceFactionId } = req.params;
-    const { targetFactionId, relationshipType } = req.body as {
-      targetFactionId?: string;
-      relationshipType?: LocationRelationshipType;
-    };
-    try {
-      if (!targetFactionId) {
-        res.status(400).json({ error: "targetFactionId is required" });
-        return;
-      }
-      if (!relationshipType) {
-        res.status(400).json({ error: "relationshipType is required" });
-        return;
-      }
+  app.post("/worlds/:worldId/factions/:sourceFactionId/relationships", authenticate("gm"), createPostVoidRoute(
+    (req: Request) => {
+      requireFields(req, ["targetFactionId", "relationshipType"]);
+      const { sourceFactionId } = req.params;
+      const { targetFactionId, relationshipType } = req.body as {
+        targetFactionId: string;
+        relationshipType: LocationRelationshipType;
+      };
       entityStore.addRelationship(sourceFactionId, targetFactionId, relationshipType);
-      res.status(201).json({ success: true });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
     }
-  });
+  ));
 
   // Get sub-factions for a nested faction
-  app.get("/worlds/:worldId/factions/:factionId/sub-factions", (req: Request, res: Response) => {
-    const { factionId } = req.params;
-    try {
-      const subFactions = entityStore.getSubFactionsForFaction(factionId);
-      res.json({ subFactions });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+  app.get("/worlds/:worldId/factions/:factionId/sub-factions", createGetRoute(
+    (req: Request) => {
+      const { factionId } = req.params;
+      return entityStore.getSubFactionsForFaction(factionId);
+    },
+    { responseProperty: "subFactions" }
+  ));
 
   // Add creature as member of a faction
-  app.post("/worlds/:worldId/factions/:factionId/members", authenticate("gm"), (req: Request, res: Response) => {
-    const { worldId, factionId } = req.params;
-    const { creatureId } = req.body as {
-      creatureId?: string;
-    };
-    try {
-      if (!creatureId) {
-        res.status(400).json({ error: "creatureId is required" });
-        return;
-      }
+  app.post("/worlds/:worldId/factions/:factionId/members", authenticate("gm"), createPostVoidRoute(
+    (req: Request) => {
+      requireFields(req, ["creatureId"]);
+      const { factionId } = req.params;
+      const { creatureId } = req.body as {
+        creatureId: string;
+      };
       // Use "has member" relationship type (faction -> creature)
       entityStore.addRelationship(factionId, creatureId, "has member");
-      res.status(201).json({ success: true });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
     }
-  });
+  ));
 
   // Get members (creatures) of a faction
-  app.get("/worlds/:worldId/factions/:factionId/members", (req: Request, res: Response) => {
-    const { factionId } = req.params;
-    try {
-      const members = entityStore.getMembersForFaction(factionId);
-      res.json({ members });
-    } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
-    }
-  });
+  app.get("/worlds/:worldId/factions/:factionId/members", createGetRoute(
+    (req: Request) => {
+      const { factionId } = req.params;
+      return entityStore.getMembersForFaction(factionId);
+    },
+    { responseProperty: "members" }
+  ));
     }
   });
 

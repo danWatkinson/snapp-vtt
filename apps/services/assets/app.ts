@@ -1,6 +1,7 @@
-import { Request, Response } from "express";
+import { Request } from "express";
 import { createServiceApp } from "../../../packages/express-app";
-import { authenticate } from "../../../packages/auth-middleware";
+import { authenticate, AuthedRequest } from "../../../packages/auth-middleware";
+import { createGetRoute, createPostRoute, requireFields } from "../../../packages/express-routes";
 
 export type MediaType = "image" | "audio";
 
@@ -106,103 +107,84 @@ export function createAssetApp(deps: AssetAppDependencies = {}) {
       // POST /assets – create a new digital asset (metadata only MVP)
       // Requires "gm" role (Game Master / World Builder role)
       // Admin users also have access (admin bypasses role requirements)
-      app.post("/assets", authenticate("gm"), (req: Request, res: Response) => {
-    const auth = (req as any).auth as { userId: string } | undefined;
-    if (!auth?.userId) {
-      return res.status(401).json({ error: "Unauthenticated" });
-    }
+      app.post("/assets", authenticate("gm"), createPostRoute(
+        (req: AuthedRequest) => {
+          requireFields(req, ["originalFileName", "mimeType"]);
 
-    const {
-      name,
-      originalFileName,
-      mimeType,
-      sizeBytes,
-      tags,
-      storageUrl
-    } = req.body as {
-      name?: string;
-      originalFileName?: string;
-      mimeType?: string;
-      sizeBytes?: number;
-      tags?: string[];
-      storageUrl?: string;
-    };
+          const {
+            name,
+            originalFileName,
+            mimeType,
+            sizeBytes,
+            tags,
+            storageUrl
+          } = req.body as {
+            name?: string;
+            originalFileName: string;
+            mimeType: string;
+            sizeBytes?: number;
+            tags?: string[];
+            storageUrl?: string;
+          };
 
-    if (!originalFileName) {
-      return res
-        .status(400)
-        .json({ error: "originalFileName is required for asset creation" });
-    }
+          const mediaType = inferMediaType(mimeType);
+          if (!mediaType) {
+            throw new Error(
+              "Unsupported file type. Only common image and audio MIME types are allowed."
+            );
+          }
 
-    if (!mimeType) {
-      return res.status(400).json({ error: "mimeType is required" });
-    }
+          if (typeof sizeBytes === "number" && sizeBytes > MAX_FILE_SIZE_BYTES) {
+            throw new Error(
+              `File is too large. Maximum allowed size is ${MAX_FILE_SIZE_BYTES} bytes`
+            );
+          }
 
-    const mediaType = inferMediaType(mimeType);
-    if (!mediaType) {
-      return res.status(400).json({
-        error:
-          "Unsupported file type. Only common image and audio MIME types are allowed."
-      });
-    }
-
-    if (typeof sizeBytes === "number" && sizeBytes > MAX_FILE_SIZE_BYTES) {
-      return res.status(400).json({
-        error: `File is too large. Maximum allowed size is ${MAX_FILE_SIZE_BYTES} bytes`
-      });
-    }
-
-    const asset = store.create({
-      ownerUserId: auth.userId,
-      name: name ?? originalFileName,
-      originalFileName,
-      mimeType,
-      mediaType,
-      sizeBytes: sizeBytes ?? 0,
-      tags: tags ?? [],
-      storageUrl: storageUrl ?? `/mock-assets/${encodeURIComponent(originalFileName)}`
-    });
-
-    return res.status(201).json({ asset });
-  });
+          return store.create({
+            ownerUserId: req.auth.userId,
+            name: name ?? originalFileName,
+            originalFileName,
+            mimeType,
+            mediaType,
+            sizeBytes: sizeBytes ?? 0,
+            tags: tags ?? [],
+            storageUrl: storageUrl ?? `/mock-assets/${encodeURIComponent(originalFileName)}`
+          });
+        },
+        { responseProperty: "asset" }
+      ));
 
   // GET /assets – list assets for the current user
   // No role restriction - all authenticated users can view assets
-  app.get("/assets", authenticate(), (req: Request, res: Response) => {
-    const auth = (req as any).auth as { userId: string } | undefined;
-    if (!auth?.userId) {
-      return res.status(401).json({ error: "Unauthenticated" });
-    }
+  app.get("/assets", authenticate(), createGetRoute(
+    (req: AuthedRequest) => {
+      const { mediaType, search } = req.query as {
+        mediaType?: MediaType;
+        search?: string;
+      };
 
-    const { mediaType, search } = req.query as {
-      mediaType?: MediaType;
-      search?: string;
-    };
-
-    const assets = store.listByOwner(auth.userId, {
-      mediaType,
-      search
-    });
-
-    return res.status(200).json({ assets });
-  });
+      return store.listByOwner(req.auth.userId, {
+        mediaType,
+        search
+      });
+    },
+    { responseProperty: "assets" }
+  ));
 
   // GET /assets/:assetId – get a single asset
   // No role restriction - all authenticated users can view assets
-  app.get("/assets/:assetId", authenticate(), (req: Request, res: Response) => {
-    const auth = (req as any).auth as { userId: string } | undefined;
-    if (!auth?.userId) {
-      return res.status(401).json({ error: "Unauthenticated" });
-    }
+  app.get("/assets/:assetId", authenticate(), createGetRoute(
+    (req: AuthedRequest) => {
+      const { assetId } = req.params;
+      const asset = store.getById(assetId);
+      if (!asset || asset.ownerUserId !== req.auth.userId) {
+        throw new Error("Asset not found");
+      }
 
-    const { assetId } = req.params;
-    const asset = store.getById(assetId);
-    if (!asset || asset.ownerUserId !== auth.userId) {
-      return res.status(404).json({ error: "Asset not found" });
-    }
-
-    return res.status(200).json({ asset });
-  });
+      return asset;
+    },
+    { responseProperty: "asset" }
+  ));
     }
   });
 
