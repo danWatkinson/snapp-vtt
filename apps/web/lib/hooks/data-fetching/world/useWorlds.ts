@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useDataFetching } from "../useDataFetching";
 
 /**
  * Hook to fetch worlds.
@@ -11,16 +11,15 @@ export function useWorlds(
   setWorldsLoaded: (loaded: boolean) => void,
   setError: (error: string | null) => void
 ) {
-  useEffect(() => {
-    if (!currentUser || worldsLoaded) return;
-    (async () => {
-      try {
-        const existing = await fetchWorlds();
-        setWorlds(existing);
-        setWorldsLoaded(true);
-      } catch (err) {
-        setError((err as Error).message);
-      }
-    })();
-  }, [currentUser, worldsLoaded, fetchWorlds, setWorlds, setWorldsLoaded, setError]);
+  useDataFetching({
+    enabled: !!currentUser,
+    loaded: worldsLoaded,
+    fetchFn: fetchWorlds,
+    onSuccess: (worlds) => {
+      setWorlds(worlds);
+      setWorldsLoaded(true);
+    },
+    onError: setError,
+    dependencies: [currentUser, worldsLoaded, fetchWorlds, setWorlds, setWorldsLoaded, setError]
+  });
 }

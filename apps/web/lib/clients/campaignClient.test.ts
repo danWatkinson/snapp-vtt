@@ -43,16 +43,20 @@ describe("campaignClient", () => {
 
       expect(result).toEqual(mockCampaigns);
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/worlds/world-1/campaigns")
+        expect.stringContaining("/worlds/world-1/campaigns"),
+        expect.objectContaining({
+          method: "GET"
+        })
       );
     });
 
     it("should throw error on failed request", async () => {
       mockFetch.mockResolvedValueOnce({
-        ok: false
+        ok: false,
+        json: async () => ({})
       });
 
-      await expect(fetchCampaignsByWorld("world-1")).rejects.toThrow("Failed to load campaigns for world");
+      await expect(fetchCampaignsByWorld("world-1")).rejects.toThrow("Request failed");
     });
   });
 
@@ -129,7 +133,7 @@ describe("campaignClient", () => {
         json: async () => ({})
       });
 
-      await expect(createCampaign("New", "Sum", "world-1")).rejects.toThrow("Failed to create campaign");
+      await expect(createCampaign("New", "Sum", "world-1")).rejects.toThrow("Request failed");
     });
   });
 
@@ -151,10 +155,11 @@ describe("campaignClient", () => {
 
     it("should throw error on failed request", async () => {
       mockFetch.mockResolvedValueOnce({
-        ok: false
+        ok: false,
+        json: async () => ({})
       });
 
-      await expect(fetchCampaignSessions("c1")).rejects.toThrow("Failed to load sessions");
+      await expect(fetchCampaignSessions("c1")).rejects.toThrow("Request failed");
     });
   });
 
@@ -200,7 +205,7 @@ describe("campaignClient", () => {
         json: async () => ({})
       });
 
-      await expect(createSession("c1", "New", "token")).rejects.toThrow("Failed to create session");
+      await expect(createSession("c1", "New", "token")).rejects.toThrow("Request failed");
     });
   });
 
@@ -229,10 +234,11 @@ describe("campaignClient", () => {
 
     it("should throw error on failed request", async () => {
       mockFetch.mockResolvedValueOnce({
-        ok: false
+        ok: false,
+        json: async () => ({})
       });
 
-      await expect(fetchSessionScenes("s1")).rejects.toThrow("Failed to load scenes");
+      await expect(fetchSessionScenes("s1")).rejects.toThrow("Request failed");
     });
   });
 
@@ -312,7 +318,7 @@ describe("campaignClient", () => {
         json: async () => ({})
       });
 
-      await expect(createScene("s1", "New", "Sum", "w1", [], "token")).rejects.toThrow("Failed to create scene");
+      await expect(createScene("s1", "New", "Sum", "w1", [], "token")).rejects.toThrow("Request failed");
     });
   });
 
@@ -332,10 +338,11 @@ describe("campaignClient", () => {
 
     it("should throw error on failed request", async () => {
       mockFetch.mockResolvedValueOnce({
-        ok: false
+        ok: false,
+        json: async () => ({})
       });
 
-      await expect(fetchCampaignPlayers("c1")).rejects.toThrow("Failed to load players");
+      await expect(fetchCampaignPlayers("c1")).rejects.toThrow("Request failed");
     });
   });
 
@@ -384,7 +391,7 @@ describe("campaignClient", () => {
         json: async () => ({})
       });
 
-      await expect(addPlayerToCampaign("c1", "player1", "token")).rejects.toThrow("Failed to add player to campaign");
+      await expect(addPlayerToCampaign("c1", "player1", "token")).rejects.toThrow("Request failed");
     });
   });
 
@@ -406,10 +413,11 @@ describe("campaignClient", () => {
 
     it("should throw error on failed request", async () => {
       mockFetch.mockResolvedValueOnce({
-        ok: false
+        ok: false,
+        json: async () => ({})
       });
 
-      await expect(fetchStoryArcs("c1")).rejects.toThrow("Failed to load story arcs");
+      await expect(fetchStoryArcs("c1")).rejects.toThrow("Request failed");
     });
   });
 
@@ -471,7 +479,7 @@ describe("campaignClient", () => {
         json: async () => ({})
       });
 
-      await expect(createStoryArc("c1", "New", "Sum", "token")).rejects.toThrow("Failed to create story arc");
+      await expect(createStoryArc("c1", "New", "Sum", "token")).rejects.toThrow("Request failed");
     });
   });
 
@@ -491,10 +499,11 @@ describe("campaignClient", () => {
 
     it("should throw error on failed request", async () => {
       mockFetch.mockResolvedValueOnce({
-        ok: false
+        ok: false,
+        json: async () => ({})
       });
 
-      await expect(fetchTimeline("c1")).rejects.toThrow("Failed to load timeline");
+      await expect(fetchTimeline("c1")).rejects.toThrow("Request failed");
     });
   });
 
@@ -540,7 +549,7 @@ describe("campaignClient", () => {
         json: async () => ({})
       });
 
-      await expect(advanceTimeline("c1", 1, "day", "token")).rejects.toThrow("Failed to advance timeline");
+      await expect(advanceTimeline("c1", 1, "day", "token")).rejects.toThrow("Request failed");
     });
   });
 
@@ -560,10 +569,11 @@ describe("campaignClient", () => {
 
     it("should throw error on failed request", async () => {
       mockFetch.mockResolvedValueOnce({
-        ok: false
+        ok: false,
+        json: async () => ({})
       });
 
-      await expect(fetchStoryArcEvents("arc1")).rejects.toThrow("Failed to load story arc events");
+      await expect(fetchStoryArcEvents("arc1")).rejects.toThrow("Request failed");
     });
   });
 
@@ -612,7 +622,7 @@ describe("campaignClient", () => {
         json: async () => ({})
       });
 
-      await expect(addEventToStoryArc("arc1", "event1", "token")).rejects.toThrow("Failed to add event to story arc");
+      await expect(addEventToStoryArc("arc1", "event1", "token")).rejects.toThrow("Request failed");
     });
   });
 });

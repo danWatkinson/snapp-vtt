@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useDataFetching } from "../useDataFetching";
 
 /**
  * Hook to fetch session scenes.
@@ -11,17 +11,15 @@ export function useSessionScenes(
   setScenesLoadedFor: (key: string | null) => void,
   setError: (error: string | null) => void
 ) {
-  useEffect(() => {
-    if (!selectedSessionId) return;
-    if (scenesLoadedFor === selectedSessionId) return;
-    (async () => {
-      try {
-        const loaded = await fetchSessionScenes(selectedSessionId);
-        setScenes(loaded);
-        setScenesLoadedFor(selectedSessionId);
-      } catch (err) {
-        setError((err as Error).message);
-      }
-    })();
-  }, [selectedSessionId, scenesLoadedFor, fetchSessionScenes, setScenes, setScenesLoadedFor, setError]);
+  useDataFetching({
+    enabled: !!selectedSessionId,
+    loaded: scenesLoadedFor === selectedSessionId,
+    fetchFn: () => fetchSessionScenes(selectedSessionId!),
+    onSuccess: (scenes) => {
+      setScenes(scenes);
+      setScenesLoadedFor(selectedSessionId!);
+    },
+    onError: setError,
+    dependencies: [selectedSessionId, scenesLoadedFor, fetchSessionScenes, setScenes, setScenesLoadedFor, setError]
+  });
 }

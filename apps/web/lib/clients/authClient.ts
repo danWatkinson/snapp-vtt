@@ -1,4 +1,4 @@
-import { apiRequest, get, post, postVoid, patch, del, extractProperty } from "./baseClient";
+import { apiRequest, get, post, postVoid, patch, put, del, delWithResponse } from "./baseClient";
 import { serviceUrls } from "../config/services";
 
 export interface LoginResponse {
@@ -72,14 +72,11 @@ export async function revokeRole(
   username: string,
   role: string
 ): Promise<User> {
-  const data = await apiRequest<{ user: User }>(
+  return delWithResponse<User>(
     `${serviceUrls.auth}/users/${username}/roles/${role}`,
-    {
-      method: "DELETE",
-      token: actingToken
-    }
+    "user",
+    { token: actingToken }
   );
-  return extractProperty(data, "user");
 }
 
 export async function setRoles(
@@ -87,15 +84,12 @@ export async function setRoles(
   username: string,
   roles: string[]
 ): Promise<User> {
-  const data = await apiRequest<{ user: User }>(
+  return put<User>(
     `${serviceUrls.auth}/users/${username}/roles`,
-    {
-      method: "PUT",
-      token: actingToken,
-      body: { roles }
-    }
+    "user",
+    { roles },
+    { token: actingToken }
   );
-  return extractProperty(data, "user");
 }
 
 

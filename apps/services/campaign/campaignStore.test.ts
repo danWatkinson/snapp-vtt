@@ -174,14 +174,14 @@ describe("InMemoryCampaignStore", () => {
   it("throws error when listing players for non-existent campaign", () => {
     const store = new InMemoryCampaignStore();
     expect(() => store.listPlayers("non-existent")).toThrow(
-      "Campaign non-existent not found"
+      "Campaign 'non-existent' not found"
     );
   });
 
   it("throws error when adding player to non-existent campaign", () => {
     const store = new InMemoryCampaignStore();
     expect(() => store.addPlayer("non-existent", "alice")).toThrow(
-      "Campaign non-existent not found"
+      "Campaign 'non-existent' not found"
     );
   });
 
@@ -283,14 +283,14 @@ describe("InMemoryCampaignStore", () => {
   it("throws error when listing events for non-existent story arc", () => {
     const store = new InMemoryCampaignStore();
     expect(() => store.listStoryArcEvents("non-existent")).toThrow(
-      "Story arc non-existent not found"
+      "Story arc 'non-existent' not found"
     );
   });
 
   it("throws error when adding event to non-existent story arc", () => {
     const store = new InMemoryCampaignStore();
     expect(() => store.addEventToStoryArc("non-existent", "event-1")).toThrow(
-      "Story arc non-existent not found"
+      "Story arc 'non-existent' not found"
     );
   });
 
@@ -326,14 +326,14 @@ describe("InMemoryCampaignStore", () => {
   it("throws error when getting timeline for non-existent campaign", () => {
     const store = new InMemoryCampaignStore();
     expect(() => store.getTimeline("non-existent")).toThrow(
-      "Campaign non-existent not found"
+      "Campaign 'non-existent' not found"
     );
   });
 
   it("throws error when advancing timeline for non-existent campaign", () => {
     const store = new InMemoryCampaignStore();
     expect(() => store.advanceTimeline("non-existent", 1, "day")).toThrow(
-      "Campaign non-existent not found"
+      "Campaign 'non-existent' not found"
     );
   });
 

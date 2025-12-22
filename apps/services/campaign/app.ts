@@ -187,7 +187,8 @@ export function createCampaignApp(
           unit ?? "day"
         );
         return store.getTimeline(campaignId);
-      }
+      },
+      { statusCode: 200, responseProperty: undefined }
     )
   );
     }

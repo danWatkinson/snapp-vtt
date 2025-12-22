@@ -146,7 +146,25 @@ export async function patch<T>(
 }
 
 /**
+ * Helper to make a PUT request and extract a nested property from the response.
+ */
+export async function put<T>(
+  url: string,
+  property: string,
+  body: unknown,
+  options: Omit<ApiRequestOptions, "method" | "body"> = {}
+): Promise<T> {
+  const data = await apiRequest<Record<string, unknown>>(url, {
+    ...options,
+    method: "PUT",
+    body
+  });
+  return extractProperty<T>(data, property);
+}
+
+/**
  * Helper to make a DELETE request.
+ * Returns void by default (for operations that don't return data).
  */
 export async function del(
   url: string,
@@ -156,4 +174,20 @@ export async function del(
     ...options,
     method: "DELETE"
   });
+}
+
+/**
+ * Helper to make a DELETE request and extract a nested property from the response.
+ * Useful for DELETE operations that return the deleted or updated resource.
+ */
+export async function delWithResponse<T>(
+  url: string,
+  property: string,
+  options: Omit<ApiRequestOptions, "method"> = {}
+): Promise<T> {
+  const data = await apiRequest<Record<string, unknown>>(url, {
+    ...options,
+    method: "DELETE"
+  });
+  return extractProperty<T>(data, property);
 }

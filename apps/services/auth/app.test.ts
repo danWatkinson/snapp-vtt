@@ -16,7 +16,7 @@ async function createSeededApp(store?: InMemoryUserStore) {
     userStore.createUser("alice", [], aliceHash);
   }
   const config: AuthServiceConfig = {
-    jwtSecret: "test-secret",
+    jwtSecret: "dev-secret", // Must match default from config package for authenticate() middleware
     tokenExpiresInSeconds: 60
   };
   const app = createApp({ userStore, authConfig: config });

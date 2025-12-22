@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useDataFetching } from "../useDataFetching";
 
 /**
  * Hook to fetch campaigns when the Campaigns tab is active.
@@ -13,23 +14,23 @@ export function useCampaigns(
   setCampaignsLoaded: (loaded: boolean) => void,
   setError: (error: string | null) => void
 ) {
+  // Handle the case where no world is selected (set empty array and mark as loaded)
   useEffect(() => {
-    if (activeTab !== "Campaigns" || campaignsLoaded) return;
-    // Campaigns require a world - only fetch if world is selected
-    if (!selectedWorldId) {
+    if (activeTab === "Campaigns" && !campaignsLoaded && !selectedWorldId) {
       setCampaigns([]);
       setCampaignsLoaded(true);
-      return;
     }
-    (async () => {
-      try {
-        // Fetch campaigns for the selected world
-        const existing = await fetchCampaignsByWorld(selectedWorldId);
-        setCampaigns(existing);
-        setCampaignsLoaded(true);
-      } catch (err) {
-        setError((err as Error).message);
-      }
-    })();
-  }, [activeTab, campaignsLoaded, selectedWorldId, fetchCampaignsByWorld, setCampaigns, setCampaignsLoaded, setError]);
+  }, [activeTab, campaignsLoaded, selectedWorldId, setCampaigns, setCampaignsLoaded]);
+
+  useDataFetching({
+    enabled: activeTab === "Campaigns" && !!selectedWorldId,
+    loaded: campaignsLoaded,
+    fetchFn: () => fetchCampaignsByWorld(selectedWorldId!),
+    onSuccess: (campaigns) => {
+      setCampaigns(campaigns);
+      setCampaignsLoaded(true);
+    },
+    onError: setError,
+    dependencies: [activeTab, campaignsLoaded, selectedWorldId, fetchCampaignsByWorld, setCampaigns, setCampaignsLoaded, setError]
+  });
 }

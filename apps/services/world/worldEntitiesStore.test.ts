@@ -76,7 +76,7 @@ describe("InMemoryWorldEntityStore", () => {
     expect(eventWithEnd.endingTimestamp).toBe(4000);
   });
 
-  it("creates location with parent location", () => {
+  it("creates location with parent location using relationships", () => {
     const store = new InMemoryWorldEntityStore();
     
     const kingdom = store.createEntity(
@@ -90,19 +90,27 @@ describe("InMemoryWorldEntityStore", () => {
       worldId,
       "location",
       "Town of Riversend",
-      "A small town.",
-      undefined,
-      undefined,
-      kingdom.id
+      "A small town."
     );
     
-    expect(town.parentLocationId).toBe(kingdom.id);
-    expect(kingdom.parentLocationId).toBeUndefined();
+    // Location hierarchies are now handled via relationships, not locationId
+    store.addRelationship(kingdom.id, town.id, "contains");
+    
+    expect(town.locationId).toBeUndefined();
+    expect(kingdom.locationId).toBeUndefined();
   });
 
-  it("validates parent location exists", () => {
+  it("validates locationId can only be set for events", () => {
     const store = new InMemoryWorldEntityStore();
     
+    const location = store.createEntity(
+      worldId,
+      "location",
+      "Parent Location",
+      "A location."
+    );
+    
+    // locationId can only be set for events, not locations
     expect(() =>
       store.createEntity(
         worldId,
@@ -111,12 +119,12 @@ describe("InMemoryWorldEntityStore", () => {
         "A location.",
         undefined,
         undefined,
-        "non-existent-id"
+        location.id
       )
-    ).toThrow("Parent location not found");
+    ).toThrow("locationId can only be set for events");
   });
 
-  it("validates parent is a location", () => {
+  it("validates locationId must reference a location (when creating event)", () => {
     const store = new InMemoryWorldEntityStore();
     
     const creature = store.createEntity(
@@ -126,44 +134,46 @@ describe("InMemoryWorldEntityStore", () => {
       "A fearsome dragon."
     );
     
+    // When creating an event with locationId, it must reference a location
     expect(() =>
       store.createEntity(
         worldId,
-        "location",
-        "Dragon's Lair",
-        "Where the dragon lives.",
+        "event",
+        "Dragon Attack",
+        "The dragon attacks.",
         undefined,
         undefined,
         creature.id
       )
-    ).toThrow("Parent must be a location");
+    ).toThrow("locationId must reference a location");
   });
 
-  it("validates parent is in the same world", () => {
+  it("validates locationId must reference location in same world (for events)", () => {
     const store = new InMemoryWorldEntityStore();
     const otherWorldId = "world-2";
     
-    const parent = store.createEntity(
+    const location = store.createEntity(
       worldId,
       "location",
-      "Parent Location",
+      "Location",
       "A location."
     );
     
+    // When creating an event with locationId, location must be in the same world
     expect(() =>
       store.createEntity(
         otherWorldId,
-        "location",
-        "Child Location",
-        "A location.",
+        "event",
+        "Event",
+        "An event.",
         undefined,
         undefined,
-        parent.id
+        location.id
       )
-    ).toThrow("Parent location must be in the same world");
+    ).toThrow("Location must be in the same world");
   });
 
-  it("lists children of a parent location", () => {
+  it("lists children of a parent location using relationships", () => {
     const store = new InMemoryWorldEntityStore();
     
     const kingdom = store.createEntity(
@@ -177,21 +187,19 @@ describe("InMemoryWorldEntityStore", () => {
       worldId,
       "location",
       "Town 1",
-      "First town.",
-      undefined,
-      undefined,
-      kingdom.id
+      "First town."
     );
     
     const town2 = store.createEntity(
       worldId,
       "location",
       "Town 2",
-      "Second town.",
-      undefined,
-      undefined,
-      kingdom.id
+      "Second town."
     );
+    
+    // Use relationships to establish parent-child hierarchy
+    store.addRelationship(kingdom.id, town1.id, "contains");
+    store.addRelationship(kingdom.id, town2.id, "contains");
     
     const children = store.listByParentLocation(kingdom.id);
     expect(children).toHaveLength(2);
@@ -209,7 +217,7 @@ describe("InMemoryWorldEntityStore", () => {
       "A location without parent."
     );
     
-    expect(location.parentLocationId).toBeUndefined();
+    expect(location.locationId).toBeUndefined();
   });
 
   it("creates event with location", () => {
@@ -227,7 +235,6 @@ describe("InMemoryWorldEntityStore", () => {
       "event",
       "Orc Invasion",
       "An invasion.",
-      undefined,
       undefined,
       undefined,
       location.id
@@ -255,7 +262,6 @@ describe("InMemoryWorldEntityStore", () => {
         "A location.",
         undefined,
         undefined,
-        undefined,
         location.id
       )
     ).toThrow("locationId can only be set for events");
@@ -270,7 +276,6 @@ describe("InMemoryWorldEntityStore", () => {
         "event",
         "Event",
         "An event.",
-        undefined,
         undefined,
         undefined,
         "non-existent-id"
@@ -292,18 +297,17 @@ describe("InMemoryWorldEntityStore", () => {
       worldId,
       "location",
       "Town",
-      "A town.",
-      undefined,
-      undefined,
-      kingdom.id
+      "A town."
     );
+    
+    // Establish parent-child relationship using relationships
+    store.addRelationship(kingdom.id, town.id, "contains");
     
     const kingdomEvent = store.createEntity(
       worldId,
       "event",
       "Kingdom Event",
       "An event.",
-      undefined,
       undefined,
       undefined,
       kingdom.id
@@ -314,7 +318,6 @@ describe("InMemoryWorldEntityStore", () => {
       "event",
       "Town Event",
       "An event.",
-      undefined,
       undefined,
       undefined,
       town.id

@@ -204,7 +204,7 @@ describe("campaign REST API", () => {
       .post("/campaigns/non-existent/story-arcs")
       .set("Authorization", `Bearer ${createTestToken(["gm"])}`)
       .send({ name: "Arc", summary: "Summary" })
-      .expect(400);
+      .expect(404);
 
     expect(response.body.error).toContain("Campaign non-existent not found");
   });
@@ -325,6 +325,7 @@ describe("campaign REST API", () => {
       .send({ amount: 1, unit: "day" })
       .expect(200);
 
+    // POST route with responseProperty: undefined returns data directly (like GET)
     expect(advanceResponse.body.currentMoment).toBeGreaterThan(initialMoment);
     expect(advanceResponse.body.currentMoment - initialMoment).toBe(
       24 * 60 * 60 * 1000

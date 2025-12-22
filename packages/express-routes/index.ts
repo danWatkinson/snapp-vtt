@@ -37,8 +37,13 @@ export function createGetRoute<T>(
       return res.status(statusCode).json(data);
     } catch (err) {
       const message = (err as Error).message;
-      // Default to 500, but allow handler to throw specific errors
-      const statusCode = message.includes("not found") ? 404 : 500;
+      // Map common error messages to appropriate HTTP status codes
+      let statusCode = 500;
+      if (message.includes("not found")) {
+        statusCode = 404;
+      } else if (message.includes("Forbidden")) {
+        statusCode = 403;
+      }
       return res.status(statusCode).json({ error: message });
     }
   };
@@ -59,13 +64,23 @@ export function createPostRoute<T>(
     try {
       const data = await handler(req);
       const statusCode = options.statusCode ?? 201;
-      const responseProperty = options.responseProperty ?? "item";
       
+      // If responseProperty is explicitly undefined, return data directly (like GET routes)
+      // Otherwise default to "item" for backward compatibility
+      if (options.responseProperty === undefined && "responseProperty" in options) {
+        return res.status(statusCode).json(data);
+      }
+      const responseProperty = options.responseProperty ?? "item";
       return res.status(statusCode).json({ [responseProperty]: data });
     } catch (err) {
       const message = (err as Error).message;
-      // Default to 400 for POST errors (validation, business logic)
-      const statusCode = message.includes("not found") ? 404 : 400;
+      // Map common error messages to appropriate HTTP status codes
+      let statusCode = 400;
+      if (message.includes("not found")) {
+        statusCode = 404;
+      } else if (message.includes("Forbidden")) {
+        statusCode = 403;
+      }
       return res.status(statusCode).json({ error: message });
     }
   };

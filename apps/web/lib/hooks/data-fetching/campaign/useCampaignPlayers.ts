@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useDataFetching } from "../useDataFetching";
 
 /**
  * Hook to fetch campaign players.
@@ -11,17 +11,15 @@ export function useCampaignPlayers(
   setPlayersLoadedFor: (key: string | null) => void,
   setError: (error: string | null) => void
 ) {
-  useEffect(() => {
-    if (!selectedCampaignId) return;
-    if (playersLoadedFor === selectedCampaignId) return;
-    (async () => {
-      try {
-        const loaded = await fetchCampaignPlayers(selectedCampaignId);
-        setPlayers(loaded);
-        setPlayersLoadedFor(selectedCampaignId);
-      } catch (err) {
-        setError((err as Error).message);
-      }
-    })();
-  }, [selectedCampaignId, playersLoadedFor, fetchCampaignPlayers, setPlayers, setPlayersLoadedFor, setError]);
+  useDataFetching({
+    enabled: !!selectedCampaignId,
+    loaded: playersLoadedFor === selectedCampaignId,
+    fetchFn: () => fetchCampaignPlayers(selectedCampaignId!),
+    onSuccess: (players) => {
+      setPlayers(players);
+      setPlayersLoadedFor(selectedCampaignId!);
+    },
+    onError: setError,
+    dependencies: [selectedCampaignId, playersLoadedFor, fetchCampaignPlayers, setPlayers, setPlayersLoadedFor, setError]
+  });
 }

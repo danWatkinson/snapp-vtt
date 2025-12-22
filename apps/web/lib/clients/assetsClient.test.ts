@@ -61,7 +61,7 @@ describe("assetsClient", () => {
         json: async () => ({})
       });
 
-      await expect(fetchAssets("token")).rejects.toThrow("Failed to load assets");
+      await expect(fetchAssets("token")).rejects.toThrow("Request failed");
     });
 
     it("handles empty options without adding query parameters", async () => {
@@ -79,15 +79,13 @@ describe("assetsClient", () => {
       expect(url).toMatch(/\/assets$/); // no ?query string when no options provided
     });
 
-    it("returns empty array when response omits assets field", async () => {
+    it("throws error when response omits assets field", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({})
       });
 
-      const result = await fetchAssets("token");
-
-      expect(result).toEqual([]);
+      await expect(fetchAssets("token")).rejects.toThrow("Expected property 'assets' in response");
     });
   });
 
@@ -161,7 +159,7 @@ describe("assetsClient", () => {
           originalFileName: "bad.file",
           mimeType: "application/octet-stream"
         })
-      ).rejects.toThrow("Failed to create asset");
+      ).rejects.toThrow("Request failed");
     });
   });
 });

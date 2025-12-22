@@ -39,10 +39,11 @@ describe("worldClient", () => {
 
     it("should throw error on failed request", async () => {
       mockFetch.mockResolvedValueOnce({
-        ok: false
+        ok: false,
+        json: async () => ({})
       });
 
-      await expect(fetchWorlds()).rejects.toThrow("Failed to load worlds");
+      await expect(fetchWorlds()).rejects.toThrow("Request failed");
     });
 
     it("should handle JSON parse failure", async () => {
@@ -111,7 +112,7 @@ describe("worldClient", () => {
         json: async () => ({})
       });
 
-      await expect(createWorld("New", "Desc")).rejects.toThrow("Failed to create world");
+      await expect(createWorld("New", "Desc")).rejects.toThrow("Request failed");
     });
   });
 
@@ -154,10 +155,11 @@ describe("worldClient", () => {
 
     it("should throw error on failed request", async () => {
       mockFetch.mockResolvedValueOnce({
-        ok: false
+        ok: false,
+        json: async () => ({})
       });
 
-      await expect(fetchWorldEntities("w1")).rejects.toThrow("Failed to load entities");
+      await expect(fetchWorldEntities("w1")).rejects.toThrow("Request failed");
     });
   });
 
@@ -254,7 +256,7 @@ describe("worldClient", () => {
         json: async () => ({})
       });
 
-      await expect(createWorldEntity("w1", "location", "Loc", "Sum")).rejects.toThrow("Failed to create location");
+      await expect(createWorldEntity("w1", "location", "Loc", "Sum")).rejects.toThrow("Request failed");
     });
   });
 

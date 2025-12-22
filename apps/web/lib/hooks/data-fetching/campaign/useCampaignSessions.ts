@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useDataFetching } from "../useDataFetching";
 
 /**
  * Hook to fetch campaign sessions.
@@ -11,17 +11,15 @@ export function useCampaignSessions(
   setSessionsLoadedFor: (key: string | null) => void,
   setError: (error: string | null) => void
 ) {
-  useEffect(() => {
-    if (!selectedCampaignId) return;
-    if (sessionsLoadedFor === selectedCampaignId) return;
-    (async () => {
-      try {
-        const loaded = await fetchCampaignSessions(selectedCampaignId);
-        setSessions(loaded);
-        setSessionsLoadedFor(selectedCampaignId);
-      } catch (err) {
-        setError((err as Error).message);
-      }
-    })();
-  }, [selectedCampaignId, sessionsLoadedFor, fetchCampaignSessions, setSessions, setSessionsLoadedFor, setError]);
+  useDataFetching({
+    enabled: !!selectedCampaignId,
+    loaded: sessionsLoadedFor === selectedCampaignId,
+    fetchFn: () => fetchCampaignSessions(selectedCampaignId!),
+    onSuccess: (sessions) => {
+      setSessions(sessions);
+      setSessionsLoadedFor(selectedCampaignId!);
+    },
+    onError: setError,
+    dependencies: [selectedCampaignId, sessionsLoadedFor, fetchCampaignSessions, setSessions, setSessionsLoadedFor, setError]
+  });
 }

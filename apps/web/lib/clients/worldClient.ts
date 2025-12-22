@@ -39,7 +39,7 @@ export interface WorldLocation extends WorldEntity {
   type: "location";
 }
 
-import { apiRequest, get, post, patch, postVoid, extractProperty } from "./baseClient";
+import { apiRequest, get, post, patch, postVoid } from "./baseClient";
 import { serviceUrls } from "../config/services";
 
 export async function fetchWorlds(): Promise<World[]> {

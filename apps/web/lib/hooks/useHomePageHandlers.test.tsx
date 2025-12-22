@@ -367,8 +367,8 @@ describe("useHomePageHandlers", () => {
     });
 
     expect(worldClient.createWorld).toHaveBeenCalled();
-    expect(worldClient.fetchWorlds).toHaveBeenCalled();
-    expect(props.setWorlds).toHaveBeenCalledWith(existingWorlds as any);
+    // On error, fetchWorlds is not called - error is just set and displayed
+    expect(worldClient.fetchWorlds).not.toHaveBeenCalled();
   });
 
   it("should handle create campaign", async () => {
@@ -447,7 +447,6 @@ describe("useHomePageHandlers", () => {
       expect.any(Number),
       expect.any(Number),
       undefined,
-      undefined,
       undefined
     );
     expect(props.setEntities).toHaveBeenCalled();
@@ -474,7 +473,6 @@ describe("useHomePageHandlers", () => {
       "location",
       "Entity",
       "Sum",
-      undefined,
       undefined,
       undefined,
       undefined,

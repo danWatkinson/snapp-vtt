@@ -68,7 +68,8 @@ describe("authClient", () => {
         json: async () => ({ error: "Invalid credentials" })
       });
 
-      await expect(login("testuser", "wrongpassword")).rejects.toThrow("Invalid credentials");
+      // 401/403 status codes are treated as AuthenticationError with generic message
+      await expect(login("testuser", "wrongpassword")).rejects.toThrow("Authentication failed");
     });
 
     it("should throw generic error when response has no error message", async () => {
@@ -78,7 +79,7 @@ describe("authClient", () => {
         json: async () => ({})
       });
 
-      await expect(login("testuser", "password")).rejects.toThrow("Login failed");
+      await expect(login("testuser", "password")).rejects.toThrow("Request failed");
     });
   });
 
@@ -121,7 +122,7 @@ describe("authClient", () => {
         json: async () => ({})
       });
 
-      await expect(listUsers("token")).rejects.toThrow("Failed to list users");
+      await expect(listUsers("token")).rejects.toThrow("Request failed");
     });
 
     it("should handle JSON parse failure", async () => {
@@ -132,7 +133,7 @@ describe("authClient", () => {
         }
       });
 
-      await expect(listUsers("token")).rejects.toThrow("Failed to list users");
+      await expect(listUsers("token")).rejects.toThrow("Request failed");
     });
   });
 
@@ -172,7 +173,7 @@ describe("authClient", () => {
         json: async () => ({})
       });
 
-      await expect(getUser("token", "user1")).rejects.toThrow("Failed to get user");
+      await expect(getUser("token", "user1")).rejects.toThrow("Request failed");
     });
   });
 
@@ -230,9 +231,7 @@ describe("authClient", () => {
         json: async () => ({})
       });
 
-      await expect(createUser("token", "user", "password")).rejects.toThrow(
-        "Failed to create user"
-      );
+      await expect(createUser("token", "user", "password")).rejects.toThrow("Request failed");
     });
   });
 
@@ -269,7 +268,7 @@ describe("authClient", () => {
         json: async () => ({})
       });
 
-      await expect(deleteUser("token", "user1")).rejects.toThrow("Failed to delete user");
+      await expect(deleteUser("token", "user1")).rejects.toThrow("Request failed");
     });
   });
 
@@ -306,7 +305,7 @@ describe("authClient", () => {
         json: async () => ({})
       });
 
-      await expect(assignRoles("token", "user1", ["gm"])).rejects.toThrow("Role assignment failed");
+      await expect(assignRoles("token", "user1", ["gm"])).rejects.toThrow("Request failed");
     });
   });
 
@@ -345,7 +344,7 @@ describe("authClient", () => {
         json: async () => ({})
       });
 
-      await expect(revokeRole("token", "user1", "gm")).rejects.toThrow("Failed to revoke role");
+      await expect(revokeRole("token", "user1", "gm")).rejects.toThrow("Request failed");
     });
   });
 
@@ -385,7 +384,7 @@ describe("authClient", () => {
         json: async () => ({})
       });
 
-      await expect(setRoles("token", "user1", ["admin"])).rejects.toThrow("Failed to set roles");
+      await expect(setRoles("token", "user1", ["admin"])).rejects.toThrow("Request failed");
     });
   });
 });

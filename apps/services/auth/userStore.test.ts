@@ -16,7 +16,7 @@ describe("InMemoryUserStore", () => {
     const store = new InMemoryUserStore();
     store.createUser("alice");
     expect(() => store.createUser("alice")).toThrow(
-      "User with username 'alice' already exists"
+      "User 'alice' already exists"
     );
   });
 
