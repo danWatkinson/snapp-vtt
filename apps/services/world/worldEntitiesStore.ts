@@ -28,6 +28,7 @@ export interface WorldEntity {
   endingTimestamp?: number; // Unix timestamp in milliseconds (for events)
   relationships?: LocationRelationship[]; // Relationships to other locations
   locationId?: string; // Optional reference to a location (for events)
+  imageAssetId?: string; // Optional reference to a DigitalAsset (image) used as the entity's image
 }
 
 // Relationship type definitions with their inverses
@@ -420,6 +421,25 @@ export class InMemoryWorldEntityStore {
     }
     
     return false;
+  }
+
+  /**
+   * Update an entity with partial data.
+   * Only updates the provided fields, leaving others unchanged.
+   */
+  updateEntity(
+    entityId: string,
+    updates: Partial<Pick<WorldEntity, "name" | "summary" | "imageAssetId">>
+  ): WorldEntity {
+    const index = this.entities.findIndex((e) => e.id === entityId);
+    if (index === -1) {
+      throw new Error("Entity not found");
+    }
+    
+    const entity = this.entities[index];
+    const updated: WorldEntity = { ...entity, ...updates };
+    this.entities[index] = updated;
+    return updated;
   }
 
   /**

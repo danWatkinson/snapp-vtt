@@ -13,13 +13,14 @@ import Breadcrumb from "../navigation/Breadcrumb";
 import CampaignSelection from "./campaigns/CampaignSelection";
 import CampaignModals from "./campaigns/CampaignModals";
 import { getNameById } from "../../../lib/helpers/entityHelpers";
-import { useMemo, useEffect, useCallback } from "react";
+import { useMemo, useEffect, useCallback, useState } from "react";
 import LoadingIndicator from "../ui/LoadingIndicator";
 import { useEntityCrossReferences } from "../../../lib/hooks/useEntityCrossReferences";
 import WorldSelection from "./WorldSelection";
 import EntityTypeFilter from "./EntityTypeFilter";
 import EntityList from "./EntityList";
 import EntityFormModal from "./EntityFormModal";
+import LocationEditModal from "./LocationEditModal";
 import Button from "../ui/Button";
 
 export default function WorldTab() {
@@ -29,6 +30,7 @@ export default function WorldTab() {
     selectedIds,
     selectedEntityType,
     entities,
+    assets,
     worldForm,
     entityForm,
     campaignForm,
@@ -44,6 +46,8 @@ export default function WorldTab() {
     openModal,
     closeModal
   } = useHomePage();
+
+  const [editingLocation, setEditingLocation] = useState<typeof entities[0] | null>(null);
 
   // Use tab helpers to consolidate setup
   const {
@@ -240,6 +244,12 @@ export default function WorldTab() {
                 entities={entities}
                 selectedEntityType={selectedEntityType}
                 showTypeLabel={selectedEntityType === "all"}
+                onLocationClick={(location) => {
+                  if (location.type === "location") {
+                    setEditingLocation(location);
+                  }
+                }}
+                assets={assets}
               />
             </Section>
           )}
@@ -278,6 +288,22 @@ export default function WorldTab() {
       )}
 
       {/* World creation modal moved to AuthenticatedView so it's always accessible */}
+
+      {/* Location edit modal */}
+      {selectedWorldId && (
+        <LocationEditModal
+          isOpen={editingLocation !== null}
+          onClose={() => setEditingLocation(null)}
+          location={editingLocation}
+          assets={assets}
+          onSetImage={async (locationId, assetId) => {
+            if (selectedIds.worldId) {
+              await handlers.handleSetLocationImage(selectedIds.worldId, locationId, assetId);
+            }
+          }}
+          worldId={selectedIds.worldId || ""}
+        />
+      )}
 
       {/* Entity creation modal */}
       {selectedWorldId && selectedEntityType !== "all" && (

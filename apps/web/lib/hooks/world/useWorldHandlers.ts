@@ -1,7 +1,7 @@
 import type { FormEvent } from "react";
 import { WORLD_CREATED_EVENT, WORLD_UPDATED_EVENT } from "../../auth/authEvents";
 import { dispatchTransitionEvent } from "../../utils/eventDispatcher";
-import { createWorld, updateWorldSplashImage } from "../../clients/worldClient";
+import { createWorld, updateWorldSplashImage, updateWorldEntity } from "../../clients/worldClient";
 import { withAsyncAction } from "../useAsyncAction";
 
 interface UseWorldHandlersProps {
@@ -13,9 +13,11 @@ interface UseWorldHandlersProps {
   setError: (error: string | null) => void;
   setWorlds: React.Dispatch<React.SetStateAction<any[]>>;
   setWorldsLoaded: (loaded: boolean) => void;
+  setEntities: React.Dispatch<React.SetStateAction<any[]>>;
   closeModal: ReturnType<typeof import("../useModals").useModals>["closeModal"];
   currentUser: { token: string } | null;
   handleLogout: () => void;
+  selectedIds: { worldId: string | null };
 }
 
 /**
@@ -27,9 +29,11 @@ export function useWorldHandlers({
   setError,
   setWorlds,
   setWorldsLoaded,
+  setEntities,
   closeModal,
   currentUser,
-  handleLogout
+  handleLogout,
+  selectedIds
 }: UseWorldHandlersProps) {
   async function handleCreateWorld(e: FormEvent) {
     e.preventDefault();
@@ -102,8 +106,36 @@ export function useWorldHandlers({
     }
   }
 
+  async function handleSetLocationImage(
+    worldId: string,
+    entityId: string,
+    assetId: string | null
+  ): Promise<void> {
+    try {
+      await withAsyncAction(
+        () => updateWorldEntity(worldId, entityId, { imageAssetId: assetId || undefined }, currentUser?.token),
+        {
+          setIsLoading,
+          setError,
+          onAuthError: handleLogout,
+          onSuccess: (entity) => {
+            setEntities((prev) =>
+              prev.map((e) => (e.id === entity.id ? entity : e))
+            );
+          }
+        }
+      );
+    } catch (err) {
+      /* c8 ignore start */ // Error already handled by withAsyncAction; catch is defensive
+      // Re-throw so the caller can handle it
+      throw err;
+      /* c8 ignore stop */
+    }
+  }
+
   return {
     handleCreateWorld,
-    handleSetWorldSplash
+    handleSetWorldSplash,
+    handleSetLocationImage
   };
 }

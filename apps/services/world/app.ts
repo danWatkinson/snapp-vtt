@@ -80,6 +80,24 @@ export function createWorldApp(deps: WorldAppDependencies = {}) {
     { responseProperty: "entity" }
   ));
 
+  // Update entity metadata (e.g. image asset)
+  app.patch("/worlds/:worldId/entities/:entityId", authenticate("gm"), createPatchRoute(
+    (req: Request) => {
+      const { entityId } = req.params;
+      const { name, summary, imageAssetId } = req.body as {
+        name?: string;
+        summary?: string;
+        imageAssetId?: string | null;
+      };
+      const updates: Partial<Pick<import("./worldEntitiesStore").WorldEntity, "name" | "summary" | "imageAssetId">> = {};
+      if (name !== undefined) updates.name = name;
+      if (summary !== undefined) updates.summary = summary;
+      if (imageAssetId !== undefined) updates.imageAssetId = imageAssetId ?? undefined;
+      return entityStore.updateEntity(entityId, updates);
+    },
+    { responseProperty: "entity" }
+  ));
+
   // Add relationship between two locations
   app.post("/worlds/:worldId/locations/:sourceLocationId/relationships", authenticate("gm"), createPostVoidRoute(
     (req: Request) => {

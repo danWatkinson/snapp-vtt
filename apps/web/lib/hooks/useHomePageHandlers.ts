@@ -224,9 +224,11 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     setError,
     setWorlds,
     setWorldsLoaded,
+    setEntities,
     closeModal,
     currentUser,
-    handleLogout
+    handleLogout,
+    selectedIds
   });
 
   const entityHandlers = useEntityHandlers({
@@ -308,6 +310,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     handleCreateUser: userHandlers.handleCreateUser,
     handleCreateWorld: worldHandlers.handleCreateWorld,
     handleSetWorldSplash: worldHandlers.handleSetWorldSplash,
+    handleSetLocationImage: worldHandlers.handleSetLocationImage,
     handleCreateEntity: entityHandlers.handleCreateEntity,
     handleCreateCampaign: campaignHandlers.handleCreateCampaign,
     handleCreateSession: campaignHandlers.handleCreateSession,

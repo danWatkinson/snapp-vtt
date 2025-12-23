@@ -33,6 +33,11 @@ export interface WorldEntity {
   endingTimestamp?: number;
   relationships?: LocationRelationship[];
   locationId?: string;
+  /**
+   * Optional reference to a DigitalAsset (image) used as the location's image.
+   * This is an ID in the assets service, not a URL.
+   */
+  imageAssetId?: string;
 }
 
 export interface WorldLocation extends WorldEntity {
@@ -246,6 +251,20 @@ export async function getMembersForFaction(
   return get<WorldEntity[]>(
     `${serviceUrls.world}/worlds/${worldId}/factions/${factionId}/members`,
     "members"
+  );
+}
+
+export async function updateWorldEntity(
+  worldId: string,
+  entityId: string,
+  updates: Partial<Pick<WorldEntity, "name" | "summary" | "imageAssetId">>,
+  token?: string
+): Promise<WorldEntity> {
+  return patch<WorldEntity>(
+    `${serviceUrls.world}/worlds/${worldId}/entities/${entityId}`,
+    "entity",
+    updates,
+    { token }
   );
 }
 

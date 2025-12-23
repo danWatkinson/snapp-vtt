@@ -160,6 +160,72 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /worlds/{worldId}/entities/{entityId}:
+    patch:
+      summary: Update a world entity
+      tags: [entities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: worldId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                summary:
+                  type: string
+                imageAssetId:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Entity updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity:
+                    $ref: '#/components/schemas/WorldEntity'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (requires gm)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Entity not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -205,6 +271,10 @@ components:
           type: integer
           format: int64
           nullable: true
+        imageAssetId:
+          type: string
+          nullable: true
+          description: Optional reference to a DigitalAsset (image) used as the entity's image
       required: [id, worldId, type, name, summary]
 
     ErrorResponse:

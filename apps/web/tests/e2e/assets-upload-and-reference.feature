@@ -18,10 +18,10 @@ Feature: World builder uploads and references digital assets
     Then the audio asset "forest-ambience.mp3" appears in the assets list
 
   Scenario: World builder references an uploaded image asset in a world entity
-    When the world builder signs in to the system
-    And the world builder ensures location "Whispering Woods" exists
-    And the world builder sets the image asset for location "Whispering Woods" to "approaching-nuln.jpg"
-    Then the location "Whispering Woods" shows image asset "approaching-nuln.jpg" in the UI
+    Given an asset
+    And a location
+    When the world builder sets the image asset for the location the asset
+    Then the location shows the image asset in the UI
 
   @skip
   Scenario: World builder references an uploaded audio asset in a scene

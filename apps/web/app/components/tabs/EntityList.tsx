@@ -2,6 +2,7 @@ import ListContainer from "../ui/ListContainer";
 import EntityListItem from "./EntityListItem";
 import LocationHierarchy from "./LocationHierarchy";
 import type { WorldEntity } from "../../../lib/clients/worldClient";
+import type { DigitalAsset } from "../../../lib/clients/assetsClient";
 
 type EntityType = "all" | "location" | "creature" | "faction" | "event";
 
@@ -9,6 +10,8 @@ interface EntityListProps {
   entities: WorldEntity[];
   selectedEntityType: EntityType;
   showTypeLabel?: boolean;
+  onLocationClick?: (location: WorldEntity) => void;
+  assets?: DigitalAsset[];
 }
 
 /**
@@ -18,7 +21,9 @@ interface EntityListProps {
 export default function EntityList({
   entities,
   selectedEntityType,
-  showTypeLabel = false
+  showTypeLabel = false,
+  onLocationClick,
+  assets = []
 }: EntityListProps) {
   const filteredEntities =
     selectedEntityType === "all"
@@ -50,6 +55,8 @@ export default function EntityList({
           allEntities={entities}
           allEvents={allEvents}
           showTypeLabel={showTypeLabel}
+          onLocationClick={onLocationClick}
+          assets={assets}
         />
         {otherEntities.map((entity) => (
           <EntityListItem
@@ -72,6 +79,8 @@ export default function EntityList({
           entity={entity}
           allEntities={entities}
           showTypeLabel={showTypeLabel}
+          onLocationClick={entity.type === "location" ? onLocationClick : undefined}
+          assets={assets}
         />
       ))}
     </ListContainer>
