@@ -98,8 +98,9 @@ When("the admin deletes that user from the users list", async ({ page }) => {
   try {
     await userDeletedPromise;
     // User was deleted successfully
-  } catch (error) {
-    if (error.message?.includes("closed") || page.isClosed()) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage?.includes("closed") || page.isClosed()) {
       // Page closed - this might be expected if deletion causes navigation
       return;
     }
@@ -120,8 +121,9 @@ Then("the deleted user no longer appears in the users list", async ({ page }) =>
   // Use event-based wait (with DOM fallback) to verify deletion
   try {
     await waitForUserDeleted(page, lastCreatedUsername, 5000);
-  } catch (error) {
-    if (error.message?.includes("closed") || page.isClosed()) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage?.includes("closed") || page.isClosed()) {
       throw new Error("Page was closed while verifying user deletion");
     }
     // Fallback: check DOM directly

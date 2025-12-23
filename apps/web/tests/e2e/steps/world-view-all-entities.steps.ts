@@ -20,36 +20,24 @@ When("the admin navigates to the all entities view", async ({ page }) => {
     }
   }
   
-  // Check if we're in planning mode with a world selected
-  const planningTabs = page.getByRole("tablist", { name: "World views" });
-  const isInPlanningMode = await isVisibleSafely(planningTabs, 1000);
+  // Check if we're in world view with a world selected
+  const worldTab = page.locator('[data-component="WorldTab"]');
+  const isInWorldView = await isVisibleSafely(worldTab, 1000);
   
-  if (!isInPlanningMode) {
-    // Navigate to World Entities screen and select world
-    try {
-      await selectWorldAndEnterMode(page, "World Entities");
-    } catch (error) {
-      // If planning mode activation failed, check if we're actually in planning mode anyway
-      // Retry multiple times with delays - planning mode might activate shortly after the error
-      let isActuallyInPlanningMode = false;
-      for (let retry = 0; retry < 5; retry++) {
-        await safeWait(page, STABILITY_WAIT_SHORT);
-        const planningTabsCheck = page.getByRole("tablist", { name: "World views" });
-        isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 2000 }).catch(() => false);
-        if (isActuallyInPlanningMode) {
-          break; // Planning mode is active, continue
-        }
-      }
-      if (!isActuallyInPlanningMode) {
-        // Not in planning mode after retries - rethrow the error
-        throw error;
-      }
-      // We're in planning mode despite the error - continue
-    }
+  if (!isInWorldView) {
+    // Navigate to World view and select world
+    await selectWorldAndEnterMode(page, "World Entities");
   }
   
-  // Now click the All tab
-  await allTab.click();
+  // With new navigation, "All" is the default entity type filter
+  // Check if we need to click the "All" filter button
+  const allTabVisible = await isVisibleSafely(allTab, 1000);
+  if (allTabVisible) {
+    const isSelected = await allTab.getAttribute("aria-selected").then(val => val === "true").catch(() => false);
+    if (!isSelected) {
+      await allTab.click();
+    }
+  }
 });
 
 Then("either entities are visible or an empty message is shown", async ({ page }) => {

@@ -54,9 +54,6 @@ export default function WorldHeader() {
     worlds,
     selectedIds,
     assets,
-    activeMode,
-    setActiveMode,
-    setActiveTab,
     handlers
   } = useHomePage();
 
@@ -107,22 +104,6 @@ export default function WorldHeader() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {activeMode === "plan" && (
-              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs snapp-muted">
-                Mode
-              </span>
-            )}
-            <Button
-              size="sm"
-              onClick={() => {
-                setActiveMode("play");
-                setActiveTab("Campaigns");
-              }}
-            >
-              {activeMode === "plan"
-                ? "Switch to live play"
-                : "Live play mode"}
-            </Button>
             <Button
               size="sm"
               onClick={() => setWorldSettingsOpen(true)}

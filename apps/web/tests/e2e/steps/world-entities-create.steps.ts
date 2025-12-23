@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { ensureModeSelectorVisible, getUniqueCampaignName, waitForModalOpen, waitForModalClose, loginAs, loginAsAdmin, waitForWorldUpdated, waitForMode } from "../helpers";
+import { ensureModeSelectorVisible, getUniqueWorldName, waitForModalOpen, waitForModalClose, loginAs, loginAsAdmin, waitForWorldUpdated, waitForMode } from "../helpers";
 import { createApiClient } from "../helpers/api";
 import { STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 import { navigateAndWaitForReady } from "../helpers/utils";
@@ -14,9 +14,9 @@ const { Given, When, Then } = createBdd();
 
 // Helper function to ensure world exists and is selected (extracted for reuse)
 export async function ensureWorldExistsAndSelected(page: Page, worldName: string): Promise<void> {
-  const uniqueWorldName = 
-    worldName === "Eldoria" || worldName === "NoSplashWorld" 
-      ? getUniqueCampaignName(worldName) 
+  const uniqueWorldName =
+    worldName === "Eldoria" || worldName === "NoSplashWorld"
+      ? getUniqueWorldName(worldName)
       : worldName;
   
   // Check if user is already logged in (don't navigate/relogin if already logged in)
@@ -126,11 +126,11 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
   }
   
   if (exists) {
-    // Check if we're already in planning mode with this world selected
-    const planningTabsCheck = page.getByRole("tablist", { name: "World views" });
-    const alreadyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 1000 }).catch(() => false);
+    // Check if we're already in world view with this world selected
+    const worldViewComponent = page.locator('[data-component="WorldTab"]');
+    const alreadyInWorldView = await worldViewComponent.isVisible({ timeout: 1000 }).catch(() => false);
     
-    if (alreadyInPlanningMode) {
+    if (alreadyInWorldView) {
       // Check if this world is already selected by checking the heading
       const heading = page.locator('h3.snapp-heading').first();
       const headingText = await heading.textContent().catch(() => "");
@@ -152,13 +152,12 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
     
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        // Set up event listener BEFORE clicking
+        // Wait for world view to activate
         const modePromise = waitForMode(page, 10000);
         
         await worldTab.click();
         
-        // Wait for mode to activate (event-based)
-        // Note: waitForMode already verifies tabs are visible internally
+        // Wait for world view to be visible
         // Increased timeout since worlds created via API may need more time to load
         await modePromise;
         modeActivated = true;
@@ -166,12 +165,12 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
       } catch (error) {
         lastError = error as Error;
         
-        // If mode doesn't activate, check if we're actually in the appropriate mode
-        // (maybe the event didn't fire but the UI updated)
-        const tabsAfterClick = page.getByRole("tablist", { name: "World views" });
-        const tabsVisible = await tabsAfterClick.isVisible({ timeout: 3000 }).catch(() => false);
-        if (tabsVisible) {
-          // Tabs are visible even though event didn't fire - that's okay
+        // If world view doesn't activate, check if we're actually in world view
+        // (maybe the UI updated but waitForMode timed out)
+        const worldViewAfterClick = page.locator('[data-component="WorldTab"]');
+        const worldViewVisible = await worldViewAfterClick.isVisible({ timeout: 3000 }).catch(() => false);
+        if (worldViewVisible) {
+          // World view is visible even though waitForMode timed out - that's okay
           modeActivated = true;
           break;
         }
@@ -241,9 +240,9 @@ export async function ensureWorldExistsAndSelected(page: Page, worldName: string
 
 When("world {string} exists", async ({ page, request }, worldName: string) => {
   // Make world name unique per worker to avoid conflicts when tests run in parallel
-  const uniqueWorldName = 
-    worldName === "Eldoria" || worldName === "NoSplashWorld" 
-      ? getUniqueCampaignName(worldName) 
+  const uniqueWorldName =
+    worldName === "Eldoria" || worldName === "NoSplashWorld"
+      ? getUniqueWorldName(worldName)
       : worldName;
   
   if (!uniqueWorldName || uniqueWorldName.trim() === "") {
@@ -305,7 +304,7 @@ When("world {string} exists", async ({ page, request }, worldName: string) => {
       const error = err as Error;
       if (error.message.includes("Cannot connect") || error.message.includes("ECONNREFUSED")) {
         throw new Error(
-          `Cannot connect to world service at ${WORLD_SERVICE_URL}. Ensure the world service is running.`
+          `Cannot connect to world service. Ensure the world service is running.`
         );
       }
       // If world already exists (409), that's fine - just store the name
@@ -410,9 +409,9 @@ Given("world {string} has no splash image", async ({ page, request }, worldName:
   // This step ensures the world has a placeholder (no custom splash image set)
   // The placeholder is the default state when no splash image is configured
   // Make world name unique per worker
-  const uniqueWorldName = 
-    worldName === "Eldoria" || worldName === "NoSplashWorld" 
-      ? getUniqueCampaignName(worldName) 
+  const uniqueWorldName =
+    worldName === "Eldoria" || worldName === "NoSplashWorld"
+      ? getUniqueWorldName(worldName)
       : worldName;
   
   // Detect if we should use API (Background) or UI (scenario)
@@ -526,10 +525,10 @@ When("the admin selects world {string}", async ({ page }, worldName: string) => 
       if (storedName) {
         uniqueWorldName = storedName;
       } else {
-        uniqueWorldName = getUniqueCampaignName(worldName);
+        uniqueWorldName = getUniqueWorldName(worldName);
       }
     } catch {
-      uniqueWorldName = getUniqueCampaignName(worldName);
+      uniqueWorldName = getUniqueWorldName(worldName);
     }
   }
 
@@ -550,10 +549,8 @@ When("the admin selects world {string}", async ({ page }, worldName: string) => 
     
     await worldTab.click();
     
-    // Wait for mode to activate (event-based)
+    // Wait for world view to be visible
     await modePromise;
-    
-    // Note: waitForMode already verifies tabs are visible internally
     
     // For "NoSplashWorld", ensure it has no splash image
     if (worldName === "NoSplashWorld") {

@@ -22,20 +22,20 @@ const TAB_TO_ADD_BUTTON: Record<SubTab, string> = {
 };
 
 /**
- * Check if mode is currently active by checking for tabs visibility.
+ * Check if world view is currently active by checking for WorldTab component.
  */
 async function isModeActive(page: Page): Promise<boolean> {
   return await isVisibleSafely(
-    page.getByRole("tablist", { name: "World views" })
+    page.locator('[data-component="WorldTab"]')
   );
 }
 
 /**
- * Navigate to a sub-tab within the World Entities screen.
- * Verifies the tab is active by checking for the corresponding "Add" button.
+ * Navigate to an entity type filter within the World view.
+ * With the new navigation, entity types are filters, not separate tabs.
  * 
  * @param page - Playwright page object
- * @param tabName - Name of the tab to navigate to
+ * @param tabName - Name of the entity type to filter by
  * @param verifyButton - Whether to verify the "Add" button is visible (default: true)
  */
 export async function navigateToSubTab(
@@ -43,33 +43,41 @@ export async function navigateToSubTab(
   tabName: SubTab,
   verifyButton: boolean = true
 ): Promise<void> {
-  // Find the tab directly (tabs are accessible directly, not necessarily through tablist)
-  // This matches the pattern used in the original step definitions
-  const tab = page.getByRole("tab", { name: tabName });
+  // Ensure we're in world view
+  const worldTab = page.locator('[data-component="WorldTab"]');
+  const isInWorldView = await isVisibleSafely(worldTab, 2000);
+  if (!isInWorldView) {
+    throw new Error("Cannot navigate to entity type filter: not in world view. Select a world first.");
+  }
   
-  // Check if tab is already selected
-  const isSelected = await tab.getAttribute("aria-selected").catch(() => null);
+  // Entity type filters are now tabs within the EntityTypeFilter component
+  // Find the filter tab within the "Entity types" tablist
+  const entityTypesTablist = page.getByRole("tablist", { name: "Entity types" });
+  const filterTab = entityTypesTablist.getByRole("tab", { name: tabName });
+  
+  // Check if filter is already selected
+  const isSelected = await filterTab.getAttribute("aria-selected").catch(() => null);
   if (isSelected === "true") {
-    // Already on the correct tab - verify button if requested
+    // Already on the correct filter - verify button if requested
     if (verifyButton) {
       const addButtonText = TAB_TO_ADD_BUTTON[tabName];
       if (addButtonText) {
         const addButton = page.getByRole("button", { name: addButtonText });
         const isVisible = await isVisibleSafely(addButton, 1000);
         if (isVisible) {
-          return; // Tab is active and button is visible
+          return; // Filter is active and button is visible
         }
       } else {
-        return; // Tab is active and no button to verify
+        return; // Filter is active and no button to verify
       }
     } else {
-      return; // Tab is active, no verification needed
+      return; // Filter is active, no verification needed
     }
   }
   
-  // Navigate to the tab - wait for it to be visible
-  await expect(tab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
-  await tab.click();
+  // Navigate to the filter - wait for it to be visible
+  await expect(filterTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
+  await filterTab.click();
   
   // Verify the corresponding "Add" button is visible (if applicable)
   if (verifyButton) {

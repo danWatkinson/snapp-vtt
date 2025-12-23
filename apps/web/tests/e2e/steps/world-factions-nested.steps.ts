@@ -122,14 +122,79 @@ When('the admin links faction {string} as sub-faction of {string}', async ({ pag
 });
 
 Then('faction {string} shows it has sub-faction {string}', async ({ page }, parentFactionName: string, subFactionName: string) => {
-  const parentFactionItem = page
-    .getByRole("listitem")
-    .filter({ hasText: parentFactionName })
-    .first();
+  // Find the faction item by its main name (in the font-semibold div)
+  const allFactionItems = page.getByRole("listitem");
+  const itemCount = await allFactionItems.count();
+  
+  let parentFactionItem = null;
+  for (let i = 0; i < itemCount; i++) {
+    const item = allFactionItems.nth(i);
+    const mainName = await item.locator('.font-semibold').first().textContent().catch(() => null);
+    if (mainName && mainName.trim() === parentFactionName) {
+      parentFactionItem = item;
+      break;
+    }
+  }
+  
+  if (!parentFactionItem) {
+    // Fallback to filter approach
+    parentFactionItem = page
+      .getByRole("listitem")
+      .filter({ hasText: parentFactionName })
+      .first();
+  }
   
   await expect(parentFactionItem).toBeVisible();
   
-  // Check that the parent faction shows the sub-faction
+  // Poll for the "Sub-factions:" text to appear (relationships might take time to load)
+  let subFactionsVisible = false;
+  const maxAttempts = 20; // 10 seconds total
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const factionText = await parentFactionItem.textContent();
+    if (factionText && factionText.includes("Sub-factions:") && factionText.includes(subFactionName)) {
+      subFactionsVisible = true;
+      break;
+    }
+    
+    // If we're halfway through and still no sub-factions, try refreshing again
+    if (attempt === Math.floor(maxAttempts / 2)) {
+      const locationsTab = page.getByRole("tab", { name: "Locations" });
+      const locationsTabVisible = await locationsTab.isVisible({ timeout: 2000 }).catch(() => false);
+      if (locationsTabVisible) {
+        await locationsTab.click();
+        await page.waitForTimeout(500);
+        const factionsTab = page.getByRole("tab", { name: "Factions" });
+        await factionsTab.click();
+        await expect(page.getByRole("button", { name: "Add faction" })).toBeVisible({ timeout: 5000 });
+        // Re-find the faction item after refresh
+        const allFactionItemsAfterRefresh = page.getByRole("listitem");
+        const itemCountAfterRefresh = await allFactionItemsAfterRefresh.count();
+        for (let i = 0; i < itemCountAfterRefresh; i++) {
+          const item = allFactionItemsAfterRefresh.nth(i);
+          const mainName = await item.locator('.font-semibold').first().textContent().catch(() => null);
+          if (mainName && mainName.trim() === parentFactionName) {
+            parentFactionItem = item;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (attempt < maxAttempts - 1) {
+      await page.waitForTimeout(500);
+    }
+  }
+  
+  if (!subFactionsVisible) {
+    const currentText = await parentFactionItem.textContent();
+    throw new Error(
+      `Sub-factions not visible in UI. ` +
+      `Faction: ${parentFactionName}, Sub-faction: ${subFactionName}. ` +
+      `Current faction text: ${currentText}`
+    );
+  }
+  
+  // Verify the sub-factions are displayed correctly
   const factionText = await parentFactionItem.textContent();
   expect(factionText).toContain("Sub-factions:");
   expect(factionText).toContain(subFactionName);

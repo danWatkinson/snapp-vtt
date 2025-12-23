@@ -421,6 +421,14 @@ export class InMemoryWorldEntityStore {
     
     return false;
   }
+
+  /**
+   * Clear all entities from the store.
+   * Used for test isolation - resets the store to an empty state.
+   */
+  clear(): void {
+    this.entities = [];
+  }
 }
 
 

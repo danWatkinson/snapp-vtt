@@ -47,6 +47,6 @@ export {
 
 // Navigation utilities
 export {
-  storeWorldName,
-  getStoredWorldName
+  storeWorldName
 } from "./navigation/navigationUtils";
+// Note: getStoredWorldName is exported from utils.ts (via storageUtils.ts) to avoid duplicate export

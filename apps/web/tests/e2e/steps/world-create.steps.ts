@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterMode, ensureModeSelectorVisible, waitForModalOpen, waitForWorldCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, getUniqueCampaignName, getStoredWorldName, getErrorMessage } from "../helpers";
+import { selectWorldAndEnterMode, ensureModeSelectorVisible, waitForModalOpen, waitForWorldCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, getUniqueWorldName, getStoredWorldName } from "../helpers";
+import { getErrorMessage } from "../helpers/errors";
 import { safeWait } from "../helpers/utils";
 import { STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
@@ -14,48 +15,25 @@ When('the admin navigates to the "World Entities" screen', async ({ page }) => {
 When(
   'the admin creates a world named {string} with description {string}',
   async ({ page }, worldName: string, description: string) => {
-    // Navigate to World Entities screen if not already there
-    const tabs = page.getByRole("tablist", { name: "World views" });
-    const isInMode = await tabs.isVisible({ timeout: 1000 }).catch(() => false);
+    // Check if we're already in world view
+    const worldTab = page.locator('[data-component="WorldTab"]');
+    const isInWorldView = await worldTab.isVisible({ timeout: 1000 }).catch(() => false);
     
-    if (!isInMode) {
-      // Retry logic for mode activation
-      let modeActivated = false;
-      let lastError: Error | null = null;
-      
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          await selectWorldAndEnterMode(page, "World Entities");
-          modeActivated = true;
-          break;
-        } catch (error) {
-          lastError = error as Error;
-          
-          // Check if we're actually in the appropriate mode (maybe the event didn't fire)
-          const tabsCheck = page.getByRole("tablist", { name: "World views" });
-          const isActuallyInMode = await tabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
-          if (isActuallyInMode) {
-            // We're in the appropriate mode despite the error - that's okay
-            modeActivated = true;
-            break;
-          }
-          
-          // If this isn't the last attempt, wait a bit and try again
-          if (attempt < 2) {
-            await safeWait(page, STABILITY_WAIT_MEDIUM);
-          }
-        }
-      }
-      
-      if (!modeActivated && lastError) {
-        throw lastError;
+    if (!isInWorldView) {
+      // Navigate to world view by selecting a world (if one exists)
+      // If no world exists, we'll create one below
+      try {
+        await selectWorldAndEnterMode(page, "World Entities");
+      } catch (error) {
+        // If world selection fails, we might not have any worlds yet
+        // That's okay - we'll create one below
       }
     }
     
     await ensureModeSelectorVisible(page);
 
     // Make world name unique per worker to avoid conflicts in parallel execution
-    const uniqueWorldName = getUniqueCampaignName(worldName);
+    const uniqueWorldName = getUniqueWorldName(worldName);
     
     // Check if world already exists (check for unique name)
     const worldContextTablist = page.getByRole("tablist", { name: "World context" });

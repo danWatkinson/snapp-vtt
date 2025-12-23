@@ -430,7 +430,8 @@ When('the world builder navigates to the "World Entities" screen', async ({ page
 });
 
 When('the world builder navigates to the "Campaigns" screen', async ({ page }) => {
-  await selectWorldAndEnterMode(page, "Campaigns");
+  // With new navigation, campaigns are shown in World view
+  await selectWorldAndEnterMode(page, "World Entities");
 });
 
 When("the world builder navigates to the locations tab", async ({ page }) => {
@@ -445,18 +446,18 @@ When("the world builder selects world {string}", async ({ page }, worldName: str
   // If no stored name, generate it (for "Eldoria" this will use worker index or timestamp)
   if (!uniqueWorldName) {
     if (worldName === "Eldoria") {
-      uniqueWorldName = getUniqueCampaignName("Eldoria");
+      uniqueWorldName = getUniqueWorldName("Eldoria");
     } else {
       uniqueWorldName = worldName;
     }
   }
   
-  // Check if we're already in planning mode
-  const planningTabs = page.getByRole("tablist", { name: "World views" });
-  const isInPlanningMode = await planningTabs.isVisible({ timeout: 2000 }).catch(() => false);
+  // Check if we're already in world view
+  const worldViewComponent = page.locator('[data-component="WorldTab"]');
+  const isInWorldView = await worldViewComponent.isVisible({ timeout: 2000 }).catch(() => false);
   
-  if (isInPlanningMode) {
-    // Already in planning mode - check if the correct world is already selected
+  if (isInWorldView) {
+    // Already in world view - check if the correct world is already selected
     // Check the heading to see which world is selected
     const heading = page.locator('h3.snapp-heading').first();
     const headingText = await heading.textContent().catch(() => "");
@@ -466,14 +467,14 @@ When("the world builder selects world {string}", async ({ page }, worldName: str
       return; // Already have the correct world selected
     }
     
-    // Wrong world selected - need to leave planning mode first
+    // Wrong world selected - need to leave world view first
     const snappMenu = page.getByRole("button", { name: /^Snapp/i });
     if (await snappMenu.isVisible({ timeout: 2000 }).catch(() => false)) {
       await snappMenu.click();
       const leaveWorldButton = page.getByRole("button", { name: "Leave World" });
       if (await leaveWorldButton.isVisible({ timeout: 2000 }).catch(() => false)) {
         await leaveWorldButton.click();
-        // Wait for planning mode to exit
+        // Wait for world view to exit
         await safeWait(page, 500);
       } else {
         // Close menu if leave button not found
@@ -708,8 +709,9 @@ When(
         .getByRole("tablist", { name: "Campaign views" })
         .getByRole("tab", { name: "Sessions" })
         .click();
-    } catch (error) {
-      if (page.isClosed() || error.message?.includes("closed") || error.message?.includes("Target page")) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (page.isClosed() || errorMessage?.includes("closed") || errorMessage?.includes("Target page")) {
         throw new Error("Page was closed while trying to click Sessions tab");
       }
       throw error;

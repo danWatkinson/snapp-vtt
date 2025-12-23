@@ -34,10 +34,10 @@ interface UseEntityHandlersProps {
   setEntities: React.Dispatch<React.SetStateAction<any[]>>;
   setEntitiesLoadedFor: (key: string | null) => void;
   setCrossRefEntitiesLoadedFor: (key: string | null) => void;
-  closeModal: (name: string) => void;
+  closeModal: ReturnType<typeof import("../useModals").useModals>["closeModal"];
   currentUser: { token: string } | null;
   selectedIds: { worldId?: string };
-  selectedEntityType: "location" | "creature" | "faction" | "event";
+  selectedEntityType: "all" | "location" | "creature" | "faction" | "event";
   handleLogout: () => void;
 }
 
@@ -391,13 +391,16 @@ export function useEntityHandlers({
             };
             const eventName = eventMap[selectedEntityType];
             if (eventName) {
-              Promise.resolve().then(() => {
-                dispatchTransitionEvent(eventName, {
-                  entityId: entity.id,
-                  entityName: entity.name,
-                  entityType: selectedEntityType,
-                  worldId: selectedIds.worldId
-                });
+              // Dispatch event after React has had a chance to update the UI
+              requestAnimationFrame(() => {
+                setTimeout(() => {
+                  dispatchTransitionEvent(eventName, {
+                    entityId: entity.id,
+                    entityName: entity.name,
+                    entityType: selectedEntityType,
+                    worldId: selectedIds.worldId
+                  });
+                }, 0);
               });
             }
           }

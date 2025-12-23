@@ -81,6 +81,28 @@ export class InMemoryUserStore {
     user.passwordHash = passwordHash;
     return user;
   }
+
+  /**
+   * Clear all users from the store, except admin users.
+   * Used for test isolation - resets the store but preserves admin users.
+   * This is a temporary workaround to avoid bootstrap issues in e2e tests.
+   * TODO: Properly handle admin user lifecycle in test isolation.
+   */
+  clear(): void {
+    // Preserve admin users to avoid bootstrap issues
+    // This is an ugly hack that needs to be sorted out
+    const adminUsers = new Map<string, User>();
+    for (const [username, user] of this.usersByUsername.entries()) {
+      if (user.roles.includes("admin")) {
+        adminUsers.set(username, user);
+      }
+    }
+    this.usersByUsername.clear();
+    // Restore admin users
+    for (const [username, user] of adminUsers.entries()) {
+      this.usersByUsername.set(username, user);
+    }
+  }
 }
 
 

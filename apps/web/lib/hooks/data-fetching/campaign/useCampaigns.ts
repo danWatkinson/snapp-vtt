@@ -2,11 +2,10 @@ import { useEffect } from "react";
 import { useDataFetching } from "../useDataFetching";
 
 /**
- * Hook to fetch campaigns when the Campaigns tab is active.
- * Fetches campaigns for the selected world using server-side filtering.
+ * Hook to fetch campaigns for the selected world.
+ * Fetches campaigns whenever a world is selected.
  */
 export function useCampaigns(
-  activeTab: string | null,
   campaignsLoaded: boolean,
   selectedWorldId: string | null,
   fetchCampaignsByWorld: (worldId: string) => Promise<any[]>,
@@ -16,14 +15,14 @@ export function useCampaigns(
 ) {
   // Handle the case where no world is selected (set empty array and mark as loaded)
   useEffect(() => {
-    if (activeTab === "Campaigns" && !campaignsLoaded && !selectedWorldId) {
+    if (!selectedWorldId && !campaignsLoaded) {
       setCampaigns([]);
       setCampaignsLoaded(true);
     }
-  }, [activeTab, campaignsLoaded, selectedWorldId, setCampaigns, setCampaignsLoaded]);
+  }, [selectedWorldId, campaignsLoaded, setCampaigns, setCampaignsLoaded]);
 
   useDataFetching({
-    enabled: activeTab === "Campaigns" && !!selectedWorldId,
+    enabled: !!selectedWorldId,
     loaded: campaignsLoaded,
     fetchFn: () => fetchCampaignsByWorld(selectedWorldId!),
     onSuccess: (campaigns) => {
@@ -31,6 +30,6 @@ export function useCampaigns(
       setCampaignsLoaded(true);
     },
     onError: setError,
-    dependencies: [activeTab, campaignsLoaded, selectedWorldId, fetchCampaignsByWorld, setCampaigns, setCampaignsLoaded, setError]
+    dependencies: [campaignsLoaded, selectedWorldId, fetchCampaignsByWorld, setCampaigns, setCampaignsLoaded, setError]
   });
 }

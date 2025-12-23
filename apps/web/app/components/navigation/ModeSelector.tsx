@@ -43,9 +43,6 @@ export default function ModeSelector() {
     setSelectionField,
     setSelectedEntityType,
     setEntitiesLoadedFor,
-    setActiveMode,
-    setActiveTab,
-    setSubTab
   } = useHomePage();
 
   const selectedWorldId = selectedIds.worldId;
@@ -58,9 +55,6 @@ export default function ModeSelector() {
       setSelectionField("worldId", worldId);
       setSelectedEntityType("all");
       setEntitiesLoadedFor(null);
-      setActiveMode("plan");
-      setActiveTab("World");
-      setSubTab("World Entities");
     });
   };
 

@@ -16,7 +16,7 @@ interface UseStoryArcHandlersProps {
   setStoryArcsLoadedFor: (key: string | null) => void;
   setStoryArcEventsLoadedFor: (key: string | null) => void;
   setSelectionField: (field: string, value: string) => void;
-  closeModal: (name: string) => void;
+  closeModal: ReturnType<typeof import("../useModals").useModals>["closeModal"];
   currentUser: { token: string } | null;
   selectedIds: { campaignId?: string; storyArcId?: string; eventId?: string };
   handleLogout: () => void;
@@ -60,11 +60,16 @@ export function useStoryArcHandlers({
             storyArcForm.resetForm();
             closeModal("storyArc");
             setStoryArcsLoadedFor(null);
-            dispatchTransitionEvent(STORY_ARC_CREATED_EVENT, {
-              entityId: storyArc.id,
-              entityName: storyArc.name,
-              entityType: "storyArc",
-              campaignId: selectedIds.campaignId
+            // Dispatch event after React has had a chance to update the UI
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                dispatchTransitionEvent(STORY_ARC_CREATED_EVENT, {
+                  entityId: storyArc.id,
+                  entityName: storyArc.name,
+                  entityType: "storyArc",
+                  campaignId: selectedIds.campaignId
+                });
+              }, 0);
             });
           }
         }

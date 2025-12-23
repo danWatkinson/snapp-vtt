@@ -8,7 +8,10 @@ import Modal from "../ui/Modal";
 import Section from "../ui/Section";
 import SectionHeader from "../ui/SectionHeader";
 import Form from "../ui/Form";
-import WorldHeaderWithTabs from "../navigation/WorldHeaderWithTabs";
+import WorldHeader from "../navigation/WorldHeader";
+import Breadcrumb from "../navigation/Breadcrumb";
+import CampaignSelection from "./campaigns/CampaignSelection";
+import CampaignModals from "./campaigns/CampaignModals";
 import { getNameById } from "../../../lib/helpers/entityHelpers";
 import { useMemo, useEffect, useCallback } from "react";
 import LoadingIndicator from "../ui/LoadingIndicator";
@@ -17,15 +20,18 @@ import WorldSelection from "./WorldSelection";
 import EntityTypeFilter from "./EntityTypeFilter";
 import EntityList from "./EntityList";
 import EntityFormModal from "./EntityFormModal";
+import Button from "../ui/Button";
 
 export default function WorldTab() {
   const {
     worlds,
+    campaigns,
     selectedIds,
     selectedEntityType,
     entities,
     worldForm,
     entityForm,
+    campaignForm,
     modals,
     handlers,
     setSelectionField,
@@ -36,10 +42,7 @@ export default function WorldTab() {
     setCrossRefEntitiesLoadedFor,
     setEntities,
     openModal,
-    closeModal,
-    setActiveMode,
-    setActiveTab,
-    setSubTab
+    closeModal
   } = useHomePage();
 
   // Wrapper functions for modal handlers to match useTabHelpers signature
@@ -58,7 +61,9 @@ export default function WorldTab() {
       setEntityParentLocationId,
       setEntityRelationshipTargetId,
       setEntityRelationshipType,
-      setEntityLocationId
+      setEntityLocationId,
+      setCampaignName,
+      setCampaignSummary
     },
     formValues: {
       worldName,
@@ -69,12 +74,14 @@ export default function WorldTab() {
       entityEndingTimestamp,
       entityRelationshipTargetId,
       entityRelationshipType,
-      entityLocationId
+      entityLocationId,
+      campaignName,
+      campaignSummary
     },
     selectionSetters: { setSelectedWorldId },
-    modalHandlers: { setWorldModalOpen, setEntityModalOpen },
+    modalHandlers: { setWorldModalOpen, setEntityModalOpen, setCampaignModalOpen },
     selectionStates: { selectedWorldId },
-    modalStates: { worldModalOpen, entityModalOpen }
+    modalStates: { worldModalOpen, entityModalOpen, campaignModalOpen }
   } = useTabHelpers({
     forms: {
       world: { form: worldForm, fields: ["name", "description"], prefix: "world" },
@@ -90,10 +97,11 @@ export default function WorldTab() {
           "locationId"
         ],
         prefix: "entity"
-      }
+      },
+      campaign: { form: campaignForm, fields: ["name", "summary"], prefix: "campaign" }
     },
     selections: ["worldId"],
-    modals: ["world", "entity"],
+    modals: ["world", "entity", "campaign"],
     setSelectionField,
     openModal: openModalWrapper,
     closeModal: closeModalWrapper,
@@ -104,6 +112,12 @@ export default function WorldTab() {
   const selectedWorld = useMemo(
     () => worlds.find((w) => w.id === selectedWorldId) || null,
     [worlds, selectedWorldId]
+  );
+
+  // Filter campaigns by selected world
+  const worldCampaigns = useMemo(
+    () => campaigns.filter((c) => c.worldId === selectedWorldId),
+    [campaigns, selectedWorldId]
   );
 
   // Expose form setters to window for E2E testing
@@ -167,11 +181,9 @@ export default function WorldTab() {
           selectedWorldId={selectedIds.worldId}
           onWorldSelect={(worldId) => {
             setSelectionField("worldId", worldId);
+            setSelectionField("campaignId", null);
             setSelectedEntityType("all");
             setEntitiesLoadedFor(null);
-            setActiveMode("plan");
-            setActiveTab("World");
-            setSubTab("World Entities");
           }}
           onEntityTypeReset={() => {
             setSelectedEntityType("all");
@@ -183,78 +195,90 @@ export default function WorldTab() {
       {/* Main content when world is selected */}
       {selectedIds.worldId && selectedWorld && (
         <section aria-label={getNameById(worlds, selectedWorldId, "") ?? undefined}>
-          <WorldHeaderWithTabs />
-          <Section>
-            <EntityTypeFilter
-              selectedType={selectedEntityType}
-              onTypeChange={(type) => {
-                setSelectedEntityType(type);
-                setEntitiesLoadedFor(null);
-              }}
-            />
+          <WorldHeader />
+          <Breadcrumb />
+          
+          {/* Entities Section (default view) */}
+          {!selectedIds.campaignId && (
+            <Section>
+              <EntityTypeFilter
+                selectedType={selectedEntityType}
+                onTypeChange={(type) => {
+                  setSelectedEntityType(type);
+                  setEntitiesLoadedFor(null);
+                }}
+              />
 
-            <div className="flex items-center justify-between">
-              <h3
-                className="text-md font-semibold snapp-heading"
-                style={{ fontFamily: "'Cinzel', serif" }}
+              <div className="flex items-center justify-between">
+                <h3
+                  className="text-md font-semibold snapp-heading"
+                  style={{ fontFamily: "'Cinzel', serif" }}
+                >
+                  Entities
+                </h3>
+              </div>
+
+              <SectionHeader
+                level={4}
+                className="text-sm font-medium"
+                action={
+                  selectedEntityType !== "all"
+                    ? {
+                        label: `Add ${selectedEntityType}`,
+                        onClick: () => setEntityModalOpen(true),
+                        size: "xs"
+                      }
+                    : undefined
+                }
               >
-                Entities for {getNameById(worlds, selectedWorldId, "selected world")}
-              </h3>
-            </div>
+                {selectedEntityType === "all" ? "All Entities" : 
+                 selectedEntityType === "location" ? "Locations" :
+                 selectedEntityType === "creature" ? "Creatures" :
+                 selectedEntityType === "faction" ? "Factions" : "Events"}
+              </SectionHeader>
 
-            <SectionHeader
-              level={4}
-              className="text-sm font-medium"
-              action={
-                selectedEntityType !== "all"
-                  ? {
-                      label: `Add ${selectedEntityType}`,
-                      onClick: () => setEntityModalOpen(true),
-                      size: "xs"
-                    }
-                  : undefined
-              }
-            >
-              {selectedEntityType === "all" ? "All Entities" : 
-               selectedEntityType === "location" ? "Locations" :
-               selectedEntityType === "creature" ? "Creatures" :
-               selectedEntityType === "faction" ? "Factions" : "Events"}
-            </SectionHeader>
+              <EntityList
+                entities={entities}
+                selectedEntityType={selectedEntityType}
+                showTypeLabel={selectedEntityType === "all"}
+              />
+            </Section>
+          )}
 
-            <EntityList
-              entities={entities}
-              selectedEntityType={selectedEntityType}
-              showTypeLabel={selectedEntityType === "all"}
-            />
-          </Section>
+          {/* Campaigns Section */}
+          {!selectedIds.campaignId && (
+            <Section>
+              <div className="flex items-center justify-between mb-2">
+                <h3
+                  className="text-md font-semibold snapp-heading"
+                  style={{ fontFamily: "'Cinzel', serif" }}
+                >
+                  Campaigns
+                </h3>
+                <Button
+                  size="sm"
+                  onClick={() => setCampaignModalOpen(true)}
+                >
+                  New Campaign
+                </Button>
+              </div>
+              {worldCampaigns.length === 0 ? (
+                <p className="text-sm snapp-muted">No campaigns have been created yet for this world.</p>
+              ) : (
+              <CampaignSelection
+                campaigns={worldCampaigns}
+                selectedCampaignId={null}
+                onCampaignSelect={(campaignId) => {
+                  setSelectionField("campaignId", campaignId);
+                }}
+              />
+              )}
+            </Section>
+          )}
         </section>
       )}
 
-      {/* World creation modal */}
-      <Modal
-        isOpen={worldModalOpen}
-        onClose={() => setWorldModalOpen(false)}
-        title="Create world"
-      >
-        <Form onSubmit={handlers.handleCreateWorld}>
-          <FormField
-            label="World name"
-            value={worldName}
-            onChange={setWorldName}
-          />
-          <FormField
-            label="Description"
-            value={worldDescription}
-            onChange={setWorldDescription}
-            type="textarea"
-            rows={3}
-          />
-          <FormActions
-            onCancel={() => setWorldModalOpen(false)}
-            submitLabel="Save world"
-          />
-        </Form>
-      </Modal>
+      {/* World creation modal moved to AuthenticatedView so it's always accessible */}
 
       {/* Entity creation modal */}
       {selectedWorldId && selectedEntityType !== "all" && (
@@ -279,6 +303,34 @@ export default function WorldTab() {
           onEndingTimestampChange={setEntityEndingTimestamp}
           onSubmit={handlers.handleCreateEntity}
         />
+      )}
+
+      {/* Campaign creation modal */}
+      {selectedWorldId && (
+        <Modal
+          isOpen={campaignModalOpen}
+          onClose={() => setCampaignModalOpen(false)}
+          title="Create campaign"
+        >
+          <Form onSubmit={handlers.handleCreateCampaign}>
+            <FormField
+              label="Campaign name"
+              value={campaignName}
+              onChange={setCampaignName}
+            />
+            <FormField
+              label="Summary"
+              value={campaignSummary}
+              onChange={setCampaignSummary}
+              type="textarea"
+              rows={3}
+            />
+            <FormActions
+              onCancel={() => setCampaignModalOpen(false)}
+              submitLabel="Save campaign"
+            />
+          </Form>
+        </Modal>
       )}
     </section>
   );

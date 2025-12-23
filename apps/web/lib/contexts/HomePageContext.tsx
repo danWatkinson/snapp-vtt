@@ -134,17 +134,12 @@ export function HomePageProvider({ children }: { children: ReactNode }) {
   useCustomEvent(OPEN_CREATE_WORLD_EVENT, () => {
     /* c8 ignore next */ // defensive guard; create-world event is only fired for authenticated users
     if (!state.currentUser) return;
-    state.setActiveTab("World");
-    state.setActiveMode("plan");
     state.openModal("world");
   });
 
   useCustomEvent(OPEN_CREATE_CAMPAIGN_EVENT, () => {
     /* c8 ignore next */ // defensive guard; create-campaign event is only fired for authenticated users in a world
     if (!state.currentUser || !state.selectedIds.worldId) return;
-    state.setActiveTab("Campaigns");
-    state.setActiveMode("plan");
-    state.setSubTab("Campaigns");
     state.openModal("campaign");
   });
 

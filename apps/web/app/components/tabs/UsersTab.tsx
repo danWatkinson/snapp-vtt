@@ -2,6 +2,7 @@
 
 import { useHomePage } from "../../../lib/contexts/HomePageContext";
 import { useTabHelpers } from "../../../lib/hooks/useTabHelpers";
+import { useCallback } from "react";
 import FormField from "../ui/FormField";
 import FormActions from "../ui/FormActions";
 import Modal from "../ui/Modal";
@@ -12,7 +13,8 @@ import Section from "../ui/Section";
 import SectionHeader from "../ui/SectionHeader";
 import ListContainer from "../ui/ListContainer";
 import Form from "../ui/Form";
-import WorldHeaderWithTabs from "../navigation/WorldHeaderWithTabs";
+import WorldHeader from "../navigation/WorldHeader";
+import Breadcrumb from "../navigation/Breadcrumb";
 
 export default function UsersTab() {
   const {
@@ -28,6 +30,14 @@ export default function UsersTab() {
     openModal,
     closeModal
   } = useHomePage();
+
+  // Wrapper functions for modal handlers to match useTabHelpers signature
+  const openModalWrapper = useCallback((key: string) => {
+    openModal(key as any);
+  }, [openModal]);
+  const closeModalWrapper = useCallback((key: string) => {
+    closeModal(key as any);
+  }, [closeModal]);
 
   // Use tab helpers to consolidate setup
   const {
@@ -54,8 +64,8 @@ export default function UsersTab() {
     },
     modals: ["createUser"],
     setSelectionField: () => {}, // Not used in UsersTab
-    openModal,
-    closeModal,
+    openModal: openModalWrapper,
+    closeModal: closeModalWrapper,
     selectedIds,
     modalsState: modals
   });
@@ -155,13 +165,20 @@ export default function UsersTab() {
 
   return (
     <div data-component="UsersTab" className="space-y-6">
-      <WorldHeaderWithTabs />
+      {selectedIds.worldId && (
+        <>
+          <WorldHeader />
+          <Breadcrumb />
+        </>
+      )}
 
       <div className="flex items-center justify-between mb-4">
         <Heading>User Management</Heading>
-        <p className="text-sm snapp-muted">
-          Logged in as {currentUser.user.username} ({currentUser.user.roles.join(", ") || "no roles"})
-        </p>
+        {currentUser && (
+          <p className="text-sm snapp-muted">
+            Logged in as {currentUser.user.username} ({currentUser.user.roles.join(", ") || "no roles"})
+          </p>
+        )}
       </div>
 
       {currentUser?.user.roles.includes("admin") && (

@@ -78,17 +78,39 @@ When('the admin links event {string} as sub-event of {string}', async ({ page, r
     );
   }
   
-  // Create the relationship via API
+  // Check if the relationship already exists
+  let relationshipExists = false;
   try {
-    await api.call("world", "POST", `/worlds/${worldId}/events/${parentEvent.id}/relationships`, {
-      token: adminToken,
-      body: {
-        targetEventId: subEvent.id,
-        relationshipType: "contains"
-      }
+    const relationshipsResponse = await api.call("world", "GET", `/worlds/${worldId}/events/${parentEvent.id}/relationships`, {
+      token: adminToken
     });
-  } catch (error: any) {
-    throw new Error(`Failed to create relationship: ${error.message || "Unknown error"}`);
+    const relationships = (relationshipsResponse as { relationships?: any[] }).relationships || [];
+    relationshipExists = relationships.some((rel: any) => 
+      rel.targetEventId === subEvent.id && rel.relationshipType === "contains"
+    );
+  } catch {
+    // If we can't check, assume it doesn't exist and try to create it
+    relationshipExists = false;
+  }
+  
+  // Create the relationship via API if it doesn't already exist
+  if (!relationshipExists) {
+    try {
+      await api.call("world", "POST", `/worlds/${worldId}/events/${parentEvent.id}/relationships`, {
+        token: adminToken,
+        body: {
+          targetEventId: subEvent.id,
+          relationshipType: "contains"
+        }
+      });
+    } catch (error: any) {
+      // If relationship already exists (409 or similar), that's okay
+      const errorMessage = error.message || String(error);
+      if (!errorMessage.includes("already exists") && !errorMessage.includes("409")) {
+        throw new Error(`Failed to create relationship: ${errorMessage}`);
+      }
+      // Relationship already exists, continue
+    }
   }
   
   // Wait for the relationship to be reflected in the UI
@@ -122,14 +144,67 @@ When('the admin links event {string} as sub-event of {string}', async ({ page, r
 });
 
 Then('event {string} shows it has sub-event {string}', async ({ page }, parentEventName: string, subEventName: string) => {
+  // Ensure we're on the Events tab
+  const addEventButton = page.getByRole("button", { name: "Add event" });
+  const isOnEventsTab = await addEventButton.isVisible({ timeout: 2000 }).catch(() => false);
+  
+  if (!isOnEventsTab) {
+    const eventsTab = page.getByRole("tab", { name: "Events" });
+    await expect(eventsTab).toBeVisible({ timeout: 5000 });
+    await eventsTab.click();
+    await expect(addEventButton).toBeVisible({ timeout: 5000 });
+  }
+  
+  // Wait for entities to be loaded
+  await page.waitForTimeout(1000);
+  
   const parentEventItem = page
     .getByRole("listitem")
     .filter({ hasText: parentEventName })
     .first();
   
-  await expect(parentEventItem).toBeVisible();
+  await expect(parentEventItem).toBeVisible({ timeout: 5000 });
   
-  // Check that the parent event shows the sub-event
+  // Poll for the relationship to appear in the UI (with retries for existing data)
+  let relationshipVisible = false;
+  const maxAttempts = 10; // 5 seconds total
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const eventText = await parentEventItem.textContent();
+    if (eventText && eventText.includes("Sub-events:") && eventText.includes(subEventName)) {
+      relationshipVisible = true;
+      break;
+    }
+    if (attempt < maxAttempts - 1) {
+      // Try refreshing the tab if relationship not visible
+      if (attempt === 3) {
+        // After a few attempts, try clicking away and back to refresh
+        const locationsTab = page.getByRole("tab", { name: "Locations" });
+        const locationsTabVisible = await locationsTab.isVisible({ timeout: 2000 }).catch(() => false);
+        if (locationsTabVisible) {
+          await locationsTab.click();
+          await page.waitForTimeout(500);
+          const eventsTab = page.getByRole("tab", { name: "Events" });
+          await eventsTab.click();
+          await expect(addEventButton).toBeVisible({ timeout: 5000 });
+          await page.waitForTimeout(1000);
+        }
+      } else {
+        await page.waitForTimeout(500);
+      }
+    }
+  }
+  
+  if (!relationshipVisible) {
+    // If relationship still not visible, log the current state for debugging
+    const currentText = await parentEventItem.textContent();
+    throw new Error(
+      `Relationship not visible in UI. ` +
+      `Parent event: ${parentEventName}, Sub-event: ${subEventName}. ` +
+      `Current parent event text: ${currentText}`
+    );
+  }
+  
+  // Verify the relationship is displayed correctly
   const eventText = await parentEventItem.textContent();
   expect(eventText).toContain("Sub-events:");
   expect(eventText).toContain(subEventName);

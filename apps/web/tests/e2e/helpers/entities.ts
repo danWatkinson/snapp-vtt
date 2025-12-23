@@ -39,7 +39,9 @@ export async function waitForWorldCreated(
       // Fallback: Wait for world to appear in the world context tablist
       const worldContextTablist = page.getByRole("tablist", { name: "World context" });
       await expect(worldContextTablist).toBeVisible({ timeout });
-      const worldTab = worldContextTablist.getByRole("tab", { name: new RegExp(worldName, "i") });
+      // Escape regex special characters in world name (e.g., brackets from unique name generation)
+      const escapedWorldName = worldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const worldTab = worldContextTablist.getByRole("tab", { name: new RegExp(escapedWorldName, "i") });
       await expect(worldTab).toBeVisible({ timeout });
     }
   ).catch(async (error) => {
@@ -47,7 +49,9 @@ export async function waitForWorldCreated(
     const worldContextTablist = page.getByRole("tablist", { name: "World context" });
     const isVisible = await isVisibleSafely(worldContextTablist);
     if (isVisible) {
-      const worldTab = worldContextTablist.getByRole("tab", { name: new RegExp(worldName, "i") });
+      // Escape regex special characters in world name (e.g., brackets from unique name generation)
+      const escapedWorldName = worldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const worldTab = worldContextTablist.getByRole("tab", { name: new RegExp(escapedWorldName, "i") });
       const tabVisible = await isVisibleSafely(worldTab);
       if (tabVisible) {
         return; // World tab is visible, that's good enough
@@ -78,23 +82,33 @@ export async function waitForCampaignCreated(
     timeout,
     `Timeout waiting for campaign "{name}" to be created after ${timeout}ms`,
     async () => {
-      // Fallback: Check for campaign tab or heading appearance (most reliable indicator)
-      // This is better than waiting for modal close since the campaign might be auto-selected
-      const campaignTab = page.getByRole("tab", { name: new RegExp(campaignName, "i") }).first();
+      // Fallback: Check for campaign in CampaignSelection list or heading appearance
+      // In the new UI, campaigns appear in a TabList with aria-label="Campaigns" in World view
+      const campaignsList = page.getByRole("tablist", { name: "Campaigns" });
       const campaignHeading = page.locator('h3.snapp-heading').filter({ hasText: new RegExp(campaignName, "i") }).first();
       
-      // Race between modal close, tab appearance, and heading appearance
-      await Promise.race([
+      // Check if list exists first, then get campaign from it
+      const listExists = await isVisibleSafely(campaignsList, 2000).catch(() => false);
+      const campaignInList = listExists ? campaignsList.getByRole("tab", { name: new RegExp(campaignName, "i") }).first() : null;
+      
+      // Race between modal close, campaign in list (if list exists), and heading appearance
+      const racePromises = [
         waitForModalClose(page, "campaign", timeout).catch(() => {}), // Don't fail if modal doesn't close
-        expect(campaignTab).toBeVisible({ timeout }).catch(() => {}), // Don't fail if tab check fails
         expect(campaignHeading).toBeVisible({ timeout }).catch(() => {}) // Don't fail if heading check fails
-      ]);
+      ];
       
-      // Verify campaign actually appeared (either as tab or heading)
-      const tabVisible = await isVisibleSafely(campaignTab, 2000);
-      const headingVisible = await isVisibleSafely(campaignHeading, 2000);
+      if (campaignInList) {
+        racePromises.push(expect(campaignInList).toBeVisible({ timeout }).catch(() => {})); // Don't fail if list check fails
+      }
       
-      if (tabVisible || headingVisible) {
+      await Promise.race(racePromises);
+      
+      // Verify campaign actually appeared (either in list or as heading)
+      const listVisibleCheck = await isVisibleSafely(campaignsList, 2000).catch(() => false);
+      const inListVisible = listVisibleCheck && campaignInList ? await isVisibleSafely(campaignInList, 2000).catch(() => false) : false;
+      const headingVisible = await isVisibleSafely(campaignHeading, 2000).catch(() => false);
+      
+      if (inListVisible || headingVisible) {
         // Campaign appeared - success!
         return;
       }
@@ -104,9 +118,11 @@ export async function waitForCampaignCreated(
       const isHidden = await isHiddenSafely(dialog, 1000);
       if (isHidden) {
         // Modal is closed - campaign might have been created, verify it exists
-        const finalTabCheck = await isVisibleSafely(campaignTab, 2000);
-        const finalHeadingCheck = await isVisibleSafely(campaignHeading, 2000);
-        if (finalTabCheck || finalHeadingCheck) {
+        // Re-check list existence and campaign
+        const listExistsFinal = await isVisibleSafely(campaignsList, 2000).catch(() => false);
+        const finalListCheck = listExistsFinal ? await isVisibleSafely(campaignsList.getByRole("tab", { name: new RegExp(campaignName, "i") }).first(), 2000).catch(() => false) : false;
+        const finalHeadingCheck = await isVisibleSafely(campaignHeading, 2000).catch(() => false);
+        if (finalListCheck || finalHeadingCheck) {
           return; // Campaign exists
         }
       }

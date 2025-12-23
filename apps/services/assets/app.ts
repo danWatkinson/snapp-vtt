@@ -67,6 +67,14 @@ export class InMemoryAssetStore implements AssetStore {
   getById(id: string): DigitalAsset | undefined {
     return this.assets.find((a) => a.id === id);
   }
+
+  /**
+   * Clear all assets from the store.
+   * Used for test isolation - resets the store to an empty state.
+   */
+  clear(): void {
+    this.assets = [];
+  }
 }
 
 export interface AssetAppDependencies {
@@ -184,6 +192,24 @@ export function createAssetApp(deps: AssetAppDependencies = {}) {
       return asset;
     },
     { responseProperty: "asset" }
+  ));
+
+  // Admin endpoint: Reset all data (for test isolation)
+  // Available in development and test environments for e2e test isolation
+  // Endpoint is always registered but checks at request time for security
+  app.post("/admin/reset", createPostRoute(
+    () => {
+      // Allow in development (for e2e tests) or test mode
+      // In production, this endpoint would not be available (services shouldn't be in production mode for e2e)
+      const isDevelopment = process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
+      const isTest = process.env.NODE_ENV === "test" || process.env.E2E_TEST_MODE === "true";
+      if (!isDevelopment && !isTest) {
+        throw new Error("Reset endpoint only available in development or test mode");
+      }
+      store.clear();
+      return { message: "Assets store reset" };
+    },
+    { responseProperty: "message" }
   ));
     }
   });

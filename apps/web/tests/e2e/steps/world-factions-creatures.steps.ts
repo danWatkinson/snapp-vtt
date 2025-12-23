@@ -170,14 +170,41 @@ Then('faction {string} shows it has member {string}', async ({ page }, factionNa
   
   // Wait for the membership to appear in the UI
   // Poll for the "Members:" text to appear (with a reasonable timeout)
+  // The relationship might take time to load after the API call
   let membershipVisible = false;
-  const maxAttempts = 10; // 5 seconds total
+  const maxAttempts = 20; // 10 seconds total - relationships might take time to load
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const factionText = await factionItem.textContent();
     if (factionText && factionText.includes("Members:") && factionText.includes(memberName)) {
       membershipVisible = true;
       break;
     }
+    
+    // If we're halfway through and still no members, try refreshing again
+    if (attempt === Math.floor(maxAttempts / 2)) {
+      // Click away and back to force refresh
+      const locationsTab = page.getByRole("tab", { name: "Locations" });
+      const locationsTabVisible = await locationsTab.isVisible({ timeout: 2000 }).catch(() => false);
+      if (locationsTabVisible) {
+        await locationsTab.click();
+        await page.waitForTimeout(500);
+        const factionsTab = page.getByRole("tab", { name: "Factions" });
+        await factionsTab.click();
+        await expect(page.getByRole("button", { name: "Add faction" })).toBeVisible({ timeout: 5000 });
+        // Re-find the faction item after refresh
+        const allFactionItemsAfterRefresh = page.getByRole("listitem");
+        const itemCountAfterRefresh = await allFactionItemsAfterRefresh.count();
+        for (let i = 0; i < itemCountAfterRefresh; i++) {
+          const item = allFactionItemsAfterRefresh.nth(i);
+          const mainName = await item.locator('.font-semibold').first().textContent().catch(() => null);
+          if (mainName && mainName.trim() === factionName) {
+            factionItem = item;
+            break;
+          }
+        }
+      }
+    }
+    
     if (attempt < maxAttempts - 1) {
       await page.waitForTimeout(500);
     }

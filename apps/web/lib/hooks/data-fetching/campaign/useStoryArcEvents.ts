@@ -8,7 +8,7 @@ export function useStoryArcEvents(
   storyArcEventsLoadedFor: string | null,
   worlds: any[],
   fetchStoryArcEvents: (arcId: string) => Promise<string[]>,
-  fetchWorldEntities: (worldId: string, type: string) => Promise<any[]>,
+  fetchWorldEntities: (worldId: string, type?: "location" | "creature" | "faction" | "concept" | "event") => Promise<any[]>,
   setStoryArcEvents: (events: string[]) => void,
   setStoryArcEventsLoadedFor: (key: string | null) => void,
   setAllEvents: (events: any[]) => void,

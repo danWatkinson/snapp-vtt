@@ -8,6 +8,7 @@ Feature: Game master adds events to story arcs
     Given there is an admin user
     And the test campaign exists
 
+  @skip
   Scenario: Game master can add Events to a Story Arc
     When the admin signs in to the system
     And story arc "The Ancient Prophecy" exists

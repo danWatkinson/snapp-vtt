@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterMode, getStoredCampaignName, ensureCampaignExists } from "../helpers";
+import { safeWait } from "../helpers/utils";
+import { selectWorldAndEnterMode, getStoredCampaignName, ensureCampaignExists, getUniqueCampaignName } from "../helpers";
 import { navigateToCampaignView, isOnCampaignView } from "../helpers/navigation";
 import { createStoryArc } from "../helpers/entityCreation";
 import { verifyEntityInList } from "../helpers/verification";

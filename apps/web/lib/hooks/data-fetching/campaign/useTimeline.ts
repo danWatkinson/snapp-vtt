@@ -11,7 +11,7 @@ export function useTimeline(
   fetchTimeline: (campaignId: string) => Promise<any>,
   fetchStoryArcs: (campaignId: string) => Promise<any[]>,
   fetchStoryArcEvents: (arcId: string) => Promise<string[]>,
-  fetchWorldEntities: (worldId: string, type: string) => Promise<any[]>,
+  fetchWorldEntities: (worldId: string, type?: "location" | "creature" | "faction" | "concept" | "event") => Promise<any[]>,
   setTimeline: (timeline: any) => void,
   setTimelineLoadedFor: (key: string | null) => void,
   setStoryArcs: (arcs: any[]) => void,

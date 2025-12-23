@@ -1,37 +1,98 @@
 "use client";
 
 import WorldTab from "./tabs/WorldTab";
-import CampaignsTab from "./tabs/CampaignsTab";
-import SessionsTab from "./tabs/SessionsTab";
+import CampaignView from "./tabs/CampaignView";
 import UsersTab from "./tabs/UsersTab";
 import AssetsTab from "./tabs/AssetsTab";
 import ModeSelector from "./navigation/ModeSelector";
 import { useHomePage } from "../../lib/contexts/HomePageContext";
+import Modal from "./ui/Modal";
+import Form from "./ui/Form";
+import FormField from "./ui/FormField";
+import FormActions from "./ui/FormActions";
+import { useTabHelpers } from "../../lib/hooks/useTabHelpers";
+import { useCallback } from "react";
 
 export default function AuthenticatedView() {
   const {
-    activeTab,
-    activeMode,
     selectedIds,
     currentUser,
-    error,
-    isLoading,
-    setError
+    activeTab,
+    worldForm,
+    modals,
+    handlers,
+    openModal,
+    closeModal,
+    setSelectionField
   } = useHomePage();
 
+  // Wrapper functions for modal handlers
+  const openModalWrapper = useCallback((key: string) => openModal(key as any), [openModal]);
+  const closeModalWrapper = useCallback((key: string) => closeModal(key as any), [closeModal]);
+
+  // Get world form state and modal handlers
+  const {
+    formSetters: { setWorldName, setWorldDescription },
+    formValues: { worldName, worldDescription },
+    modalHandlers: { setWorldModalOpen },
+    modalStates: { worldModalOpen }
+  } = useTabHelpers({
+    forms: {
+      world: { form: worldForm, fields: ["name", "description"], prefix: "world" }
+    },
+    modals: ["world"],
+    setSelectionField,
+    openModal: openModalWrapper,
+    closeModal: closeModalWrapper,
+    selectedIds,
+    modalsState: modals
+  });
+
+  // Show Users or Assets when accessed via menu
+  if (activeTab === "Users") {
+    return <UsersTab />;
+  }
+  
+  if (activeTab === "Assets") {
+    return <AssetsTab />;
+  }
+
+  // Main navigation based on selectedIds
   return (
-    <section className="space-y-6">
-      {!selectedIds.worldId && <ModeSelector />}
+    <>
+      <section className="space-y-6">
+        {!selectedIds.worldId && <ModeSelector />}
 
-      {activeTab === "World" && <WorldTab />}
+        {selectedIds.worldId && !selectedIds.campaignId && <WorldTab />}
 
-      {activeTab === "Campaigns" && <CampaignsTab />}
+        {selectedIds.worldId && selectedIds.campaignId && <CampaignView />}
+      </section>
 
-      {activeTab === "Sessions" && <SessionsTab />}
-
-      {activeTab === "Assets" && <AssetsTab />}
-
-      {activeTab === "Users" && currentUser && <UsersTab />}
-    </section>
+      {/* World creation modal - always available, even when no world is selected */}
+      <Modal
+        isOpen={worldModalOpen}
+        onClose={() => setWorldModalOpen(false)}
+        title="Create world"
+      >
+        <Form onSubmit={handlers.handleCreateWorld}>
+          <FormField
+            label="World name"
+            value={worldName}
+            onChange={setWorldName}
+          />
+          <FormField
+            label="Description"
+            value={worldDescription}
+            onChange={setWorldDescription}
+            type="textarea"
+            rows={3}
+          />
+          <FormActions
+            onCancel={() => setWorldModalOpen(false)}
+            submitLabel="Save world"
+          />
+        </Form>
+      </Modal>
+    </>
   );
 }

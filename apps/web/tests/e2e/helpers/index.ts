@@ -6,6 +6,14 @@ export * from "./constants";
 export * from "./utils";
 // Explicitly export utility helpers
 export { navigateAndWaitForReady, clearAllStorage } from "./utils";
+// Explicitly export name generation helpers
+export { 
+  getUniqueEntityName,
+  getUniqueCampaignName,
+  getUniqueWorldName,
+  getUniqueUsername,
+  getUniqueWorldEntityName
+} from "./utils";
 
 // Explicitly re-export safeWait to ensure it's available when importing from "../helpers"
 // This is needed because some test files import from "../helpers" instead of "../helpers/utils"

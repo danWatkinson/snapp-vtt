@@ -20,7 +20,7 @@ interface UseUserHandlersProps {
   setIsLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setUsersLoaded: (loaded: boolean) => void;
-  closeModal: (name: string) => void;
+  closeModal: ReturnType<typeof import("../useModals").useModals>["closeModal"];
   currentUser: { token: string } | null;
   handleLogout: () => void;
 }

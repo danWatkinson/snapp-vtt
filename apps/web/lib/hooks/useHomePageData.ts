@@ -24,6 +24,7 @@ import {
 } from "../clients/campaignClient";
 import type { LoginResponse } from "../clients/authClient";
 import { useEffect, useRef } from "react";
+import type React from "react";
 import { fetchAssets } from "../clients/assetsClient";
 import { isAuthError } from "../auth/authErrors";
 
@@ -62,7 +63,7 @@ interface UseHomePageDataProps {
   setWorldsLoaded: (loaded: boolean) => void;
   setCampaigns: (campaigns: any[]) => void;
   setCampaignsLoaded: (loaded: boolean) => void;
-  setEntities: (entities: any[]) => void;
+  setEntities: React.Dispatch<React.SetStateAction<any[]>>;
   setEntitiesLoadedFor: (key: string | null) => void;
   setSessions: (sessions: any[]) => void;
   setSessionsLoadedFor: (key: string | null) => void;
@@ -162,7 +163,6 @@ export function useHomePageData(props: UseHomePageDataProps) {
   );
 
   useCampaigns(
-    activeTab,
     campaignsLoaded,
     selectedIds.worldId,
     fetchCampaignsByWorld,

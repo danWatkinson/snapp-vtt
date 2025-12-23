@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
 import { getStoredWorldName, waitForWorldUpdated, waitForModalOpen, selectWorldAndEnterMode, getUniqueCampaignName, waitForMode } from "../helpers";
+import { selectWorldAndEnterModeWithWorldName } from "../helpers/navigation/worldNavigation";
 import { STABILITY_WAIT_MAX, STABILITY_WAIT_SHORT } from "../helpers/constants";
 import { safeWait, isVisibleSafely } from "../helpers/utils";
 
@@ -15,105 +16,107 @@ When(
     
     if (!isWorldSelected) {
       // Need to navigate and select the world
-      // Check if we're in planning mode
-      const planningTabs = page.getByRole("tablist", { name: "World views" });
-      const isInPlanningMode = await isVisibleSafely(planningTabs, 1000);
+      // Use the "Select World" option from the Snapp menu
+      const snappMenu = page.getByRole("button", { name: /^Snapp/i });
+      const menuVisible = await isVisibleSafely(snappMenu, 2000).catch(() => false);
       
-      if (!isInPlanningMode) {
-        // Navigate to World Entities screen (this will select a world if none selected)
-        // After navigation, verify we're in planning mode before proceeding
-        try {
-          await selectWorldAndEnterMode(page, "World Entities");
-        } catch (error) {
-          // If planning mode activation failed, check if we're actually in planning mode anyway
-          // Retry multiple times with delays - planning mode might activate shortly after the error
-          let isActuallyInPlanningMode = false;
-          for (let retry = 0; retry < 5; retry++) {
-            await safeWait(page, STABILITY_WAIT_SHORT);
-            const planningTabsCheck = page.getByRole("tablist", { name: "World views" });
-            isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 2000 }).catch(() => false);
-            if (isActuallyInPlanningMode) {
-              break; // Planning mode is active, continue
+      if (menuVisible) {
+        // Open Snapp menu
+        await snappMenu.click();
+        await safeWait(page, STABILITY_WAIT_SHORT);
+        
+        // Look for "Select World" button (shows when no world is selected)
+        const selectWorldButton = page.getByRole("button", { name: "Select World" });
+        const selectWorldVisible = await isVisibleSafely(selectWorldButton, 2000).catch(() => false);
+        
+        if (selectWorldVisible) {
+          // Click "Select World" to show the world selector
+          await selectWorldButton.click();
+          // Wait for world selector to appear
+          await expect(page.getByRole("tablist", { name: "World context" })).toBeVisible({ timeout: 3000 });
+        } else {
+          // Menu might already be showing world selector, or we're in a different state
+          // Check if world context tablist is already visible
+          const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+          const tablistVisible = await isVisibleSafely(worldContextTablist, 2000).catch(() => false);
+          if (!tablistVisible) {
+            // Close menu and try alternative navigation
+            const menuOverlay = page.locator('div.fixed.inset-0.z-10');
+            if (await menuOverlay.isVisible({ timeout: 1000 }).catch(() => false)) {
+              await menuOverlay.click({ force: true }).catch(() => {});
             }
-          }
-          if (!isActuallyInPlanningMode) {
-            // Not in planning mode after retries - rethrow the error
-            throw error;
-          }
-          // We're in planning mode despite the error - continue
-        }
-        
-        // Verify planning mode is active
-        const planningTabsAfterNav = page.getByRole("tablist", { name: "World views" });
-        const isInPlanningModeAfterNav = await planningTabsAfterNav.isVisible({ timeout: 5000 }).catch(() => false);
-        if (!isInPlanningModeAfterNav) {
-          // Planning mode didn't activate - wait a bit more and check again
-          await safeWait(page, STABILITY_WAIT_MAX);
-          const stillNotInPlanningMode = !(await planningTabsAfterNav.isVisible({ timeout: 3000 }).catch(() => false));
-          if (stillNotInPlanningMode) {
-            throw new Error(`Mode did not activate after navigating to World Entities screen for world "${worldName}"`);
-          }
-        }
-        
-        // After navigation, check if the correct world is selected
-        // Get unique world name
-        let uniqueWorldName = await getStoredWorldName(page, worldName).catch(() => null);
-        if (!uniqueWorldName) {
-          if (worldName === "Eldoria" || worldName === "NoSplashWorld") {
-            uniqueWorldName = getUniqueCampaignName(worldName);
-          } else {
-            uniqueWorldName = worldName;
-          }
-        }
-        
-        // Check which world is currently selected
-        const worldContextTablist = page.getByRole("tablist", { name: "World context" });
-        const allWorldTabs = await worldContextTablist.getByRole("tab").all();
-        let currentlySelectedWorld: string | null = null;
-        
-        for (const tab of allWorldTabs) {
-          const isSelected = await tab.getAttribute("aria-selected").then(val => val === "true").catch(() => false);
-          if (isSelected) {
-            currentlySelectedWorld = await tab.textContent();
-            break;
-          }
-        }
-        
-        // If the wrong world is selected, select the correct one
-        if (!currentlySelectedWorld || (!currentlySelectedWorld.includes(worldName) && !currentlySelectedWorld.includes(uniqueWorldName))) {
-          let worldTab = worldContextTablist.getByRole("tab", { name: uniqueWorldName });
-          let exists = await worldTab.isVisible().catch(() => false);
-          
-          if (!exists) {
-            worldTab = worldContextTablist.getByRole("tab", { name: worldName });
-            exists = await worldTab.isVisible().catch(() => false);
-          }
-          
-          if (!exists) {
-            // Try partial match
-            for (const tab of allWorldTabs) {
-              const text = await tab.textContent();
-              if (text && (text.includes(worldName) || text.includes(uniqueWorldName.split(" ")[0]))) {
-                worldTab = tab;
-                exists = true;
-                break;
-              }
-            }
-          }
-          
-          if (exists) {
-            const modePromise = waitForMode(page, 5000);
-            await worldTab.click();
-            await modePromise;
+            // Fall back to navigation helper
+            await selectWorldAndEnterMode(page, "World Entities");
           }
         }
       } else {
-        // In planning mode but wrong world - need to select the correct world
+        // Snapp menu not visible, use navigation helper
+        await selectWorldAndEnterMode(page, "World Entities");
+      }
+      
+      // Get unique world name
+      let uniqueWorldName = await getStoredWorldName(page, worldName).catch(() => null);
+      if (!uniqueWorldName) {
+        if (worldName === "Eldoria" || worldName === "NoSplashWorld") {
+          uniqueWorldName = getUniqueWorldName(worldName);
+        } else {
+          uniqueWorldName = worldName;
+        }
+      }
+      
+      // Wait for world context tablist to be visible
+      const worldContextTablist = page.getByRole("tablist", { name: "World context" });
+      await expect(worldContextTablist).toBeVisible({ timeout: 5000 });
+      
+      // Select the world from the world context tablist
+      let worldTab = worldContextTablist.getByRole("tab", { name: uniqueWorldName });
+      let exists = await worldTab.isVisible().catch(() => false);
+      
+      if (!exists) {
+        worldTab = worldContextTablist.getByRole("tab", { name: worldName });
+        exists = await worldTab.isVisible().catch(() => false);
+      }
+      
+      if (!exists) {
+        // Try partial match
+        const allWorldTabs = await worldContextTablist.getByRole("tab").all();
+        for (const tab of allWorldTabs) {
+          const text = await tab.textContent();
+          if (text && (text.includes(worldName) || text.includes(uniqueWorldName.split(" ")[0]))) {
+            worldTab = tab;
+            exists = true;
+            break;
+          }
+        }
+      }
+      
+      if (exists) {
+        const modePromise = waitForMode(page, 5000);
+        await worldTab.click();
+        await modePromise;
+      } else {
+        throw new Error(`World "${worldName}" not found in world selector`);
+      }
+      
+      // Verify we're now in world view with the world selected
+      const worldTabComponent = page.locator('[data-component="WorldTab"]');
+      await expect(worldTabComponent).toBeVisible({ timeout: 5000 });
+      
+      const settingsButtonAfterSelect = page.getByRole("button", { name: "World settings" });
+      await expect(settingsButtonAfterSelect).toBeVisible({ timeout: 3000 });
+    } else {
+      // World is already selected, but check if it's the correct one
+      // Check if we're in world view
+      const worldTab = page.locator('[data-component="WorldTab"]');
+      const isInWorldView = await isVisibleSafely(worldTab, 1000);
+      
+      if (isInWorldView) {
+        // In world view but wrong world - need to select the correct world
         // Get unique world name
         let uniqueWorldName = await getStoredWorldName(page, worldName).catch(() => null);
         if (!uniqueWorldName) {
           if (worldName === "Eldoria" || worldName === "NoSplashWorld") {
-            uniqueWorldName = getUniqueCampaignName(worldName);
+            uniqueWorldName = getUniqueWorldName(worldName);
           } else {
             uniqueWorldName = worldName;
           }
@@ -148,7 +151,9 @@ When(
           }
           
           if (!exists && (worldName === "Eldoria" || worldName === "NoSplashWorld")) {
-            worldTab = worldContextTablist.getByRole("tab").filter({ hasText: new RegExp(worldName, "i") }).first();
+            // Escape regex special characters in world name (e.g., brackets from unique name generation)
+            const escapedWorldName = worldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            worldTab = worldContextTablist.getByRole("tab").filter({ hasText: new RegExp(escapedWorldName, "i") }).first();
             exists = await worldTab.isVisible().catch(() => false);
           }
           
@@ -346,7 +351,7 @@ Then(
 Then(
   'the world {string} shows a "no splash image" placeholder in the world header',
   async ({ page }, worldName: string) => {
-    // Ensure we're in planning mode with the world selected
+    // Ensure we're in world view with the world selected
     const settingsButton = page.getByRole("button", { name: "World settings" });
     const isWorldSelected = await isVisibleSafely(settingsButton, 1000);
     
@@ -355,29 +360,29 @@ Then(
       try {
         await selectWorldAndEnterMode(page, "World Entities");
       } catch (error) {
-        // If planning mode activation failed, check if we're actually in planning mode anyway
-        const planningTabsCheck = page.getByRole("tablist", { name: "World views" });
-        const isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
-        if (!isActuallyInPlanningMode) {
-          // Not in planning mode - rethrow the error
+        // If world view activation failed, check if we're actually in world view anyway
+        const worldTabCheck = page.locator('[data-component="WorldTab"]');
+        const isActuallyInWorldView = await worldTabCheck.isVisible({ timeout: 3000 }).catch(() => false);
+        if (!isActuallyInWorldView) {
+          // Not in world view - rethrow the error
           throw error;
         }
-        // We're in planning mode despite the error - continue
+        // We're in world view despite the error - continue
       }
       
-      // Check if we're already in planning mode with a world selected
-      const planningTabs = page.getByRole("tablist", { name: "World views" });
-      const isInPlanningMode = await planningTabs.isVisible({ timeout: 2000 }).catch(() => false);
+      // Check if we're already in world view with a world selected
+      const worldTab = page.locator('[data-component="WorldTab"]');
+      const isInWorldView = await worldTab.isVisible({ timeout: 2000 }).catch(() => false);
       const currentSettingsButton = page.getByRole("button", { name: "World settings" });
-      const worldSelectedInPlanningMode = await isVisibleSafely(currentSettingsButton, 1000);
+      const worldSelectedInWorldView = await isVisibleSafely(currentSettingsButton, 1000);
       
-      if (isInPlanningMode && worldSelectedInPlanningMode) {
-        // We're in planning mode with a world selected - assume it's correct for now
+      if (isInWorldView && worldSelectedInWorldView) {
+        // We're in world view with a world selected - assume it's correct for now
         // The placeholder check will verify if it's the right world
         // If it's the wrong world, we'd need to leave and reselect, but that's complex
         // For now, proceed with the assumption that selectWorldAndEnterMode selected the right world
       } else {
-        // Not in planning mode or no world selected - need to select the world
+        // Not in world view or no world selected - need to select the world
         // Get the stored world name first (from "world X exists" step), then fall back to generating one
         let uniqueWorldName: string;
         try {
@@ -388,15 +393,15 @@ Then(
             uniqueWorldName = storedName;
           } else {
             // No stored name - generate one
-            uniqueWorldName = getUniqueCampaignName(worldName);
+            uniqueWorldName = getUniqueWorldName(worldName);
           }
         } catch {
           // Can't retrieve stored name - generate one
-          uniqueWorldName = getUniqueCampaignName(worldName);
+          uniqueWorldName = getUniqueWorldName(worldName);
         }
         
-        // If we're in planning mode but no world selected, leave it first
-        if (isInPlanningMode && !worldSelectedInPlanningMode) {
+        // If we're in world view but no world selected, leave it first
+        if (isInWorldView && !worldSelectedInWorldView) {
           await page.getByRole("button", { name: /^Snapp/i }).click();
           await expect(page.getByRole("button", { name: "Leave World" })).toBeVisible({ timeout: 2000 });
           await page.getByRole("button", { name: "Leave World" }).click();
@@ -459,7 +464,7 @@ Then(
             );
           }
         } else {
-          // Correct world is selected - click it to enter planning mode if not already
+          // Correct world is selected - click it to enter world view if not already
           const worldTab = worldContextTablist.getByRole("tab", { name: currentlySelectedWorld });
           const modePromise = waitForMode(page, 5000);
           await worldTab.click();

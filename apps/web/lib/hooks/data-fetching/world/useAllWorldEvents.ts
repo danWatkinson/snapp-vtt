@@ -6,7 +6,7 @@ import { useEffect } from "react";
 export function useAllWorldEvents(
   storyArcEventModalOpen: boolean,
   worlds: any[],
-  fetchWorldEntities: (worldId: string, type: string) => Promise<any[]>,
+  fetchWorldEntities: (worldId: string, type?: "location" | "creature" | "faction" | "concept" | "event") => Promise<any[]>,
   setAllEvents: (events: any[]) => void,
   setError: (error: string | null) => void
 ) {

@@ -4,17 +4,15 @@ import { AUTH_USERNAME_KEY } from "../../auth/authStorage";
 import { login, type LoginResponse } from "../../clients/authClient";
 import { withAsyncAction } from "../useAsyncAction";
 import { isAuthError } from "../../auth/authErrors";
+import type { useFormState } from "../useFormState";
 
 interface UseAuthHandlersProps {
-  loginForm: {
-    form: { name: string; password: string };
-    setField: (field: string, value: string) => void;
-  };
+  loginForm: ReturnType<typeof useFormState<{ name: string; password: string }>>;
   setIsLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setAuthServiceUnavailable: (unavailable: boolean) => void;
   setCurrentUser: (user: LoginResponse | null) => void;
-  closeModal: (name: string) => void;
+  closeModal: ReturnType<typeof import("../useModals").useModals>["closeModal"];
   handleLogout: () => void;
 }
 

@@ -45,6 +45,14 @@ export class InMemoryWorldStore {
     this.worlds[index] = updated;
     return updated;
   }
+
+  /**
+   * Clear all worlds from the store.
+   * Used for test isolation - resets the store to an empty state.
+   */
+  clear(): void {
+    this.worlds = [];
+  }
 }
 
 

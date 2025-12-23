@@ -33,9 +33,13 @@ interface UseCampaignHandlersProps {
   setSessionsLoadedFor: (key: string | null) => void;
   setPlayersLoadedFor: (key: string | null) => void;
   setStoryArcsLoadedFor: (key: string | null) => void;
-  closeModal: (name: string) => void;
+  closeModal: ReturnType<typeof import("../useModals").useModals>["closeModal"];
   currentUser: { token: string } | null;
   selectedIds: { campaignId?: string; worldId?: string };
+  setSelectionField: <K extends "worldId" | "campaignId" | "storyArcId" | "sessionId" | "eventId">(
+    field: K,
+    value: K extends "worldId" ? string | null : K extends "campaignId" ? string | null : K extends "storyArcId" ? string | null : K extends "sessionId" ? string | null : string | null
+  ) => void;
   handleLogout: () => void;
 }
 
@@ -57,6 +61,7 @@ export function useCampaignHandlers({
   closeModal,
   currentUser,
   selectedIds,
+  setSelectionField,
   handleLogout
 }: UseCampaignHandlersProps) {
   async function handleCreateCampaign(e: FormEvent) {
@@ -82,13 +87,18 @@ export function useCampaignHandlers({
             setCampaigns((prev) => [...prev, camp]);
             campaignForm.resetForm();
             closeModal("campaign");
-            Promise.resolve().then(() => {
+            // Auto-select the newly created campaign
+            setSelectionField("campaignId", camp.id);
+            // Dispatch event after state update
+            // Use single setTimeout to ensure event fires in next event loop tick
+            // This is sufficient for test listeners and avoids double async delay
+            setTimeout(() => {
               dispatchTransitionEvent(CAMPAIGN_CREATED_EVENT, {
                 entityId: camp.id,
                 entityName: camp.name,
                 entityType: "campaign"
               });
-            });
+            }, 0);
           }
         }
       );
@@ -114,12 +124,15 @@ export function useCampaignHandlers({
             sessionForm.resetForm();
             closeModal("session");
             setSessionsLoadedFor(null);
-            dispatchTransitionEvent(SESSION_CREATED_EVENT, {
-              entityId: session.id,
-              entityName: session.name,
-              entityType: "session",
-              campaignId: selectedIds.campaignId
-            });
+            // Dispatch event after state update
+            setTimeout(() => {
+              dispatchTransitionEvent(SESSION_CREATED_EVENT, {
+                entityId: session.id,
+                entityName: session.name,
+                entityType: "session",
+                campaignId: selectedIds.campaignId
+              });
+            }, 0);
           }
         }
       );
@@ -150,10 +163,13 @@ export function useCampaignHandlers({
             closeModal("player");
             setPlayersLoadedFor(null);
             setStoryArcsLoadedFor(null);
-            dispatchTransitionEvent(PLAYER_ADDED_EVENT, {
-              username: playerForm.form.username,
-              campaignId: selectedIds.campaignId
-            });
+            // Dispatch event after state update
+            setTimeout(() => {
+              dispatchTransitionEvent(PLAYER_ADDED_EVENT, {
+                username: playerForm.form.username,
+                campaignId: selectedIds.campaignId
+              });
+            }, 0);
           }
         }
       );

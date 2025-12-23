@@ -8,6 +8,11 @@ const testDir = defineBddConfig({
   outputDir: ".features-gen"
 });
 
+// Generate a unique test run ID to ensure test isolation across runs
+// This prevents name collisions when re-running tests against the same datastores
+const TEST_RUN_ID = process.env.TEST_RUN_ID || `run-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+process.env.TEST_RUN_ID = TEST_RUN_ID;
+
 export default defineConfig({
   testDir,
   workers: 11, // Run tests in parallel with 11 workers for faster execution
@@ -23,6 +28,10 @@ export default defineConfig({
     // Add retries for flaky tests during concurrent execution
     actionTimeout: 10000,
   },
+  // Global setup: Reset all datastores before test run for test isolation
+  globalSetup: require.resolve("./apps/web/tests/e2e/global-setup.ts"),
+  // Global teardown: Placeholder for future cleanup tasks
+  globalTeardown: require.resolve("./apps/web/tests/e2e/global-teardown.ts"),
   projects: [
     {
       name: "chromium",

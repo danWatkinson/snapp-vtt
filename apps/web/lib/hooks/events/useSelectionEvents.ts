@@ -40,19 +40,27 @@ export function useSelectionEvents({
     // World selection events
     if (selectedIds.worldId !== prevSelectedIds.worldId) {
       if (selectedIds.worldId) {
-        // World selected
+        // World selected - dispatch after React has updated the UI
         const selectedWorld = worlds.find(w => w.id === selectedIds.worldId);
-        dispatchTransitionEvent(WORLD_SELECTED_EVENT, {
-          worldId: selectedIds.worldId,
-          worldName: selectedWorld?.name || "Unknown",
-          previousWorldId: prevSelectedIds.worldId
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            dispatchTransitionEvent(WORLD_SELECTED_EVENT, {
+              worldId: selectedIds.worldId,
+              worldName: selectedWorld?.name || "Unknown",
+              previousWorldId: prevSelectedIds.worldId
+            });
+          }, 0);
         });
       } else if (prevSelectedIds.worldId) {
         // World deselected
         const previousWorld = worlds.find(w => w.id === prevSelectedIds.worldId);
-        dispatchTransitionEvent(WORLD_DESELECTED_EVENT, {
-          previousWorldId: prevSelectedIds.worldId,
-          previousWorldName: previousWorld?.name || "Unknown"
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            dispatchTransitionEvent(WORLD_DESELECTED_EVENT, {
+              previousWorldId: prevSelectedIds.worldId,
+              previousWorldName: previousWorld?.name || "Unknown"
+            });
+          }, 0);
         });
       }
     }
@@ -60,21 +68,29 @@ export function useSelectionEvents({
     // Campaign selection events
     if (selectedIds.campaignId !== prevSelectedIds.campaignId) {
       if (selectedIds.campaignId) {
-        // Campaign selected
+        // Campaign selected - dispatch after React has updated the UI
         const selectedCampaign = campaigns.find(c => c.id === selectedIds.campaignId);
-        dispatchTransitionEvent(CAMPAIGN_SELECTED_EVENT, {
-          campaignId: selectedIds.campaignId,
-          campaignName: selectedCampaign?.name || "Unknown",
-          worldId: selectedIds.worldId, // Context: which world this campaign belongs to
-          previousCampaignId: prevSelectedIds.campaignId
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            dispatchTransitionEvent(CAMPAIGN_SELECTED_EVENT, {
+              campaignId: selectedIds.campaignId,
+              campaignName: selectedCampaign?.name || "Unknown",
+              worldId: selectedIds.worldId, // Context: which world this campaign belongs to
+              previousCampaignId: prevSelectedIds.campaignId
+            });
+          }, 0);
         });
       } else if (prevSelectedIds.campaignId) {
         // Campaign deselected
         const previousCampaign = campaigns.find(c => c.id === prevSelectedIds.campaignId);
-        dispatchTransitionEvent(CAMPAIGN_DESELECTED_EVENT, {
-          previousCampaignId: prevSelectedIds.campaignId,
-          previousCampaignName: previousCampaign?.name || "Unknown",
-          worldId: selectedIds.worldId
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            dispatchTransitionEvent(CAMPAIGN_DESELECTED_EVENT, {
+              previousCampaignId: prevSelectedIds.campaignId,
+              previousCampaignName: previousCampaign?.name || "Unknown",
+              worldId: selectedIds.worldId
+            });
+          }, 0);
         });
       }
     }

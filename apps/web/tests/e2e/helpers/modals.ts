@@ -29,7 +29,7 @@ export async function waitForModalOpen(
           if (customEvent.detail?.modalType === type && !resolved) {
             resolved = true;
             clearTimeout(timer);
-            window.removeEventListener("snapp:modal-opened", handler);
+            window.removeEventListener("snapp:modal-opened", handler as EventListener);
             resolve();
           }
         };
@@ -52,7 +52,7 @@ export async function waitForModalOpen(
               if (ariaLabel.includes(type) || textContent.includes(type) || type === "login") {
                 resolved = true;
                 clearTimeout(timer);
-                window.removeEventListener("snapp:modal-opened", handler);
+                window.removeEventListener("snapp:modal-opened", handler as EventListener);
                 resolve();
                 return;
               }
@@ -63,7 +63,7 @@ export async function waitForModalOpen(
         const timer = setTimeout(() => {
           if (!resolved) {
             resolved = true;
-            window.removeEventListener("snapp:modal-opened", handler);
+            window.removeEventListener("snapp:modal-opened", handler as EventListener);
             reject(new Error(`Timeout waiting for modal "${type}" to open after ${timeout}ms`));
           }
         }, timeout);
@@ -177,20 +177,21 @@ export async function waitForModalClose(
   const eventPromise = page.evaluate(
     ({ type, timeout }) => {
       return new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => {
-          window.removeEventListener("snapp:modal-closed", handler);
-          reject(new Error(`Timeout waiting for modal "${type}" to close after ${timeout}ms`));
-        }, timeout);
-
-        const handler = (e: CustomEvent) => {
-          if (e.detail.modalType === type) {
+        const handler = (e: Event) => {
+          const customEvent = e as CustomEvent;
+          if (customEvent.detail?.modalType === type) {
             clearTimeout(timer);
-            window.removeEventListener("snapp:modal-closed", handler);
+            window.removeEventListener("snapp:modal-closed", handler as EventListener);
             resolve();
           }
         };
+        
+        const timer = setTimeout(() => {
+          window.removeEventListener("snapp:modal-closed", handler as EventListener);
+          reject(new Error(`Timeout waiting for modal "${type}" to close after ${timeout}ms`));
+        }, timeout);
 
-        window.addEventListener("snapp:modal-closed", handler);
+        window.addEventListener("snapp:modal-closed", handler as EventListener);
       });
     },
     { type: modalType, timeout }

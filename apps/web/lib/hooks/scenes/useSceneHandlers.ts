@@ -13,7 +13,7 @@ interface UseSceneHandlersProps {
   setError: (error: string | null) => void;
   setScenes: React.Dispatch<React.SetStateAction<any[]>>;
   setScenesLoadedFor: (key: string | null) => void;
-  closeModal: (name: string) => void;
+  closeModal: ReturnType<typeof import("../useModals").useModals>["closeModal"];
   currentUser: { token: string } | null;
   selectedIds: { sessionId?: string };
   handleLogout: () => void;
@@ -59,12 +59,17 @@ export function useSceneHandlers({
             sceneForm.resetForm();
             closeModal("scene");
             setScenesLoadedFor(null);
-            dispatchTransitionEvent(SCENE_CREATED_EVENT, {
-              entityId: scene.id,
-              entityName: scene.name,
-              entityType: "scene",
-              sessionId: selectedIds.sessionId,
-              worldId: sceneForm.form.worldId
+            // Dispatch event after React has had a chance to update the UI
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                dispatchTransitionEvent(SCENE_CREATED_EVENT, {
+                  entityId: scene.id,
+                  entityName: scene.name,
+                  entityType: "scene",
+                  sessionId: selectedIds.sessionId,
+                  worldId: sceneForm.form.worldId
+                });
+              }, 0);
             });
           }
         }

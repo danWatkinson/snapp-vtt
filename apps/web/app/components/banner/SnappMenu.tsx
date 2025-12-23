@@ -35,7 +35,7 @@ function dispatchOpenManageAssets() {
 
 export default function SnappMenu() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { selectedIds, setSelectionField, setActiveMode, setActiveTab, setSubTab, currentUser } = useHomePage();
+  const { selectedIds, setSelectionField, currentUser, setActiveTab } = useHomePage();
   const lastUserIdRef = useRef<string | null>(null);
   
   // Close menu when user changes to ensure menu items reflect new user's roles
@@ -49,14 +49,23 @@ export default function SnappMenu() {
 
   const handleLeaveWorld = () => {
     setSelectionField("worldId", null);
-    setActiveMode(null);
-    setActiveTab(null);
-    setSubTab("World Entities");
+    setSelectionField("campaignId", null);
+    setSelectionField("sessionId", null);
     setMenuOpen(false);
   };
 
   const handleLeaveCampaign = () => {
     setSelectionField("campaignId", null);
+    setMenuOpen(false);
+  };
+
+  const handleSelectWorld = () => {
+    // Clear world and campaign selection to show world selector
+    // Also clear activeTab to ensure we navigate away from Assets/Users tabs
+    setSelectionField("worldId", null);
+    setSelectionField("campaignId", null);
+    setSelectionField("sessionId", null);
+    setActiveTab(null);
     setMenuOpen(false);
   };
 
@@ -126,6 +135,20 @@ export default function SnappMenu() {
                 }}
               >
                 Create world
+              </button>
+            )}
+            {/* Show Select World when no world is selected (available to all authenticated users) */}
+            {!selectedIds.worldId && currentUser && (
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-colors border-t"
+                style={{ 
+                  color: "#3d2817",
+                  borderColor: "#6b5438"
+                }}
+                onClick={handleSelectWorld}
+              >
+                Select World
               </button>
             )}
             {/* World-specific menu items - only show when a world is selected */}

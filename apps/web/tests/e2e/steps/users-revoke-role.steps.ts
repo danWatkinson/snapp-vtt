@@ -48,8 +48,9 @@ When('the admin revokes the "gm" role from the test user', async ({ page }) => {
       })
     ]);
     // Role was revoked successfully
-  } catch (error) {
-    if (error.message?.includes("closed") || page.isClosed()) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage?.includes("closed") || page.isClosed()) {
       throw new Error("Page was closed unexpectedly during role revocation");
     }
     throw error;

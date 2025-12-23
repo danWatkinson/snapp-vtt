@@ -23,7 +23,7 @@ export default function EntityRelationshipDisplay({
   // Location relationships (excluding hierarchical "is contained by" which is handled separately)
   if (entity.type === "location") {
     const locationEntities = allEntities.filter((e) => e.type === "location");
-    const filteredRels = entity.relationships.filter(
+    const filteredRels = (entity.relationships || []).filter(
       (rel) => rel.relationshipType !== "is contained by"
     );
     
@@ -111,7 +111,7 @@ export default function EntityRelationshipDisplay({
   // Creature relationships
   if (entity.type === "creature") {
     const allFactions = allEntities.filter((e) => e.type === "faction");
-    const factions = entity.relationships
+    const factions = (entity.relationships || [])
       .filter((rel) => rel.relationshipType === "is member of")
       .map((rel) => {
         const faction = allFactions.find((e) => e.id === rel.targetLocationId);
@@ -135,7 +135,7 @@ export default function EntityRelationshipDisplay({
     const allFactions = allEntities.filter((e) => e.type === "faction");
     const allCreatures = allEntities.filter((e) => e.type === "creature");
     
-    const subFactions = entity.relationships
+    const subFactions = (entity.relationships || [])
       .filter((rel) => rel.relationshipType === "contains")
       .map((rel) => {
         const subFaction = allFactions.find((e) => e.id === rel.targetLocationId);
@@ -143,7 +143,7 @@ export default function EntityRelationshipDisplay({
       })
       .filter((e): e is WorldEntity => e !== undefined);
     
-    const members = entity.relationships
+    const members = (entity.relationships || [])
       .filter((rel) => rel.relationshipType === "has member")
       .map((rel) => {
         const member = allCreatures.find((e) => e.id === rel.targetLocationId);
@@ -151,7 +151,7 @@ export default function EntityRelationshipDisplay({
       })
       .filter((e): e is WorldEntity => e !== undefined);
     
-    const parentFactionRel = entity.relationships.find(
+    const parentFactionRel = (entity.relationships || []).find(
       (rel) => rel.relationshipType === "is contained by"
     );
     const parentFaction = parentFactionRel

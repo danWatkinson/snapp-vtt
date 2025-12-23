@@ -11,6 +11,7 @@ import { useSceneHandlers } from "./scenes/useSceneHandlers";
 import { useTimelineHandlers } from "./timeline/useTimelineHandlers";
 import type { useFormState } from "./useFormState";
 import type { useSelection } from "./useSelection";
+import type { useModals } from "./useModals";
 
 interface UseHomePageHandlersProps {
   // Form states
@@ -60,12 +61,12 @@ interface UseHomePageHandlersProps {
   setStoryArcEventsLoadedFor: (key: string | null) => void;
   setScenesLoadedFor: (key: string | null) => void;
   setTimelineLoadedFor: (key: string | null) => void;
-  selectedIds: ReturnType<typeof useSelection>["selectedIds"];
-  setSelectionField: (field: string, value: string) => void;
+  selectedIds: ReturnType<typeof useSelection>["selection"];
+  setSelectionField: ReturnType<typeof useSelection>["setField"];
   resetSelection: () => void;
   currentUser: any;
   selectedEntityType: "all" | "location" | "creature" | "faction" | "event";
-  closeModal: (key: string) => void;
+  closeModal: ReturnType<typeof useModals>["closeModal"];
 }
 
 /**
@@ -257,6 +258,7 @@ export function useHomePageHandlers(props: UseHomePageHandlersProps) {
     closeModal,
     currentUser,
     selectedIds,
+    setSelectionField,
     handleLogout
   });
 

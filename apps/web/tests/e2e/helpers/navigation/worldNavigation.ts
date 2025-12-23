@@ -6,16 +6,16 @@ import {
 } from "../../../../lib/auth/authEvents";
 import { DEFAULT_EVENT_TIMEOUT, STABILITY_WAIT_SHORT, STABILITY_WAIT_MEDIUM, STABILITY_WAIT_LONG, STABILITY_WAIT_EXTRA, STABILITY_WAIT_MAX, VISIBILITY_TIMEOUT_SHORT, VISIBILITY_TIMEOUT_MEDIUM, VISIBILITY_TIMEOUT_LONG } from "../constants";
 import { ensureLoginDialogClosed } from "../auth";
-import { getUniqueCampaignName, isVisibleSafely, getAttributeSafely, waitForLoadStateSafely, getBoundingBoxSafely, createTimeoutPromise, awaitSafely, awaitSafelyBoolean, safeWait, isPageClosedSafely } from "../utils";
+import { getUniqueWorldName, isVisibleSafely, getAttributeSafely, waitForLoadStateSafely, getBoundingBoxSafely, createTimeoutPromise, awaitSafely, awaitSafelyBoolean, safeWait, isPageClosedSafely } from "../utils";
 import { waitForModalOpen, waitForModalClose } from "../modals";
 import { storeWorldName } from "./navigationUtils";
 
 /**
- * Check if mode is currently active by checking for tabs visibility.
+ * Check if world view is currently active by checking for WorldTab component.
  */
 async function isModeActive(page: Page): Promise<boolean> {
   return await isVisibleSafely(
-    page.getByRole("tablist", { name: "World views" })
+    page.locator('[data-component="WorldTab"]')
   );
 }
 
@@ -33,21 +33,10 @@ async function navigateToSubTabIfActive(
     return false;
   }
   
-  // Already in the appropriate mode - just navigate to the requested sub-tab
-  const tablist = page.getByRole("tablist", { name: "World views" });
-  const subTabButton = tablist.getByRole("tab", { name: subTab });
-  
-  // Check if already on the requested tab
-  const isActive = await getAttributeSafely(subTabButton, "aria-selected");
-  if (isActive === "true") {
-    return true; // Already on the correct tab
-  }
-  
-  // Set up event listener BEFORE clicking
-  const subTabPromise = waitForSubTab(page, subTab, 5000);
-  
-  await expect(subTabButton).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
-  await subTabButton.click();
+  // With the new navigation, sub-tabs no longer exist
+  // If we're in world view, we're already in the right place
+  // Sub-tab navigation is handled by selecting campaigns or entities directly
+  return true;
   
   // Wait for sub-tab to be activated (event-based)
   await subTabPromise;
@@ -268,7 +257,7 @@ export async function selectWorldAndEnterModeWithWorldName(
   
   // If still not found, try base name matching (for "Eldoria" matching "Eldoria-worker-0")
   if (!worldFound && worldName === "Eldoria") {
-    const uniqueName = getUniqueCampaignName("Eldoria");
+    const uniqueName = getUniqueWorldName("Eldoria");
     worldTab = worldContextTablist.getByRole("tab", { name: uniqueName });
     worldFound = await isVisibleSafely(worldTab, 2000).catch(() => false);
   }
@@ -445,91 +434,39 @@ export async function waitForWorldSelected(
  * Wait for mode to be entered using transition events.
  * This is more reliable than polling for tabs visibility.
  */
+/**
+ * Wait for world view to be active by checking for WorldTab component.
+ * This replaces the old waitForMode which checked for tabs and mode events.
+ */
 export async function waitForMode(
   page: Page,
   timeout: number = DEFAULT_EVENT_TIMEOUT
 ): Promise<void> {
-  // Set up event listener first
-  const eventPromise = page.evaluate(
-    ({ timeout }) => {
-      return new Promise<void>((resolve, reject) => {
-        let resolved = false;
-        
-        const handler = (e: Event) => {
-          if (!resolved) {
-            resolved = true;
-            clearTimeout(timer);
-            window.removeEventListener("snapp:planning-mode-entered", handler);
-            resolve();
-          }
-        };
-
-        window.addEventListener("snapp:planning-mode-entered", handler);
-
-        // Check if mode is already active (might have been entered before listener was set up)
-        setTimeout(() => {
-          if (resolved) return;
-          
-          // Check if planning tabs are visible
-          const planningTabs = document.querySelectorAll('[role="tablist"][aria-label*="World views"]');
-          if (planningTabs.length > 0) {
-            const isVisible = planningTabs[0] instanceof HTMLElement && 
-              (planningTabs[0].offsetParent !== null || planningTabs[0].style.display !== "none");
-            if (isVisible) {
-              resolved = true;
-              clearTimeout(timer);
-              window.removeEventListener("snapp:planning-mode-entered", handler);
-              resolve();
-              return;
-            }
-          }
-        }, 50);
-
-        const timer = setTimeout(() => {
-          if (!resolved) {
-            resolved = true;
-            window.removeEventListener("snapp:planning-mode-entered", handler);
-            reject(new Error(`Timeout waiting for mode to be entered after ${timeout}ms`));
-          }
-        }, timeout);
-      });
-    },
-    { timeout }
-  );
-
-  // Also wait for the planning tabs to be visible (fallback)
-  const tabsPromise = (async () => {
-    // Wait for planning tabs to be visible, but don't fail immediately if they're not
-    // The event might fire before the UI updates
-    const planningTabs = page.getByRole("tablist", { name: "World views" });
-    try {
-      await expect(planningTabs).toBeVisible({ timeout });
-    } catch {
-      // If tabs aren't visible, wait a bit more for UI to update
-      await safeWait(page, STABILITY_WAIT_MAX);
-      await expect(planningTabs).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
-    }
-  })();
-
-  // Wait for BOTH the event AND the tabs to be visible
-  await Promise.all([
-    eventPromise.catch(() => {
-      // Event might not fire, but tabs might be visible - that's okay
-      return Promise.resolve();
-    }),
-    tabsPromise
-  ]);
+  // Wait for WorldTab component to be visible
+  const worldTab = page.locator('[data-component="WorldTab"]');
+  try {
+    await expect(worldTab).toBeVisible({ timeout });
+  } catch {
+    // If not visible, wait a bit more for UI to update
+    await safeWait(page, STABILITY_WAIT_MAX);
+    await expect(worldTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
+  }
 }
 
 /**
- * Wait for a sub-tab to be activated using transition events.
- * This is more reliable than checking for DOM elements.
+ * Wait for a sub-tab to be activated.
+ * NOTE: With the new navigation, sub-tabs no longer exist as separate tabs.
+ * This function is kept for backward compatibility but does nothing since
+ * entities and campaigns are now shown in the same World view.
  */
 export async function waitForSubTab(
   page: Page,
   subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users",
   timeout: number = DEFAULT_EVENT_TIMEOUT
 ): Promise<void> {
+  // Sub-tabs no longer exist - just ensure world view is active
+  await waitForMode(page, timeout);
+  return;
   // Set up event listener first
   const eventPromise = page.evaluate(
     ({ tab, timeout, eventName }) => {
@@ -743,7 +680,66 @@ export async function selectWorldAndEnterMode(
         break;
       }
       
-      throw new Error("World context tablist is not visible and not in the appropriate mode. User may not be logged in or page may be in an unexpected state. Try ensuring the user is logged in and the mode selector is visible.");
+      // Check if we're already in world view (which is also valid - means a world is already selected)
+      const worldViewActive = await isModeActive(page);
+      if (worldViewActive) {
+        // Already in world view, just navigate to the sub-tab if needed
+        await navigateToSubTabIfActive(page, subTab);
+        return;
+      }
+      
+      // One more check - maybe the world context tablist appears after a longer wait
+      await safeWait(page, STABILITY_WAIT_MAX);
+      const lastCheck = await isVisibleSafely(worldContextTablistAfterEnsure, VISIBILITY_TIMEOUT_MEDIUM);
+      if (lastCheck) {
+        tablistVisible = true;
+        break;
+      }
+      
+      // Final check if we're in world view
+      const finalWorldViewCheck = await isModeActive(page);
+      if (finalWorldViewCheck) {
+        await navigateToSubTabIfActive(page, subTab);
+        return;
+      }
+      
+      // Before throwing, check if page is still valid and user is logged in
+      const pageClosed = await isPageClosedSafely(page);
+      if (pageClosed) {
+        throw new Error("Page was closed while trying to select world. This may indicate a browser crash or navigation error.");
+      }
+      
+      // Check if user is still logged in
+      const logoutButtonFinal = page.getByRole("button", { name: "Log out" });
+      const stillLoggedIn = await isVisibleSafely(logoutButtonFinal, 2000).catch(() => false);
+      if (!stillLoggedIn) {
+        const guestView = await isVisibleSafely(page.getByText("Welcome to Snapp"), 1000).catch(() => false);
+        if (guestView) {
+          throw new Error("World context tablist is not visible: user appears to have been logged out. Guest view is visible. Ensure the login step completed successfully before selecting a world.");
+        }
+        throw new Error("World context tablist is not visible: logout button is not visible, suggesting user may not be logged in. Ensure the login step completed successfully.");
+      }
+      
+      // Check if we're in an unexpected page state (e.g., error page, different route)
+      let currentUrl = "";
+      let pageTitle = "";
+      try {
+        currentUrl = page.url();
+        pageTitle = await page.title();
+      } catch {
+        // Page might be closed or in an invalid state
+        currentUrl = "unknown";
+        pageTitle = "unknown";
+      }
+      
+      throw new Error(
+        `World context tablist is not visible and not in world view. ` +
+        `User appears to be logged in (logout button visible: ${stillLoggedIn}), ` +
+        `but world context tablist is not visible after multiple retries. ` +
+        `Current URL: ${currentUrl}, Page title: ${pageTitle}. ` +
+        `This may indicate a navigation issue or the page may be in an unexpected state. ` +
+        `Try ensuring the user is logged in and the mode selector is visible.`
+      );
     }
   }
   
@@ -815,7 +811,7 @@ export async function selectWorldAndEnterMode(
   
   await safeWait(page, STABILITY_WAIT_SHORT);
   
-  const uniqueWorldName = getUniqueCampaignName("Eldoria");
+  const uniqueWorldName = getUniqueWorldName("Eldoria");
   let hasUniqueWorld = await isVisibleSafely(
     worldContextTablist.getByRole("tab", { name: uniqueWorldName })
   );
@@ -974,7 +970,7 @@ export async function selectWorldAndEnterMode(
         await page.getByRole("button", { name: /Snapp/i }).click();
         await page.getByRole("button", { name: "Create world" }).click();
         await waitForModalOpen(page, "world", 5000);
-        const worldName = getUniqueCampaignName("Eldoria");
+        const worldName = getUniqueWorldName("Eldoria");
         await page.getByLabel("World name").fill(worldName);
         await page.getByLabel("Description").fill("A high-fantasy realm.");
         await page.getByRole("button", { name: "Save world" }).click();
@@ -1009,6 +1005,9 @@ export async function selectWorldAndEnterMode(
     throw new Error("Cannot click world tab: logout button is not visible. User may not be logged in. Ensure the login step completed successfully before selecting a world.");
   }
   
+  if (!worldTab) {
+    throw new Error("World tab locator not found");
+  }
   try {
     await expect(worldTab).toBeVisible({ timeout: 5000 });
   } catch (error: any) {
@@ -1026,7 +1025,6 @@ export async function selectWorldAndEnterMode(
   const worldName = worldNameRaw?.trim().replace(/^[—–\-\s]+/, "").trim() || "unknown";
   
   const worldSelectedPromise = waitForWorldSelected(page, worldName, 8000);
-  const modePromise = waitForMode(page, 10000);
   
   await expect(worldTab).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MEDIUM });
   await expect(worldTab).toBeEnabled({ timeout: VISIBILITY_TIMEOUT_SHORT });
@@ -1097,69 +1095,22 @@ export async function selectWorldAndEnterMode(
   }
   
   try {
-    const results = await Promise.allSettled([
-      worldSelectedPromise,
-      modePromise
-    ]);
+    // Wait for world selection event
+    await worldSelectedPromise;
     
-    const worldSelectedSucceeded = results[0].status === "fulfilled";
-    const modeSucceeded = results[1].status === "fulfilled";
+    // Wait for WorldTab component to be visible (replaces old mode check)
+    let worldViewVisible = await isModeActive(page);
     
-    let tabsVisible = modeSucceeded ? true : await isModeActive(page);
-    
-    if (!tabsVisible) {
-      const waitTime = worldSelectedSucceeded ? VISIBILITY_TIMEOUT_SHORT : STABILITY_WAIT_MAX;
-      await safeWait(page, waitTime);
-      tabsVisible = await isModeActive(page);
+    if (!worldViewVisible) {
+      await safeWait(page, VISIBILITY_TIMEOUT_SHORT);
+      worldViewVisible = await isModeActive(page);
       
-      if (!tabsVisible) {
+      if (!worldViewVisible) {
         await safeWait(page, VISIBILITY_TIMEOUT_SHORT / 2);
-        tabsVisible = await isModeActive(page);
+        worldViewVisible = await isModeActive(page);
       }
       
-      if (!tabsVisible) {
-        if (worldSelectedSucceeded) {
-          const worldTabSelected = await awaitSafelyBoolean(
-            Promise.race([
-              getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
-              createTimeoutPromise(3000, false)
-            ])
-          );
-          
-          if (!worldTabSelected) {
-            await safeWait(page, VISIBILITY_TIMEOUT_SHORT);
-            const stillNotSelected = !(await awaitSafelyBoolean(
-              Promise.race([
-                getAttributeSafely(worldTab, "aria-selected").then(attr => attr === "true"),
-                createTimeoutPromise(2000, false)
-              ])
-            ));
-            
-            if (stillNotSelected) {
-              try {
-                await worldTab.click({ force: true });
-                await safeWait(page, STABILITY_WAIT_EXTRA);
-              } catch {
-                // Click failed - continue anyway
-              }
-            }
-          }
-          
-          await safeWait(page, VISIBILITY_TIMEOUT_SHORT);
-          tabsVisible = await isModeActive(page);
-          
-          if (tabsVisible) {
-            return;
-          }
-          
-          await safeWait(page, VISIBILITY_TIMEOUT_SHORT);
-          tabsVisible = await isModeActive(page);
-          
-          if (tabsVisible) {
-            return;
-          }
-        }
-        
+      if (!worldViewVisible) {
         const currentUrl = page.url();
         const logoutButtonStillVisible = await isVisibleSafely(
           page.getByRole("button", { name: "Log out" })
@@ -1181,16 +1132,13 @@ export async function selectWorldAndEnterMode(
             )
           : false;
         
-        const worldEventFired = worldSelectedSucceeded ? "yes" : "no";
-        const modeEventFired = modeSucceeded ? "yes" : "no";
-        
-        let errorMessage = `World views did not activate after selecting world "${worldName}". `;
+        let errorMessage = `World view did not activate after selecting world "${worldName}". `;
         errorMessage += `URL: ${currentUrl}, `;
         errorMessage += `Logout button visible: ${logoutButtonStillVisible}, `;
         errorMessage += `Guest view visible: ${guestViewVisible}, `;
         errorMessage += `World context visible: ${worldContextStillVisible}, `;
         errorMessage += `World tab visible: ${worldTabStillVisible}, World tab selected: ${worldTabSelected}. `;
-        errorMessage += `World selection event fired: ${worldEventFired}, Mode event fired: ${modeEventFired}. `;
+        errorMessage += `World selection event fired: yes. `;
         
         if (!logoutButtonStillVisible && guestViewVisible) {
           errorMessage += `User appears to have been logged out (guest view is visible). `;
@@ -1200,7 +1148,7 @@ export async function selectWorldAndEnterMode(
           errorMessage += `World context tablist is not visible - ensureModeSelectorVisible may have failed. `;
         }
         
-        errorMessage += `This may indicate the click did not register, the events did not fire, or world views did not activate.`;
+        errorMessage += `This may indicate the click did not register, the event did not fire, or world view did not activate.`;
         
         throw new Error(errorMessage);
       }
@@ -1212,10 +1160,7 @@ export async function selectWorldAndEnterMode(
     throw error;
   }
 
-  if (subTab !== "World Entities") {
-    if (await isPageClosedSafely(page)) {
-      throw new Error("Page was closed before navigating to sub-tab");
-    }
-    await navigateToSubTabIfActive(page, subTab);
-  }
+  // Sub-tab navigation no longer exists - campaigns are accessed via World view
+  // If subTab is "Campaigns", we're already in the right place (campaigns are shown in World view)
+  // If subTab is "World Entities", we're also in the right place (entities are shown by default)
 }

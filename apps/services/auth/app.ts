@@ -219,6 +219,24 @@ export function createApp(deps: AppDependencies = {}) {
       { responseProperty: "user" }
     )
   );
+
+  // Admin endpoint: Reset all data (for test isolation)
+  // Available in development and test environments for e2e test isolation
+  // Endpoint is always registered but checks at request time for security
+  app.post("/admin/reset", createPostRoute(
+    () => {
+      // Allow in development (for e2e tests) or test mode
+      // In production, this endpoint would not be available (services shouldn't be in production mode for e2e)
+      const isDevelopment = process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
+      const isTest = process.env.NODE_ENV === "test" || process.env.E2E_TEST_MODE === "true";
+      if (!isDevelopment && !isTest) {
+        throw new Error("Reset endpoint only available in development or test mode");
+      }
+      userStore.clear();
+      return { message: "Auth store reset" };
+    },
+    { responseProperty: "message" }
+  ));
     }
   });
 

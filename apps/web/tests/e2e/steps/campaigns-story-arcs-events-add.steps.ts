@@ -91,15 +91,9 @@ When('world event "The Prophecy Revealed" exists', async ({ page }) => {
     await worldEventDialog.getByRole("button", { name: "Save event" }).click();
   }
 
-  // Return to Story Arcs planning view
-  await page
-    .getByRole("tablist", { name: "World views" })
-    .getByRole("tab", { name: "Story Arcs" })
-    .click();
-  await page
-    .getByRole("tablist", { name: "Campaign views" })
-    .getByRole("tab", { name: "Story arcs" })
-    .click();
+  // Navigate to campaign view with story arcs view
+  // Story arcs are now accessed via Campaign view, not a separate tab
+  await navigateToCampaignView(page, "story-arcs");
 
   // Wait for the story arcs list to be ready
   await expect(page.getByRole("button", { name: "Add story arc" })).toBeVisible({ timeout: 3000 });

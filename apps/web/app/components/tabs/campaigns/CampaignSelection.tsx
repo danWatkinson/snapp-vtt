@@ -8,14 +8,12 @@ import type { Campaign } from "../../../../lib/clients/campaignClient";
 interface CampaignSelectionProps {
   campaigns: Campaign[];
   selectedCampaignId: string | null;
-  subTab: "World Entities" | "Campaigns" | "Story Arcs" | "Users";
   onCampaignSelect: (campaignId: string) => void;
 }
 
 export default function CampaignSelection({
   campaigns,
   selectedCampaignId,
-  subTab,
   onCampaignSelect
 }: CampaignSelectionProps) {
   if (campaigns.length === 0) {

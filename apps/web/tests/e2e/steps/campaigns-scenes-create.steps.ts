@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { getStoredWorldName, checkForErrorAndThrow } from "../helpers";
+import { getStoredWorldName } from "../helpers";
+import { checkForErrorAndThrow } from "../helpers/errors";
 import { safeWait } from "../helpers/utils";
 // Note: "the admin navigates to the Campaigns planning screen" and "the campaign Rise of the Dragon King exists" 
 // are defined in campaigns-create.steps.ts

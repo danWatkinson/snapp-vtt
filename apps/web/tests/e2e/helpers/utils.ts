@@ -32,8 +32,11 @@ export {
 // Re-export name utilities for backward compatibility
 export {
   matchesName,
+  getUniqueEntityName,
   getUniqueCampaignName,
-  getUniqueUsername
+  getUniqueWorldName,
+  getUniqueUsername,
+  getUniqueWorldEntityName
 } from "./nameUtils";
 
 /**

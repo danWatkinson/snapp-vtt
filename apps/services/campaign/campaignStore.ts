@@ -229,6 +229,17 @@ export class InMemoryCampaignStore {
     const milliseconds = amount * multipliers[unit];
     campaign.currentMoment += milliseconds;
   }
+
+  /**
+   * Clear all campaigns, sessions, scenes, and story arcs from the store.
+   * Used for test isolation - resets the store to an empty state.
+   */
+  clear(): void {
+    this.campaigns = [];
+    this.sessions = [];
+    this.scenes = [];
+    this.storyArcs = [];
+  }
 }
 
 

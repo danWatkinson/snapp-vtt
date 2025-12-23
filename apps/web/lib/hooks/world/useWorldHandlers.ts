@@ -13,7 +13,7 @@ interface UseWorldHandlersProps {
   setError: (error: string | null) => void;
   setWorlds: React.Dispatch<React.SetStateAction<any[]>>;
   setWorldsLoaded: (loaded: boolean) => void;
-  closeModal: (name: string) => void;
+  closeModal: ReturnType<typeof import("../useModals").useModals>["closeModal"];
   currentUser: { token: string } | null;
   handleLogout: () => void;
 }
@@ -45,12 +45,16 @@ export function useWorldHandlers({
             worldForm.resetForm({ name: "", description: "" });
             closeModal("world");
             setWorldsLoaded(false);
-            Promise.resolve().then(() => {
-              dispatchTransitionEvent(WORLD_CREATED_EVENT, {
-                entityId: world.id,
-                entityName: world.name,
-                entityType: "world"
-              });
+            // Dispatch event after React has had a chance to update the UI
+            // Use requestAnimationFrame to ensure the event fires after the next paint
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                dispatchTransitionEvent(WORLD_CREATED_EVENT, {
+                  entityId: world.id,
+                  entityName: world.name,
+                  entityType: "world"
+                });
+              }, 0);
             });
           }
         }
@@ -77,13 +81,16 @@ export function useWorldHandlers({
             setWorlds((prev) =>
               prev.map((w) => (w.id === world.id ? world : w))
             );
-            Promise.resolve().then(() => {
-              dispatchTransitionEvent(WORLD_UPDATED_EVENT, {
-                worldId: world.id,
-                worldName: world.name,
-                updateType: assetId ? "splashImageSet" : "splashImageCleared",
-                splashImageAssetId: assetId
-              });
+            // Dispatch event after React has had a chance to update the UI
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                dispatchTransitionEvent(WORLD_UPDATED_EVENT, {
+                  worldId: world.id,
+                  worldName: world.name,
+                  updateType: assetId ? "splashImageSet" : "splashImageCleared",
+                  splashImageAssetId: assetId
+                });
+              }, 0);
             });
           }
         }

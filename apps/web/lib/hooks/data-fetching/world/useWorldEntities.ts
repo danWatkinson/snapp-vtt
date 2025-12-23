@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import type React from "react";
 
 /**
  * Hook to fetch world entities.
@@ -7,8 +8,8 @@ export function useWorldEntities(
   selectedWorldId: string | null,
   selectedEntityType: "all" | "location" | "creature" | "faction" | "event",
   entitiesLoadedFor: string | null,
-  fetchWorldEntities: (worldId: string, type?: string) => Promise<any[]>,
-  setEntities: (entities: any[]) => void,
+  fetchWorldEntities: (worldId: string, type?: "location" | "creature" | "faction" | "concept" | "event") => Promise<any[]>,
+  setEntities: React.Dispatch<React.SetStateAction<any[]>>,
   setEntitiesLoadedFor: (key: string | null) => void,
   setError: (error: string | null) => void
 ) {

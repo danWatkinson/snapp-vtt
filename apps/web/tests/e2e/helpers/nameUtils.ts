@@ -33,28 +33,82 @@ export function matchesName(eventName: string, searchName: string): boolean {
 }
 
 /**
- * Generate a unique campaign name per worker to avoid conflicts when tests run in parallel.
- * Uses TEST_PARALLEL_INDEX to ensure each worker gets a unique name.
+ * Generate a unique entity name per worker and test run to avoid conflicts.
+ * This is a generic function that can be used for any entity type (campaigns, worlds, locations, events, etc.).
+ * Uses TEST_PARALLEL_INDEX for parallel workers and TEST_RUN_ID for test run isolation.
+ * 
+ * @param baseName - The base name for the entity
+ * @param options - Optional configuration
+ * @param options.format - Format style: "brackets" (default) for "[Worker X] [run-id]" or "dash" for "-X-run-id"
+ * @returns A unique name that's unique both within a test run (across workers) and across test runs
  */
-export function getUniqueCampaignName(baseName: string): string {
+export function getUniqueEntityName(
+  baseName: string,
+  options?: { format?: "brackets" | "dash" }
+): string {
+  const runId = process.env.TEST_RUN_ID;
   const workerIndex = process.env.TEST_PARALLEL_INDEX;
+  const format = options?.format ?? "brackets";
+  
   if (workerIndex !== undefined) {
-    return `${baseName} [Worker ${workerIndex}]`;
+    // Parallel execution: include both run ID and worker index
+    if (format === "dash") {
+      const runSuffix = runId ? `-${runId}` : '';
+      return `${baseName}-${workerIndex}${runSuffix}`;
+    } else {
+      // brackets format (default)
+      const runSuffix = runId ? ` [${runId}]` : '';
+      return `${baseName} [Worker ${workerIndex}]${runSuffix}`;
+    }
   }
-  // When running sequentially (no worker index), use timestamp to ensure uniqueness
-  // This prevents test isolation issues when tests run one after another
+  
+  // Sequential execution: include run ID if available, otherwise use timestamp
+  if (runId) {
+    if (format === "dash") {
+      return `${baseName}-${runId}`;
+    } else {
+      return `${baseName} [${runId}]`;
+    }
+  }
+  
+  // Fallback to timestamp for backward compatibility
   return `${baseName}-${Date.now()}`;
 }
 
 /**
- * Generate a unique username per worker to avoid conflicts when tests run in parallel.
- * Uses TEST_PARALLEL_INDEX to ensure each worker gets a unique username.
+ * Generate a unique campaign name per worker and test run to avoid conflicts.
+ * Uses TEST_PARALLEL_INDEX for parallel workers and TEST_RUN_ID for test run isolation.
+ * This ensures names are unique both within a test run (across workers) and across test runs.
+ * 
+ * @deprecated Use getUniqueEntityName() instead for consistency
+ */
+export function getUniqueCampaignName(baseName: string): string {
+  return getUniqueEntityName(baseName, { format: "brackets" });
+}
+
+/**
+ * Generate a unique world name per worker and test run to avoid conflicts.
+ * Uses TEST_PARALLEL_INDEX for parallel workers and TEST_RUN_ID for test run isolation.
+ * This ensures names are unique both within a test run (across workers) and across test runs.
+ */
+export function getUniqueWorldName(baseName: string): string {
+  return getUniqueEntityName(baseName, { format: "brackets" });
+}
+
+/**
+ * Generate a unique username per worker and test run to avoid conflicts.
+ * Uses TEST_PARALLEL_INDEX for parallel workers and TEST_RUN_ID for test run isolation.
+ * This ensures usernames are unique both within a test run (across workers) and across test runs.
+ * Uses dash format for usernames (e.g., "alice-0-run-123") as it's more appropriate for usernames.
  */
 export function getUniqueUsername(baseName: string): string {
-  const workerIndex = process.env.TEST_PARALLEL_INDEX;
-  if (workerIndex !== undefined) {
-    return `${baseName}-${workerIndex}`;
-  }
-  // If no worker index, use timestamp to ensure uniqueness
-  return `${baseName}-${Date.now()}`;
+  return getUniqueEntityName(baseName, { format: "dash" });
+}
+
+/**
+ * Generate a unique name for world entities (locations, events, factions, creatures).
+ * Uses the same logic as other entities but with a consistent format.
+ */
+export function getUniqueWorldEntityName(baseName: string): string {
+  return getUniqueEntityName(baseName, { format: "brackets" });
 }

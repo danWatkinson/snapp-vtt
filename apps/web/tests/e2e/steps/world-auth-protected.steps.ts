@@ -46,9 +46,10 @@ When('the admin creates a world named "Authenticated Test World"', async ({ page
         })
       ]);
       // Success - world was created or error was handled
-    } catch (error) {
+    } catch (error: unknown) {
       // If error doesn't include "already exists", close modal and rethrow
-      if (!error.message?.includes("already exists")) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (!errorMessage?.includes("already exists")) {
         await closeModalIfOpen(page, "world", /create world/i);
         throw error;
       }

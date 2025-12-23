@@ -5,6 +5,7 @@ import { MODAL_OPENED_EVENT, MODAL_CLOSED_EVENT } from "../auth/authEvents";
 type ModalKeys = 
   | "login"
   | "createUser"
+  | "userManagement"
   | "world"
   | "entity"
   | "campaign"
@@ -24,6 +25,7 @@ export function useModals(initialState: Partial<ModalState> = {}) {
   const defaultState: ModalState = {
     login: false,
     createUser: false,
+    userManagement: false,
     world: false,
     entity: false,
     campaign: false,
@@ -68,7 +70,7 @@ export function useModals(initialState: Partial<ModalState> = {}) {
   const closeAllModals = useCallback(() => {
     setModals((prev) => {
       const closed: ModalState = {} as ModalState;
-      const keys: ModalKeys[] = ["login", "createUser", "world", "entity", "campaign", "session", "player", "storyArc", "storyArcEvent", "scene"];
+      const keys: ModalKeys[] = ["login", "createUser", "userManagement", "world", "entity", "campaign", "session", "player", "storyArc", "storyArcEvent", "scene"];
       for (const key of keys) {
         closed[key] = false;
       }
@@ -89,6 +91,12 @@ export function useModals(initialState: Partial<ModalState> = {}) {
       open: () => openModal("createUser"),
       close: () => closeModal("createUser"),
       toggle: () => toggleModal("createUser")
+    },
+    userManagement: {
+      isOpen: modals.userManagement,
+      open: () => openModal("userManagement"),
+      close: () => closeModal("userManagement"),
+      toggle: () => toggleModal("userManagement")
     },
     world: {
       isOpen: modals.world,

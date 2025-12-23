@@ -26,8 +26,8 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const { method = "GET", token, body, headers: additionalHeaders = {} } = options;
 
-  const headers: HeadersInit = {
-    ...additionalHeaders
+  const headers: Record<string, string> = {
+    ...(additionalHeaders as Record<string, string>)
   };
 
   if (body) {

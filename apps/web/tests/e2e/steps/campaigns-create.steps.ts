@@ -1,9 +1,10 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { selectWorldAndEnterMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView, getErrorMessage } from "../helpers";
+import { selectWorldAndEnterMode, ensureCampaignExists, getUniqueCampaignName, waitForModalOpen, waitForCampaignCreated, waitForModalClose, closeModalIfOpen, handleAlreadyExistsError, waitForCampaignView } from "../helpers";
+import { getErrorMessage } from "../helpers/errors";
 import { createApiClient } from "../helpers/api";
 import { STABILITY_WAIT_SHORT } from "../helpers/constants";
-import { safeWait } from "../helpers/utils";
+import { safeWait, isPageClosedSafely } from "../helpers/utils";
 import type { APIRequestContext, Page } from "@playwright/test";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
 
@@ -52,7 +53,9 @@ async function getOrCreateTestWorld(request: APIRequestContext, adminToken: stri
 }
 
 When('the admin navigates to the "Campaigns" screen', async ({ page }) => {
-  await selectWorldAndEnterMode(page, "Campaigns");
+  // With new navigation, campaigns are shown in World view
+  // Just ensure we're in world view - campaigns section will be visible
+  await selectWorldAndEnterMode(page, "World Entities");
 });
 
 When('the test campaign exists', async ({ page, request }) => {
@@ -168,6 +171,11 @@ When('the test campaign exists', async ({ page, request }) => {
     "A long-running campaign about ancient draconic power returning."
   );
   
+  // Verify page is still open before evaluating
+  if (await isPageClosedSafely(page)) {
+    throw new Error("Page was closed during ensureCampaignExists. This indicates a serious navigation or error issue.");
+  }
+  
   // Store the unique name in page context for other steps to use
   await page.evaluate((name) => {
     (window as any).__testCampaignName = name;
@@ -183,6 +191,11 @@ When('the test campaign exists with sessions view', async ({ page }) => {
     uniqueCampaignName,
     "A long-running campaign about ancient draconic power returning."
   );
+  
+  // Verify page is still open before evaluating
+  if (await isPageClosedSafely(page)) {
+    throw new Error("Page was closed during ensureCampaignExists. This indicates a serious navigation or error issue.");
+  }
   
   await page.evaluate((name) => {
     (window as any).__testCampaignName = name;
@@ -204,6 +217,11 @@ When('the test campaign exists with players view', async ({ page }) => {
     "A long-running campaign about ancient draconic power returning."
   );
   
+  // Verify page is still open before evaluating
+  if (await isPageClosedSafely(page)) {
+    throw new Error("Page was closed during ensureCampaignExists. This indicates a serious navigation or error issue.");
+  }
+  
   await page.evaluate((name) => {
     (window as any).__testCampaignName = name;
   }, uniqueCampaignName);
@@ -223,6 +241,11 @@ When('the test campaign exists with story arcs view', async ({ page }) => {
     uniqueCampaignName,
     "A long-running campaign about ancient draconic power returning."
   );
+  
+  // Verify page is still open before evaluating
+  if (await isPageClosedSafely(page)) {
+    throw new Error("Page was closed during ensureCampaignExists. This indicates a serious navigation or error issue.");
+  }
   
   await page.evaluate((name) => {
     (window as any).__testCampaignName = name;
@@ -245,6 +268,12 @@ When('the test campaign exists with timeline view', async ({ page }) => {
     "A long-running campaign about ancient draconic power returning."
   );
   
+  // Verify page is still open before evaluating
+  const isPageClosed = await isPageClosedSafely(page);
+  if (isPageClosed) {
+    throw new Error("Page was closed during ensureCampaignExists. This indicates a serious navigation or error issue.");
+  }
+  
   await page.evaluate((name) => {
     (window as any).__testCampaignName = name;
   }, uniqueCampaignName);
@@ -259,12 +288,12 @@ When('the test campaign exists with timeline view', async ({ page }) => {
 When(
   'the admin creates a campaign named {string} with summary {string}',
   async ({ page }, campaignName: string, summary: string) => {
-    // Navigate to Campaigns screen if not already there
-    const planningTabs = page.getByRole("tablist", { name: "World views" });
-    const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
+    // Navigate to World view if not already there (campaigns are shown in World view)
+    const worldTab = page.locator('[data-component="WorldTab"]');
+    const isInWorldView = await worldTab.isVisible({ timeout: 1000 }).catch(() => false);
     
-    if (!isInPlanningMode) {
-      await selectWorldAndEnterMode(page, "Campaigns");
+    if (!isInWorldView) {
+      await selectWorldAndEnterMode(page, "World Entities");
     } else {
       // Check if we're on the Campaigns sub-tab
       const campaignsTab = planningTabs.getByRole("tab", { name: "Campaigns" });
@@ -381,12 +410,12 @@ When(
   'the game master creates a campaign named {string} with summary {string}',
   async ({ page }, campaignName: string, summary: string) => {
     // Reuse the same implementation as admin step since both can create campaigns
-    // Navigate to Campaigns screen if not already there
-    const planningTabs = page.getByRole("tablist", { name: "World views" });
-    const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
+    // Navigate to World view if not already there (campaigns are shown in World view)
+    const worldTab = page.locator('[data-component="WorldTab"]');
+    const isInWorldView = await worldTab.isVisible({ timeout: 1000 }).catch(() => false);
     
-    if (!isInPlanningMode) {
-      await selectWorldAndEnterMode(page, "Campaigns");
+    if (!isInWorldView) {
+      await selectWorldAndEnterMode(page, "World Entities");
     } else {
       // Check if we're on the Campaigns sub-tab
       const campaignsTab = planningTabs.getByRole("tab", { name: "Campaigns" });

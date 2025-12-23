@@ -9,7 +9,7 @@ interface UseEntityCrossReferencesProps {
   setEntities: React.Dispatch<React.SetStateAction<WorldEntity[]>>;
   entitiesLoadedFor: string | null;
   crossRefEntitiesLoadedFor: string | null;
-  setCrossRefEntitiesLoadedFor: (key: string | null) => void;
+  setCrossRefEntitiesLoadedFor: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 /**
