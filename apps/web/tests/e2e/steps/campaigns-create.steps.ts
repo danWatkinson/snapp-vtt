@@ -8,7 +8,7 @@ import { safeWait, isPageClosedSafely } from "../helpers/utils";
 import type { APIRequestContext, Page } from "@playwright/test";
 // Note: common.steps.ts is automatically loaded by playwright-bdd (no import needed)
 
-const { When, Then } = createBdd();
+const { Given, When, Then } = createBdd();
 
 // Helper to get or create a test world via API
 async function getOrCreateTestWorld(request: APIRequestContext, adminToken: string): Promise<string> {
@@ -56,6 +56,81 @@ When('the admin navigates to the "Campaigns" screen', async ({ page }) => {
   // With new navigation, campaigns are shown in World view
   // Just ensure we're in world view - campaigns section will be visible
   await selectWorldAndEnterMode(page, "World Entities");
+});
+
+Given('there is a campaign', async ({ page, request }) => {
+  // Use API-based creation for Background (no UI interaction needed)
+  // Make campaign name unique per worker to avoid conflicts when tests run in parallel
+  const uniqueCampaignName = getUniqueCampaignName("Rise of the Dragon King");
+  
+  if (request) {
+    try {
+      const api = createApiClient(request);
+      // Get admin token for API calls
+      const adminToken = await api.getAdminToken();
+      
+      // Get or create a test world (campaigns require a world)
+      const worldId = await getOrCreateTestWorld(request, adminToken);
+      
+      // Get the world name from the worldId so we can select it in UI scenarios
+      let worldName = "Eldoria"; // Default fallback
+      try {
+        const worldsResponse = await api.call("world", "GET", "/worlds", { token: adminToken });
+        const worlds = (worldsResponse as { worlds?: Array<{ id: string; name: string }> }).worlds || [];
+        const world = worlds.find((w) => w.id === worldId);
+        if (world) {
+          worldName = world.name;
+        }
+      } catch {
+        // If we can't get world name, use default
+      }
+      
+      // Check if campaign already exists (filter by world)
+      try {
+        const campaignsResponse = await api.call("campaign", "GET", `/worlds/${worldId}/campaigns`, { token: adminToken });
+        const campaigns = (campaignsResponse as { campaigns?: any[] }).campaigns || [];
+        const existingCampaign = campaigns.find((c: any) => c.name === uniqueCampaignName);
+        if (existingCampaign) {
+          // Campaign exists - store the name and world name for other steps to use
+          try {
+            await page.evaluate(({ name, world }: { name: string; world: string }) => {
+              (window as any).__testCampaignName = name;
+              (window as any).__testWorldName = world;
+            }, { name: uniqueCampaignName, world: worldName });
+          } catch {
+            // If page.evaluate fails (page might be closed), that's okay for Background
+          }
+          return;
+        }
+      } catch {
+        // If GET fails, try to create
+      }
+      
+      // Create campaign via API
+      const createResponse = await api.call("campaign", "POST", `/worlds/${worldId}/campaigns`, {
+        token: adminToken,
+        body: {
+          name: uniqueCampaignName,
+          description: "Test campaign for E2E tests"
+        }
+      });
+      
+      const createdCampaign = (createResponse as { campaign?: any }).campaign;
+      if (createdCampaign) {
+        // Store campaign name and world name for other steps
+        try {
+          await page.evaluate(({ name, world }: { name: string; world: string }) => {
+            (window as any).__testCampaignName = name;
+            (window as any).__testWorldName = world;
+          }, { name: uniqueCampaignName, world: worldName });
+        } catch {
+          // If page.evaluate fails (page might be closed), that's okay for Background
+        }
+      }
+    } catch (error) {
+      // If API creation fails, that's okay - the When step will handle it
+    }
+  }
 });
 
 When('the test campaign exists', async ({ page, request }) => {

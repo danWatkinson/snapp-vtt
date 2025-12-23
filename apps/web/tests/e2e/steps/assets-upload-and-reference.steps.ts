@@ -650,8 +650,18 @@ When(
     if (!isOnLocationsTab) {
       // Navigate to locations tab
       await page.getByRole("tab", { name: "Locations" }).click();
-      await expect(addLocationButton).toBeVisible();
+      await expect(addLocationButton).toBeVisible({ timeout: 5000 });
     }
+    
+    // Wait for the locations list to be visible/loaded
+    // The list might be empty or still loading, so wait for either the list container or at least one item
+    const locationsList = page.getByRole("list").first();
+    await expect(locationsList).toBeVisible({ timeout: 5000 }).catch(() => {
+      // If no list is visible, that's okay - we'll try to find the item anyway
+    });
+    
+    // Wait a moment for the list to populate after navigation
+    await safeWait(page, 1000);
     
     // Find the location in the list
     const locationItem = page
@@ -659,7 +669,29 @@ When(
       .filter({ hasText: locationName })
       .first();
     
-    await expect(locationItem).toBeVisible({ timeout: 5000 });
+    // Try to find the location with a longer timeout
+    const locationVisible = await locationItem.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (!locationVisible) {
+      // Location not found - try to get all list items to see what's available
+      const allListItems = await page.getByRole("listitem").all();
+      const itemTexts = await Promise.all(
+        allListItems.map(async (item) => {
+          try {
+            return await item.textContent();
+          } catch {
+            return "";
+          }
+        })
+      );
+      
+      throw new Error(
+        `Location "${locationName}" not found in the locations list. ` +
+        `Found ${allListItems.length} location(s) in the list. ` +
+        `Location names: ${itemTexts.filter(t => t).join(", ") || "none"}. ` +
+        `Ensure the "Given a location" step has run and the location was created successfully.`
+      );
+    }
     
     // Click on the location to open its edit modal
     // NOTE: This test is driving the creation of location edit functionality

@@ -7,9 +7,8 @@ Feature: Game master adds players to a campaign
   Background:
     Given there is an admin user
     And there is a test user
+    And there is a campaign
 
   Scenario: Game master can add Players to a Campaign
-    When the admin signs in to the system
-    And the test campaign exists with players view
-    And the admin ensures the test user is added to the campaign
+    When the game master adds the test user to the campaign
     Then the test user appears in the players list
