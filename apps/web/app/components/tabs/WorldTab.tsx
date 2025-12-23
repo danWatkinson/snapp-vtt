@@ -45,10 +45,6 @@ export default function WorldTab() {
     closeModal
   } = useHomePage();
 
-  // Wrapper functions for modal handlers to match useTabHelpers signature
-  const openModalWrapper = useCallback((key: string) => openModal(key as any), [openModal]);
-  const closeModalWrapper = useCallback((key: string) => closeModal(key as any), [closeModal]);
-
   // Use tab helpers to consolidate setup
   const {
     formSetters: {
@@ -103,8 +99,8 @@ export default function WorldTab() {
     selections: ["worldId"],
     modals: ["world", "entity", "campaign"],
     setSelectionField,
-    openModal: openModalWrapper,
-    closeModal: closeModalWrapper,
+    openModal,
+    closeModal,
     selectedIds,
     modalsState: modals
   });
@@ -121,6 +117,9 @@ export default function WorldTab() {
   );
 
   // Expose form setters to window for E2E testing
+  // TODO: Replace with better test utilities that use data-testid attributes
+  // and DOM queries instead of global window properties. This is a temporary
+  // workaround to support complex form interactions in tests.
   useEffect(() => {
     if (typeof window !== "undefined") {
       (window as any).__testFormSetters = {

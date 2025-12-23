@@ -31,14 +31,6 @@ export default function UsersTab() {
     closeModal
   } = useHomePage();
 
-  // Wrapper functions for modal handlers to match useTabHelpers signature
-  const openModalWrapper = useCallback((key: string) => {
-    openModal(key as any);
-  }, [openModal]);
-  const closeModalWrapper = useCallback((key: string) => {
-    closeModal(key as any);
-  }, [closeModal]);
-
   // Use tab helpers to consolidate setup
   const {
     formSetters: {
@@ -64,8 +56,8 @@ export default function UsersTab() {
     },
     modals: ["createUser"],
     setSelectionField: () => {}, // Not used in UsersTab
-    openModal: openModalWrapper,
-    closeModal: closeModalWrapper,
+    openModal,
+    closeModal,
     selectedIds,
     modalsState: modals
   });

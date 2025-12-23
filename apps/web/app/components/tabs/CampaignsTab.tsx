@@ -4,7 +4,7 @@
  * @deprecated This component is being phased out as part of the UI refactoring.
  * Use CampaignView instead, which is accessed through World → Campaign navigation.
  */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useHomePage } from "../../../lib/contexts/HomePageContext";
 import { useTabHelpers } from "../../../lib/hooks/useTabHelpers";
 import Section from "../ui/Section";
@@ -52,14 +52,6 @@ export default function CampaignsTab() {
     openModal,
     closeModal
   } = useHomePage();
-
-  // Wrapper functions for modal handlers to match useTabHelpers signature
-  const openModalWrapper = useCallback((key: string) => {
-    openModal(key as any);
-  }, [openModal]);
-  const closeModalWrapper = useCallback((key: string) => {
-    closeModal(key as any);
-  }, [closeModal]);
 
   // Use tab helpers to consolidate setup (now includes modal/selection states)
   const {
@@ -124,8 +116,8 @@ export default function CampaignsTab() {
     selections: ["campaignId", "storyArcId", "sessionId", "eventId"],
     modals: ["campaign", "session", "player", "storyArc", "storyArcEvent", "scene"],
     setSelectionField,
-    openModal: openModalWrapper,
-    closeModal: closeModalWrapper,
+    openModal,
+    closeModal,
     selectedIds,
     modalsState: modals
   });

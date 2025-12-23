@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { STYLED_PANEL_STYLE, STYLED_TITLE_STYLE } from "../../styles/constants";
 
 interface ModalProps {
   isOpen: boolean;
@@ -31,7 +32,7 @@ export default function Modal({
   const dialogClasses = "w-full max-w-md rounded-lg border p-4 shadow-lg";
   
   const dialogStyle = variant === "styled" 
-    ? { borderColor: '#8b6f47', backgroundColor: '#faf8f3', boxShadow: '0 10px 25px rgba(107, 84, 56, 0.3)' }
+    ? STYLED_PANEL_STYLE
     : undefined;
   
   const dialogClassName = variant === "default" 
@@ -39,7 +40,7 @@ export default function Modal({
     : dialogClasses;
 
   const titleStyle = variant === "styled"
-    ? { fontFamily: "'Cinzel', serif", color: '#3d2817' }
+    ? STYLED_TITLE_STYLE
     : { fontFamily: "'Cinzel', serif" };
 
   const titleClassName = variant === "default"

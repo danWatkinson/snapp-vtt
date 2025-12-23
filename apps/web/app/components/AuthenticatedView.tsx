@@ -26,10 +26,6 @@ export default function AuthenticatedView() {
     setSelectionField
   } = useHomePage();
 
-  // Wrapper functions for modal handlers
-  const openModalWrapper = useCallback((key: string) => openModal(key as any), [openModal]);
-  const closeModalWrapper = useCallback((key: string) => closeModal(key as any), [closeModal]);
-
   // Get world form state and modal handlers
   const {
     formSetters: { setWorldName, setWorldDescription },
@@ -42,8 +38,8 @@ export default function AuthenticatedView() {
     },
     modals: ["world"],
     setSelectionField,
-    openModal: openModalWrapper,
-    closeModal: closeModalWrapper,
+    openModal,
+    closeModal,
     selectedIds,
     modalsState: modals
   });

@@ -3,6 +3,7 @@ import Form from "../ui/Form";
 import FormField from "../ui/FormField";
 import FormActions from "../ui/FormActions";
 import EntityFormFields from "./EntityFormFields";
+import { STYLED_INPUT_STYLE } from "../../styles/constants";
 import type { WorldEntity } from "../../../lib/clients/worldClient";
 import type { FormEvent } from "react";
 
@@ -59,12 +60,6 @@ export default function EntityFormModal({
   onSubmit
 }: EntityFormModalProps) {
   if (!isOpen) return null;
-
-  const STYLED_INPUT_STYLE = {
-    borderColor: "#8b6f47",
-    backgroundColor: "#faf8f3",
-    color: "#2c1810"
-  };
 
   return (
     <Modal

@@ -1,3 +1,4 @@
+import { STYLED_INPUT_STYLE } from "../../styles/constants";
 import type { WorldEntity, LocationRelationshipType } from "../../../lib/clients/worldClient";
 
 interface EntityFormFieldsProps {
@@ -16,12 +17,6 @@ interface EntityFormFieldsProps {
   onBeginningTimestampChange: (value: string) => void;
   onEndingTimestampChange: (value: string) => void;
 }
-
-const STYLED_INPUT_STYLE = {
-  borderColor: "#8b6f47",
-  backgroundColor: "#faf8f3",
-  color: "#2c1810"
-};
 
 /**
  * Component that renders entity-specific form fields based on entity type.

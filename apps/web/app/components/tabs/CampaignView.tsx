@@ -49,14 +49,6 @@ export default function CampaignView() {
     closeModal
   } = useHomePage();
 
-  // Wrapper functions for modal handlers to match useTabHelpers signature
-  const openModalWrapper = useCallback((key: string) => {
-    openModal(key as any);
-  }, [openModal]);
-  const closeModalWrapper = useCallback((key: string) => {
-    closeModal(key as any);
-  }, [closeModal]);
-
   // Use tab helpers to consolidate setup
   const {
     formSetters: {
@@ -120,8 +112,8 @@ export default function CampaignView() {
     selections: ["campaignId", "storyArcId", "sessionId", "eventId"],
     modals: ["campaign", "session", "player", "storyArc", "storyArcEvent", "scene"],
     setSelectionField,
-    openModal: openModalWrapper,
-    closeModal: closeModalWrapper,
+    openModal,
+    closeModal,
     selectedIds,
     modalsState: modals
   });

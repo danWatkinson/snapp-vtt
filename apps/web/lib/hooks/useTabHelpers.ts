@@ -6,6 +6,7 @@ import {
 } from "../helpers/formHelpers";
 import type { useFormState } from "./useFormState";
 import type { useSelection } from "./useSelection";
+import type { ModalKeys } from "./useModals";
 
 interface FormConfig<T extends Record<string, any>> {
   form: ReturnType<typeof useFormState<T>>;
@@ -16,10 +17,10 @@ interface FormConfig<T extends Record<string, any>> {
 interface UseTabHelpersConfig {
   forms: Record<string, FormConfig<any>>;
   selections?: ("worldId" | "campaignId" | "storyArcId" | "sessionId" | "eventId")[];
-  modals?: string[];
+  modals?: ModalKeys[];
   setSelectionField: ReturnType<typeof useSelection>["setField"];
-  openModal: (key: string) => void;
-  closeModal: (key: string) => void;
+  openModal: (key: ModalKeys) => void;
+  closeModal: (key: ModalKeys) => void;
   selectedIds?: Record<string, string | null>;
   modalsState?: Record<string, boolean>;
 }
@@ -82,9 +83,13 @@ export function useTabHelpers(config: UseTabHelpersConfig) {
     ? createSelectionSetters(setSelectionField, selections)
     : {};
 
-  // Create modal handlers
+  // Create modal handlers - convert ModalKeys to strings for backward compatibility
   const modalHandlers = modals.length > 0
-    ? createModalHandlers(openModal, closeModal, modals)
+    ? createModalHandlers(
+        (key: string) => openModal(key as ModalKeys),
+        (key: string) => closeModal(key as ModalKeys),
+        modals as string[]
+      )
     : {};
 
   // Extract selection states automatically

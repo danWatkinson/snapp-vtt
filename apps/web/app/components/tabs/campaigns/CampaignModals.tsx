@@ -4,6 +4,8 @@ import Modal from "../../ui/Modal";
 import Form from "../../ui/Form";
 import FormField from "../../ui/FormField";
 import FormActions from "../../ui/FormActions";
+import CreateFormModal from "../../ui/CreateFormModal";
+import { STYLED_INPUT_STYLE } from "../../../styles/constants";
 import type { World, WorldEntity } from "../../../../lib/clients/worldClient";
 
 interface CampaignModalsProps {
@@ -110,80 +112,47 @@ export default function CampaignModals({
 }: CampaignModalsProps) {
   return (
     <>
-      <Modal
+      <CreateFormModal
         isOpen={campaignModalOpen}
         onClose={onCloseCampaignModal}
         title="Create campaign"
-        variant="styled"
-      >
-        <Form onSubmit={onCreateCampaign}>
-          <FormField
-            label="Campaign name"
-            value={campaignName}
-            onChange={setCampaignName}
-            style={{ borderColor: '#8b6f47', backgroundColor: '#faf8f3', color: '#2c1810' }}
-          />
-          <FormField
-            label="Summary"
-            value={campaignSummary}
-            onChange={setCampaignSummary}
-            type="textarea"
-            rows={3}
-            style={{ borderColor: '#8b6f47', backgroundColor: '#faf8f3', color: '#2c1810' }}
-          />
-          <FormActions
-            onCancel={onCloseCampaignModal}
-            submitLabel="Save campaign"
-            variant="styled"
-          />
-        </Form>
-      </Modal>
+        submitLabel="Save campaign"
+        onSubmit={onCreateCampaign}
+        nameLabel="Campaign name"
+        nameValue={campaignName}
+        onNameChange={setCampaignName}
+        summaryLabel="Summary"
+        summaryValue={campaignSummary}
+        onSummaryChange={setCampaignSummary}
+      />
 
       {sessionModalOpen && selectedCampaignId && (
-        <Modal
+        <CreateFormModal
           isOpen={sessionModalOpen}
           onClose={onCloseSessionModal}
           title="Add session"
-          variant="styled"
-        >
-          <Form onSubmit={onCreateSession}>
-            <FormField
-              label="Session name"
-              value={sessionName}
-              onChange={setSessionName}
-              style={{ borderColor: '#8b6f47', backgroundColor: '#faf8f3', color: '#2c1810' }}
-            />
-            <FormActions
-              onCancel={onCloseSessionModal}
-              submitLabel="Save session"
-              variant="styled"
-            />
-          </Form>
-        </Modal>
+          submitLabel="Save session"
+          onSubmit={onCreateSession}
+          nameLabel="Session name"
+          nameValue={sessionName}
+          onNameChange={setSessionName}
+        />
       )}
 
       {sceneModalOpen && selectedSessionId && (
-        <Modal
+        <CreateFormModal
           isOpen={sceneModalOpen}
           onClose={onCloseSceneModal}
           title="Add scene"
-          variant="styled"
-        >
-          <Form onSubmit={onCreateScene}>
-            <FormField
-              label="Scene name"
-              value={sceneName}
-              onChange={setSceneName}
-              style={{ borderColor: '#8b6f47', backgroundColor: '#faf8f3', color: '#2c1810' }}
-            />
-            <FormField
-              label="Summary"
-              value={sceneSummary}
-              onChange={setSceneSummary}
-              type="textarea"
-              rows={3}
-              style={{ borderColor: '#8b6f47', backgroundColor: '#faf8f3', color: '#2c1810' }}
-            />
+          submitLabel="Save scene"
+          onSubmit={onCreateScene}
+          nameLabel="Scene name"
+          nameValue={sceneName}
+          onNameChange={setSceneName}
+          summaryLabel="Summary"
+          summaryValue={sceneSummary}
+          onSummaryChange={setSceneSummary}
+          additionalFields={
             <FormField
               label="World"
               type="select"
@@ -191,69 +160,39 @@ export default function CampaignModals({
               onChange={setSceneWorldId}
               options={worlds.map((world) => ({ value: world.id, label: world.name }))}
               placeholder="Select a world"
-              style={{ borderColor: '#8b6f47', backgroundColor: '#faf8f3', color: '#2c1810' }}
+              style={STYLED_INPUT_STYLE}
             />
-            <FormActions
-              onCancel={onCloseSceneModal}
-              submitLabel="Save scene"
-              variant="styled"
-            />
-          </Form>
-        </Modal>
+          }
+        />
       )}
 
       {playerModalOpen && selectedCampaignId && (
-        <Modal
+        <CreateFormModal
           isOpen={playerModalOpen}
           onClose={onClosePlayerModal}
           title="Add player"
-          variant="styled"
-        >
-          <Form onSubmit={onAddPlayer}>
-            <FormField
-              label="Player username"
-              value={playerUsername}
-              onChange={setPlayerUsername}
-              style={{ borderColor: '#8b6f47', backgroundColor: '#faf8f3', color: '#2c1810' }}
-            />
-            <FormActions
-              onCancel={onClosePlayerModal}
-              submitLabel="Save player"
-              variant="styled"
-            />
-          </Form>
-        </Modal>
+          submitLabel="Save player"
+          onSubmit={onAddPlayer}
+          nameLabel="Player username"
+          nameValue={playerUsername}
+          onNameChange={setPlayerUsername}
+        />
       )}
 
       {storyArcModalOpen && selectedCampaignId && (
-        <Modal
+        <CreateFormModal
           isOpen={storyArcModalOpen}
           onClose={onCloseStoryArcModal}
           title="Add story arc"
-          variant="styled"
-        >
-          <Form onSubmit={onCreateStoryArc}>
-            <FormField
-              label="Story arc name"
-              value={storyArcName}
-              onChange={setStoryArcName}
-              style={{ borderColor: '#8b6f47', backgroundColor: '#faf8f3', color: '#2c1810' }}
-            />
-            <FormField
-              label="Summary"
-              value={storyArcSummary}
-              onChange={setStoryArcSummary}
-              type="textarea"
-              rows={3}
-              style={{ borderColor: '#8b6f47', backgroundColor: '#faf8f3', color: '#2c1810' }}
-            />
-            <FormActions
-              onCancel={onCloseStoryArcModal}
-              submitLabel="Save story arc"
-              variant="styled"
-            />
-          </Form>
-        </Modal>
+          submitLabel="Save story arc"
+          onSubmit={onCreateStoryArc}
+          nameLabel="Story arc name"
+          nameValue={storyArcName}
+          onNameChange={setStoryArcName}
+          summaryLabel="Summary"
+          summaryValue={storyArcSummary}
+          onSummaryChange={setStoryArcSummary}
+        />
       )}
 
       {storyArcEventModalOpen && selectedStoryArcId && (
@@ -271,7 +210,7 @@ export default function CampaignModals({
               onChange={setSelectedEventId}
               options={allEvents.map((event) => ({ value: event.id, label: event.name }))}
               placeholder="Select an event"
-              style={{ borderColor: '#8b6f47', backgroundColor: '#faf8f3', color: '#2c1810' }}
+              style={STYLED_INPUT_STYLE}
             />
             <FormActions
               onCancel={onCloseStoryArcEventModal}
