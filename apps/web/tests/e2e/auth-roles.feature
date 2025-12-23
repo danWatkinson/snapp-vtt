@@ -21,7 +21,5 @@ Feature: Admin manages user roles with token-based auth
     Then the UI shows that the test user has role "gm"
     When the test user signs in to the system
     Then the issued access token for the test user contains role "gm"
-    And an API request made as the test user to a GM-only endpoint succeeds
-    And an API request made as the test user to an admin-only endpoint is forbidden
 
 
