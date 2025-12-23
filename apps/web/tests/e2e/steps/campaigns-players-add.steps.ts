@@ -5,6 +5,7 @@ import { navigateAndWaitForReady } from "../helpers/utils";
 import { createPlayer } from "../helpers/entityCreation";
 import { verifyEntityInList } from "../helpers/verification";
 import { navigateToCampaignView } from "../helpers/navigation";
+import { STABILITY_WAIT_MEDIUM } from "../helpers/constants";
 // Note: "the admin navigates to the Campaigns planning screen" and "the campaign Rise of the Dragon King exists" 
 // are defined in campaigns-create.steps.ts
 
@@ -108,4 +109,41 @@ When('the game master adds the test user to the campaign', async ({ page }) => {
 Then('the test user appears in the players list', async ({ page }) => {
   const uniqueAliceName = await getStoredAliceUsername(page);
   await verifyEntityInList(page, uniqueAliceName);
+});
+
+Then('a story arc is created for the new player', async ({ page }) => {
+  // Get the unique alice username
+  const uniqueAliceName = await getStoredAliceUsername(page);
+  const expectedStoryArcName = `${uniqueAliceName}'s Arc`;
+  
+  // Navigate to story arcs view if not already there
+  const addStoryArcButton = page.getByRole("button", { name: "Add story arc" });
+  const isOnStoryArcsView = await addStoryArcButton.isVisible({ timeout: 1000 }).catch(() => false);
+  
+  if (!isOnStoryArcsView) {
+    // Check if campaign is already selected
+    const campaignViews = page.getByRole("tablist", { name: "Campaign views" });
+    const isCampaignSelected = await campaignViews.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (!isCampaignSelected) {
+      // Campaign should already be selected from the previous step, but if not, navigate
+      const uniqueCampaignName = getUniqueCampaignName("Rise of the Dragon King");
+      await ensureCampaignExists(
+        page,
+        uniqueCampaignName,
+        "A long-running campaign about ancient draconic power returning."
+      );
+    }
+    
+    // Navigate to Story Arcs tab
+    await navigateToCampaignView(page, "story-arcs");
+    
+    // Wait for story arcs view to be ready
+    await expect(addStoryArcButton).toBeVisible({ timeout: 3000 });
+  }
+  
+  // Verify the story arc exists
+  await expect(
+    page.getByRole("listitem").filter({ hasText: expectedStoryArcName }).first()
+  ).toBeVisible({ timeout: 3000 });
 });

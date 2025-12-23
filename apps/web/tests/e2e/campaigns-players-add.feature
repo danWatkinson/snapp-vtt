@@ -12,3 +12,4 @@ Feature: Game master adds players to a campaign
   Scenario: Game master can add Players to a Campaign
     When the game master adds the test user to the campaign
     Then the test user appears in the players list
+    And a story arc is created for the new player

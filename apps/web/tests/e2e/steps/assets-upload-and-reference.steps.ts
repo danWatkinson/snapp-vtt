@@ -623,23 +623,60 @@ When(
     // Ensure mode selector is visible (this ensures we're on the home page and ready)
     await ensureModeSelectorVisible(page);
     
-    // Ensure we're in planning mode with a world selected
+    // Get the world name where the location was created (from "Given a location" step)
+    let worldName: string;
+    try {
+      worldName = await getStoredWorldName(page, "Eldoria");
+    } catch {
+      // If stored name not found, use default
+      worldName = "Eldoria";
+    }
+    
+    // Ensure we're in planning mode with the correct world selected
     const planningTabs = page.getByRole("tablist", { name: "World views" });
     const isInPlanningMode = await planningTabs.isVisible({ timeout: 1000 }).catch(() => false);
     
     if (!isInPlanningMode) {
-      // Navigate to World Entities screen and select world (defaults to "Eldoria")
+      // Navigate to World Entities screen and select the same world where the location was created
       try {
-        await selectWorldAndEnterMode(page, "World Entities");
+        const { selectWorldAndEnterModeWithWorldName } = await import("../helpers/navigation/worldNavigation");
+        await selectWorldAndEnterModeWithWorldName(page, "World Entities", worldName);
       } catch (error) {
-        // If planning mode activation failed, check if we're actually in planning mode anyway
-        const planningTabsCheck = page.getByRole("tablist", { name: "World views" });
-        const isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
-        if (!isActuallyInPlanningMode) {
-          // Not in planning mode - rethrow the error
-          throw error;
+        // If that fails, try the default method
+        try {
+          await selectWorldAndEnterMode(page, "World Entities");
+        } catch (defaultError) {
+          // If planning mode activation failed, check if we're actually in planning mode anyway
+          const planningTabsCheck = page.getByRole("tablist", { name: "World views" });
+          const isActuallyInPlanningMode = await planningTabsCheck.isVisible({ timeout: 3000 }).catch(() => false);
+          if (!isActuallyInPlanningMode) {
+            // Not in planning mode - rethrow the error
+            throw defaultError;
+          }
+          // We're in planning mode despite the error - continue
         }
-        // We're in planning mode despite the error - continue
+      }
+    } else {
+      // We're already in planning mode, but we need to ensure the correct world is selected
+      // Check if the correct world is selected by looking for the world name in the UI
+      const worldHeading = page.locator('h3.snapp-heading').filter({ hasText: worldName }).first();
+      const correctWorldSelected = await worldHeading.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (!correctWorldSelected) {
+        // Wrong world selected - need to select the correct one
+        try {
+          const { selectWorldAndEnterModeWithWorldName } = await import("../helpers/navigation/worldNavigation");
+          await selectWorldAndEnterModeWithWorldName(page, "World Entities", worldName);
+        } catch {
+          // If that fails, try to click the world tab
+          const worldTabs = page.getByRole("tablist", { name: "World context" });
+          const worldTab = worldTabs.getByRole("tab", { name: worldName });
+          const tabVisible = await worldTab.isVisible({ timeout: 2000 }).catch(() => false);
+          if (tabVisible) {
+            await worldTab.click();
+            await safeWait(page, 1000);
+          }
+        }
       }
     }
     
