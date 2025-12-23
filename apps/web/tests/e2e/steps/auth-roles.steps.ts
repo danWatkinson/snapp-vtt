@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { loginAs, waitForRoleAssigned, waitForError } from "../helpers";
+import { loginAs, loginAsAdmin, waitForRoleAssigned, waitForError, ensureLoginDialogClosed } from "../helpers";
 import { navigateToUsersScreen } from "../helpers/navigation";
 import { createApiClient } from "../helpers/api";
 import { ensureTestUser, getStoredTestUsername } from "../helpers/users";
@@ -26,6 +26,66 @@ When('the admin navigates to the "Users" management screen', async ({ page }) =>
 When(
   'the admin assigns the "gm" role to the test user',
   async ({ page }) => {
+    // Check if admin is already logged in
+    const logoutButton = page.getByRole("button", { name: "Log out" });
+    const isLoggedIn = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false);
+    
+    if (!isLoggedIn) {
+      // Admin is not logged in - log them in first
+      // Ensure we start with a clean page state
+      await navigateAndWaitForReady(page);
+      
+      // Wait for page to be fully ready before attempting login
+      await page.waitForTimeout(1000);
+      
+      // Ensure login dialog is closed before attempting to open it
+      await ensureLoginDialogClosed(page);
+      
+      // Double-check we're not logged in after ensuring dialog is closed
+      const stillNotLoggedIn = !(await logoutButton.isVisible({ timeout: 1000 }).catch(() => false));
+      
+      if (stillNotLoggedIn) {
+        // Retry login up to 3 times to handle race conditions
+        let loginSucceeded = false;
+        let lastError: Error | null = null;
+        
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await loginAsAdmin(page);
+            loginSucceeded = true;
+            break;
+          } catch (loginError) {
+            lastError = loginError as Error;
+            
+            // Check if we're actually logged in (maybe login succeeded but threw an error)
+            const logoutButtonAfterAttempt = page.getByRole("button", { name: "Log out" });
+            const isLoggedInAfterAttempt = await logoutButtonAfterAttempt.isVisible({ timeout: 2000 }).catch(() => false);
+            
+            if (isLoggedInAfterAttempt) {
+              // We're logged in - the error was likely just a timeout or race condition
+              loginSucceeded = true;
+              break;
+            }
+            
+            // If this isn't the last attempt, wait a bit and try again
+            if (attempt < 2) {
+              await page.waitForTimeout(500); // Brief delay before retry
+            }
+          }
+        }
+        
+        if (!loginSucceeded && lastError) {
+          throw new Error(
+            `Admin login failed before role assignment after 3 attempts. ` +
+            `The loginAsAdmin function reported an error: ${lastError.message}.`
+          );
+        }
+        
+        // Verify login succeeded by checking for authenticated UI
+        await expect(page.getByRole("button", { name: "Log out" })).toBeVisible({ timeout: 3000 });
+      }
+    }
+    
     // Navigate to Users screen first (if not already there)
     await navigateToUsersScreen(page);
     
